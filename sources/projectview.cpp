@@ -255,8 +255,12 @@ bool ProjectView::tryClosing()
 	}
 
 	if (m_project -> filePath().isEmpty()) {
-		QString filepath = askUserForFilePath();
+		QString filepath = askUserForFilePath(false);
 		if (filepath.isEmpty()) return(false); // users may cancel the closing
+		QETResult result = m_project -> write(filepath);
+		updateWindowTitle();
+		if (!result.isOk()) emit(errorEncountered(result.errorMessage()));
+		return(result.isOk());
 	}
 	QETResult result = m_project -> write();
 	updateWindowTitle();
@@ -666,9 +670,9 @@ QETResult ProjectView::saveAs()
 {
 	if (!m_project) return(noProjectResult());
 
-	QString filepath = askUserForFilePath();
+	QString filepath = askUserForFilePath(false);
 	if (filepath.isEmpty()) return(QETResult::cancelled());
-	return(doSave());
+	return(doSave(filepath));
 }
 
 /**
@@ -676,11 +680,11 @@ QETResult ProjectView::saveAs()
 	call saveAs if no filepath was provided before.
 	@return a QETResult object reflecting the situation, including cancellation.
 */
-QETResult ProjectView::doSave()
+QETResult ProjectView::doSave(const QString &file_path)
 {
 	if (!m_project) return(noProjectResult());
 
-	if (m_project -> filePath().isEmpty()) {
+	if (m_project -> filePath().isEmpty() && file_path.isEmpty()) {
 		// The project has not been saved to a file yet,
 		// so save() actually means saveAs().
 		return(saveAs());
@@ -688,9 +692,13 @@ QETResult ProjectView::doSave()
 
 	// write to file
 	emit saveStarted(m_project);
-	QETResult result = m_project -> write();
+	QETResult result = file_path.isEmpty()
+			? m_project -> write()
+			: m_project -> write(file_path);
 	updateWindowTitle();
-	project()->undoStack()->clear();
+	if (result.isOk()) {
+		project()->undoStack()->clear();
+	}
 	emit saveFinished(m_project, result.isOk(), result.errorMessage());
 	return(result);
 }

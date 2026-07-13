@@ -3,31 +3,28 @@
 #include <catch2/catch.hpp>
 
 #include <QCoreApplication>
+#include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QProcess>
+#include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QUrl>
+#include <QUuid>
 
 #include <memory>
 
-#ifdef Q_OS_UNIX
-#include <signal.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
-#endif
-
 TEST_CASE("Qt-only KAutoSaveFile recovers stale files", "[nokde][autosave]")
 {
-#ifndef Q_OS_UNIX
-	SUCCEED("crash-style stale lock test is Unix-only");
-#else
 	QTemporaryDir data_home;
 	REQUIRE(data_home.isValid());
 
 	qputenv("XDG_DATA_HOME", QFile::encodeName(data_home.path()));
+	QStandardPaths::setTestModeEnabled(true);
 	QCoreApplication::setOrganizationName(QStringLiteral("QElectroTech"));
-	QCoreApplication::setApplicationName(QStringLiteral("KAutoSaveFileTest"));
+	const auto application_name = QStringLiteral("KAutoSaveFileTest-%1").arg(
+			QUuid::createUuid().toString(QUuid::WithoutBraces));
+	QCoreApplication::setApplicationName(application_name);
 
 	const auto managed_path = data_home.filePath(QStringLiteral("project.qet"));
 	QFile managed_file(managed_path);
@@ -35,45 +32,29 @@ TEST_CASE("Qt-only KAutoSaveFile recovers stale files", "[nokde][autosave]")
 	REQUIRE(managed_file.write("<project/>\n") > 0);
 	managed_file.close();
 
-	int ready_pipe[2] = {-1, -1};
-	REQUIRE(pipe(ready_pipe) == 0);
-
 	const QByteArray payload("<project><diagram /></project>\n");
-	const auto child_pid = fork();
-	REQUIRE(child_pid >= 0);
+	QString helper_name = QStringLiteral("kautosave_crash_helper");
+#ifdef Q_OS_WIN
+	helper_name += QStringLiteral(".exe");
+#endif
+	const auto helper_path = QDir(QCoreApplication::applicationDirPath())
+			.filePath(helper_name);
+	REQUIRE(QFileInfo::exists(helper_path));
 
-	if (child_pid == 0) {
-		close(ready_pipe[0]);
-
-		KAutoSaveFile backup(QUrl::fromLocalFile(managed_path));
-		if (!backup.open(QIODevice::WriteOnly
-					  | QIODevice::Truncate
-					  | QIODevice::Text)) {
-			_exit(2);
-		}
-		if (backup.write(payload) != payload.size()) {
-			_exit(3);
-		}
-		if (!backup.flush()) {
-			_exit(4);
-		}
-
-		const char ready = '1';
-		if (write(ready_pipe[1], &ready, 1) != 1) {
-			_exit(5);
-		}
-		close(ready_pipe[1]);
-
-		for (;;) {
-			pause();
-		}
+	QProcess helper;
+	helper.setProcessChannelMode(QProcess::MergedChannels);
+	helper.start(helper_path, {
+		managed_path,
+		application_name,
+		QString::fromLatin1(payload.toBase64()),
+		QStringLiteral("test-mode")});
+	REQUIRE(helper.waitForStarted(5000));
+	QByteArray helper_output;
+	for (int attempt = 0; attempt < 50 && !helper_output.contains("READY"); ++attempt) {
+		helper.waitForReadyRead(100);
+		helper_output += helper.readAll();
 	}
-
-	close(ready_pipe[1]);
-	char ready = 0;
-	REQUIRE(read(ready_pipe[0], &ready, 1) == 1);
-	close(ready_pipe[0]);
-	REQUIRE(ready == '1');
+	REQUIRE(helper_output.contains("READY"));
 
 	auto active_files = KAutoSaveFile::allStaleFiles();
 	CHECK(active_files.isEmpty());
@@ -81,11 +62,8 @@ TEST_CASE("Qt-only KAutoSaveFile recovers stale files", "[nokde][autosave]")
 		delete file;
 	}
 
-	REQUIRE(kill(child_pid, SIGKILL) == 0);
-	int status = 0;
-	REQUIRE(waitpid(child_pid, &status, 0) == child_pid);
-	REQUIRE(WIFSIGNALED(status));
-	REQUIRE(WTERMSIG(status) == SIGKILL);
+	helper.kill();
+	REQUIRE(helper.waitForFinished(5000));
 
 	auto stale_files = KAutoSaveFile::allStaleFiles();
 	REQUIRE(stale_files.size() == 1);
@@ -104,5 +82,4 @@ TEST_CASE("Qt-only KAutoSaveFile recovers stale files", "[nokde][autosave]")
 	CHECK_FALSE(QFile::exists(autosave_file_name));
 	CHECK_FALSE(QFile::exists(metadata_file_name));
 	CHECK_FALSE(QFile::exists(lock_file_name));
-#endif
 }

@@ -129,7 +129,7 @@ class ProjectView : public QWidget
 		void exportProject();
 		QETResult save();
 		QETResult saveAs();
-		QETResult doSave();
+		QETResult doSave(const QString &file_path = QString());
 		int cleanProject();
 		void updateWindowTitle();
 		void updateTabTitle(DiagramView *);

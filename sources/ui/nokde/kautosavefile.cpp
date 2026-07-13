@@ -80,6 +80,13 @@ QString storedManagedFile(const QUrl &url)
 
 QUrl managedFileFromStorage(const QString &stored_path)
 {
+	// On Windows, a native absolute path such as C:/project.qet must be
+	// constructed as a local-file URL.  QUrl("C:/...") interprets "c" as a
+	// URL scheme and loses the managed-file identity during recovery.
+	if (QDir::isAbsolutePath(stored_path)) {
+		return QUrl::fromLocalFile(QDir::cleanPath(stored_path));
+	}
+
 	if (!stored_path.startsWith(QLatin1Char('/'))) {
 		return QUrl(stored_path);
 	}

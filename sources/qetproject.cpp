@@ -117,6 +117,7 @@ QETProject::QETProject(KAutoSaveFile *backup, QObject *parent) :
 	m_project_properties_handler{this}
 {
 	m_state = openFile(backup);
+	const bool recovered_from_backup = m_state == ProjectState::Ok;
 		//Failed to open from the backup, try to open the crashed
 	if (m_state != ProjectState::Ok)
 	{
@@ -138,6 +139,11 @@ QETProject::QETProject(KAutoSaveFile *backup, QObject *parent) :
 	setReadOnly(!fi.isWritable());
 
 	init();
+	// A recovered document has never been confirmed by the user as the new
+	// canonical project.  Keep it dirty so closing it always offers to save.
+	if (recovered_from_backup) {
+		setModified(true);
+	}
 }
 
 /**
@@ -1040,8 +1046,20 @@ bool QETProject::close()
 */
 QETResult QETProject::write()
 {
+	return write(m_file_path);
+}
+
+/**
+	@brief QETProject::write
+	Save the project atomically to @p file_path.  The active project path and
+	crash-recovery target change only after the destination has been committed.
+	@param file_path destination project file
+	@return an empty successful result, or an error preserving the current path
+*/
+QETResult QETProject::write(const QString &file_path)
+{
 		// this operation requires a filepath
-	if (m_file_path.isEmpty())
+	if (file_path.isEmpty())
 		return(QString("unable to save project to file: no filepath was specified"));
 
 		// If the project was opened read-only, only refuse when the target
@@ -1050,31 +1068,39 @@ QETResult QETProject::write()
 		// writable.  A non-existent file reports isWritable() == false, so the
 		// old check wrongly blocked saving a read-only project elsewhere.
 	if (isReadOnly()) {
-		const QFileInfo file_info(m_file_path);
+		const QFileInfo file_info(file_path);
 		const bool can_write = file_info.exists()
 			? file_info.isWritable()
 			: QFileInfo(file_info.absolutePath()).isWritable();
 		if (!can_write)
-			return(QString("the file %1 was opened read-only and thus will not be written").arg(m_file_path));
+			return(QString("the file %1 was opened read-only and thus will not be written").arg(file_path));
 	}
+
+	// These values are part of the file itself.  Stage them in memory for XML
+	// serialization, but restore the complete context if the commit fails.
+	const DiagramContext previous_project_properties = m_project_properties;
+	m_project_properties.addValue("saveddate",     QLocale::system().toString(QDate::currentDate(), QLocale::ShortFormat));
+	m_project_properties.addValue("saveddate-us",  QDate::currentDate().toString("yyyy-MM-dd"));
+	m_project_properties.addValue("saveddate-eu",  QDate::currentDate().toString("dd-MM-yyyy"));
+	m_project_properties.addValue("savedtime",     QDateTime::currentDateTime().toString("HH:mm"));
+	m_project_properties.addValue("savedfilename", QFileInfo(file_path).baseName());
+	m_project_properties.addValue("savedfilepath", file_path);
 
 	QDomDocument xml_project(toXml());
 	QString error_message;
-	if (!QET::writeXmlFile(xml_project, m_file_path, &error_message))
+	if (!QET::writeXmlFile(xml_project, file_path, &error_message)) {
+		m_project_properties = previous_project_properties;
 		return(error_message);
+	}
+
+	if (file_path != m_file_path) {
+		setFilePath(file_path);
+	}
 
 		// The project has just been written to a writable file (e.g. saved to
 		// a new location with "Save As"), so it is no longer read-only.
 	if (isReadOnly())
 		setReadOnly(false);
-
-		//title block variables should be updated after file save dialog is confirmed, before file is saved.
-	m_project_properties.addValue("saveddate",     QLocale::system().toString(QDate::currentDate(), QLocale::ShortFormat));
-	m_project_properties.addValue("saveddate-us",  QDate::currentDate().toString("yyyy-MM-dd"));
-	m_project_properties.addValue("saveddate-eu",  QDate::currentDate().toString("dd-MM-yyyy"));
-	m_project_properties.addValue("savedtime",     QDateTime::currentDateTime().toString("HH:mm"));
-	m_project_properties.addValue("savedfilename", QFileInfo(filePath()).baseName());
-	m_project_properties.addValue("savedfilepath", filePath());
 
 	emit projectInformationsChanged(this);
 	updateDiagramsFolioData();

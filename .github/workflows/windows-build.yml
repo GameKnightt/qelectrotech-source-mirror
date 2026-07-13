@@ -69,6 +69,7 @@ jobs:
             config_dialog_ux_test \
             project_save_status_test \
             workspace_profile_test \
+            export_integrity_test \
             elements_collection_search_test \
             conductor_interaction_test \
             ordered_index_cache_test \

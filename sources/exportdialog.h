@@ -89,11 +89,10 @@ class ExportDialog : public QDialog {
 
 	// methods
 	QWidget *initDiagramsListPart();
-	void saveReloadDiagramParameters(Diagram *, bool = true);
-	void generateSvg(Diagram *, int, int, bool, QIODevice &);
-	void generateDxf(Diagram *, int, int, QString &);
-	QImage generateImage(Diagram *, int, int, bool);
-	void exportDiagram(ExportDiagramLine *);
+	bool generateSvg(Diagram *, int, int, bool, QIODevice &, QString * = nullptr);
+	bool generateDxf(Diagram *, int, int, QString &, QString * = nullptr);
+	bool generateImage(Diagram *, int, int, bool, QImage &, QString * = nullptr);
+	bool exportDiagram(ExportDiagramLine *, QString * = nullptr);
 	qreal diagramRatio(Diagram *);
 	QSize diagramSize(Diagram *);
 

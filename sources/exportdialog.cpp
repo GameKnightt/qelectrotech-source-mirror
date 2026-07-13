@@ -33,12 +33,49 @@
 #include "qetgraphicsitem/terminal.h"
 #include "qeticons.h"
 #include "qetmessagebox.h"
+#include "utils/exportutils.h"
 
 #include <QGraphicsSimpleTextItem>
+#include <QSaveFile>
+#include <QScopedValueRollback>
 #include <QSvgGenerator>
+#include <QTemporaryFile>
 #include <QtXml>
 #include <cmath>
 #include <utility>
+
+namespace {
+
+class DiagramExportPropertiesGuard final
+{
+	public:
+		DiagramExportPropertiesGuard(
+			Diagram *diagram,
+			const ExportProperties &properties) :
+			m_diagram(diagram)
+		{
+			if (m_diagram) {
+				m_previous_properties = m_diagram->applyProperties(properties);
+			}
+		}
+
+		~DiagramExportPropertiesGuard()
+		{
+			if (m_diagram) {
+				m_diagram->applyProperties(m_previous_properties);
+			}
+		}
+
+		DiagramExportPropertiesGuard(const DiagramExportPropertiesGuard &) = delete;
+		DiagramExportPropertiesGuard &operator=(
+			const DiagramExportPropertiesGuard &) = delete;
+
+	private:
+		Diagram *m_diagram = nullptr;
+		ExportProperties m_previous_properties;
+};
+
+}
 
 /**
 	Constructeur
@@ -344,43 +381,42 @@ void ExportDialog::slot_resetSize(int diagram_id)
 	@param keep_aspect_ratio True pour conserver le ratio, false sinon
 	@return l'image a exporter
 */
-QImage ExportDialog::generateImage(
+bool ExportDialog::generateImage(
 		Diagram *diagram,
 		int width,
 		int height,
-		bool keep_aspect_ratio)
+		bool keep_aspect_ratio,
+		QImage &image,
+		QString *error_message)
 {
-	saveReloadDiagramParameters(diagram, true);
-	
-	QImage image(width, height, QImage::Format_RGB32);
-	diagram -> toPaintDevice(
+	if (!diagram || width <= 0 || height <= 0) {
+		if (error_message) {
+			*error_message = tr("Dimensions d'image invalides.");
+		}
+		return false;
+	}
+
+	DiagramExportPropertiesGuard properties_guard(
+		diagram, epw->exportProperties());
+
+	image = QImage(width, height, QImage::Format_RGB32);
+	const bool rendered = !image.isNull() && diagram -> toPaintDevice(
 		image,
 		width,
 		height,
 		keep_aspect_ratio ? Qt::KeepAspectRatio : Qt::IgnoreAspectRatio
 	);
-	
-	saveReloadDiagramParameters(diagram, false);
-	
-	return(image);
-}
 
-/**
-	Sauve ou restaure les parametres du schema
-	@param diagram Schema dont on sauve ou restaure les parametres
-	@param save true pour memoriser les parametres du schema et appliquer ceux
-	definis par le formulaire, false pour restaurer les parametres
-*/
-void ExportDialog::saveReloadDiagramParameters(Diagram *diagram, bool save) {
-	static ExportProperties state_exportProperties;
-	
-	if (save) {
-		// memorise les parametres relatifs au schema tout en appliquant les nouveaux
-		state_exportProperties = diagram -> applyProperties(epw -> exportProperties());
-	} else {
-		// restaure les parametres relatifs au schema
-		diagram -> applyProperties(state_exportProperties);
+	if (!rendered) {
+		image = QImage();
+		if (error_message) {
+			*error_message = tr(
+				"Impossible de générer l'image. Vérifiez ses dimensions et la mémoire disponible.");
+		}
+		return false;
 	}
+
+	return true;
 }
 
 /**
@@ -391,40 +427,69 @@ void ExportDialog::saveReloadDiagramParameters(Diagram *diagram, bool save) {
 	@param keep_aspect_ratio True pour conserver le ratio, false sinon
 	@param io_device Peripherique de sortie pour le code SVG (souvent : un fichier)
 */
-void ExportDialog::generateSvg(
+bool ExportDialog::generateSvg(
 		Diagram *diagram,
 		int width,
 		int height,
 		bool keep_aspect_ratio,
-		QIODevice &io_device)
+		QIODevice &io_device,
+		QString *error_message)
 {
-	saveReloadDiagramParameters(diagram, true);
+	if (!diagram || width <= 0 || height <= 0) {
+		if (error_message) {
+			*error_message = tr("Dimensions SVG invalides.");
+		}
+		return false;
+	}
+	if (!io_device.isOpen() || !io_device.isWritable()) {
+		if (error_message) {
+			*error_message = tr("Le périphérique de sortie SVG n'est pas accessible en écriture.");
+		}
+		return false;
+	}
+
+	DiagramExportPropertiesGuard properties_guard(
+		diagram, epw->exportProperties());
+	QScopedValueRollback<QColor> background_color_rollback(Diagram::background_color);
 
 	// set the transparency for the SVG-Background:
 	if (epw->exportProperties().draw_bg_transparent == true) {
-		diagram->background_color.setAlpha(0);
+		Diagram::background_color.setAlpha(0);
 		} else {
-		diagram->background_color.setAlpha(255);
+		Diagram::background_color.setAlpha(255);
 		}
 	
 	// genere une QPicture a partir du schema
 	QPicture picture;
-	diagram -> toPaintDevice(
+	const bool picture_generated = diagram -> toPaintDevice(
 		picture,
 		width,
 		height,
 		keep_aspect_ratio ? Qt::KeepAspectRatio : Qt::IgnoreAspectRatio
 	);
-	
-	// "joue" la QPicture sur un QSvgGenerator
-	QSvgGenerator svg_engine;
-	svg_engine.setSize(QSize(width, height));
-	svg_engine.setViewBox(QRect(0, 0, width*0.75, height*0.75));
-	svg_engine.setOutputDevice(&io_device);
-	QPainter svg_painter(&svg_engine);
-	picture.play(&svg_painter);
-	
-	saveReloadDiagramParameters(diagram, false);
+
+	bool svg_generated = false;
+	if (picture_generated) {
+		// "joue" la QPicture sur un QSvgGenerator
+		QSvgGenerator svg_engine;
+		svg_engine.setSize(QSize(width, height));
+		svg_engine.setViewBox(QRect(0, 0, width*0.75, height*0.75));
+		svg_engine.setOutputDevice(&io_device);
+		QPainter svg_painter;
+		if (svg_painter.begin(&svg_engine)) {
+			svg_generated = picture.play(&svg_painter);
+			svg_generated = svg_painter.end() && svg_generated;
+		}
+	}
+
+	if (!svg_generated) {
+		if (error_message) {
+			*error_message = tr("Impossible de générer le document SVG.");
+		}
+		return false;
+	}
+
+	return true;
 }
 
 /**
@@ -434,13 +499,34 @@ void ExportDialog::generateSvg(
 	@param height Hauteur de l'export DXF
 	@param file_path
 */
-void ExportDialog::generateDxf(
+bool ExportDialog::generateDxf(
 		Diagram *diagram,
-					int width,
-					int height,
-		QString &file_path)
+		int width,
+		int height,
+		QString &file_path,
+		QString *error_message)
 {
-	saveReloadDiagramParameters(diagram, true);
+	if (!diagram || width <= 2 * Diagram::margin || height <= 2 * Diagram::margin) {
+		if (error_message) {
+			*error_message = tr("Dimensions DXF invalides.");
+		}
+		return false;
+	}
+
+	// Createdxf does not expose write errors. Verify that the destination can
+	// at least be created before invoking it, then validate its envelope below.
+	QFile output_probe(file_path);
+	if (!output_probe.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+		if (error_message) {
+			*error_message = tr("Impossible d'ouvrir le fichier DXF : %1")
+				.arg(output_probe.errorString());
+		}
+		return false;
+	}
+	output_probe.close();
+
+	DiagramExportPropertiesGuard properties_guard(
+		diagram, epw->exportProperties());
 
 	width  -= 2*Diagram::margin;
 	height -= 2*Diagram::margin;
@@ -449,6 +535,12 @@ void ExportDialog::generateDxf(
 	Createdxf::yScale = Createdxf::sheetHeight / double(height);
 
 	Createdxf::dxfBegin(file_path);
+	if (Createdxf::hasError()) {
+		if (error_message) {
+			*error_message = Createdxf::lastError();
+		}
+		return false;
+	}
 
 	//Add project elements (lines, rectangles, circles, texts) to dxf file
 	if (epw -> exportProperties().draw_border) {
@@ -679,8 +771,37 @@ void ExportDialog::generateDxf(
 	}
 
 	Createdxf::dxfEnd(file_path);
+	if (Createdxf::hasError()) {
+		if (error_message) {
+			*error_message = Createdxf::lastError();
+		}
+		return false;
+	}
 
-	saveReloadDiagramParameters(diagram, false);
+	QFile generated_file(file_path);
+	if (!generated_file.open(QIODevice::ReadOnly)) {
+		if (error_message) {
+			*error_message = tr("Impossible de relire le fichier DXF : %1")
+				.arg(generated_file.errorString());
+		}
+		return false;
+	}
+	const QByteArray header = generated_file.read(128);
+	const qint64 tail_offset = generated_file.size() > 64
+		? generated_file.size() - 64
+		: 0;
+	generated_file.seek(tail_offset);
+	const QByteArray tail = generated_file.readAll().trimmed();
+	const bool valid_envelope = header.contains("SECTION") && tail.endsWith("EOF");
+	generated_file.close();
+	if (!valid_envelope) {
+		if (error_message) {
+			*error_message = tr("Le fichier DXF généré est incomplet.");
+		}
+		return false;
+	}
+
+	return true;
 }
 
 QPointF ExportDialog::rotation_transformed(qreal px,
@@ -717,13 +838,23 @@ void ExportDialog::slot_export()
 			diagrams_to_export << diagram_line;
 		}
 	}
+	if (diagrams_to_export.isEmpty()) {
+		QET::QetMessageBox::information(
+			this,
+			tr("Aucun folio sélectionné", "message box title"),
+			tr("Sélectionnez au moins un folio à exporter.", "message box content"),
+			QMessageBox::Ok);
+		return;
+	}
 	
 	// verification #1 : chaque schema coche doit avoir un nom de fichier distinct
+	QDir target_dir_path(epw -> exportProperties().destination_directory);
 	QSet<QString> filenames;
 	foreach(ExportDiagramLine *diagram_line, diagrams_to_export) {
 		QString diagram_file = diagram_line -> file_name -> text();
 		if (!diagram_file.isEmpty()) {
-			filenames << diagram_file;
+			filenames << ExportUtils::normalizedPathKey(
+				target_dir_path.absolutePath(), diagram_file);
 		}
 	}
 	if (filenames.count() != diagrams_to_export.count()) {
@@ -741,7 +872,6 @@ void ExportDialog::slot_export()
 	
 	// verification #2 : un chemin vers un dossier doit avoir ete specifie
 	
-	QDir target_dir_path(epw -> exportProperties().destination_directory);
 	if (!target_dir_path.exists()) {
 		QET::QetMessageBox::warning(
 			this,
@@ -753,8 +883,29 @@ void ExportDialog::slot_export()
 	}
 	
 	// exporte chaque schema a exporter
+	QStringList export_errors;
 	foreach(ExportDiagramLine *diagram_line, diagrams_to_export) {
-		exportDiagram(diagram_line);
+		QString error_message;
+		if (!exportDiagram(diagram_line, &error_message)) {
+			if (error_message.isEmpty()) {
+				error_message = tr("Erreur d'écriture inconnue.");
+			}
+			export_errors << tr("%1 : %2")
+				.arg(diagram_line->file_name->text(), error_message);
+		}
+	}
+
+	if (!export_errors.isEmpty()) {
+		QET::QetMessageBox::critical(
+			this,
+			tr("Export incomplet", "message box title"),
+			tr(
+				"Certains fichiers n'ont pas pu être créés. Le dialogue reste ouvert "
+				"pour vous permettre de corriger la destination puis de réessayer.\n\n%1",
+				"message box content")
+				.arg(export_errors.join(QLatin1Char('\n'))),
+			QMessageBox::Ok);
+		return;
 	}
 	
 	// fermeture du dialogue
@@ -766,7 +917,17 @@ void ExportDialog::slot_export()
 	@param diagram_line La ligne decrivant le schema a exporter et la maniere
 	de l'exporter
 */
-void ExportDialog::exportDiagram(ExportDiagramLine *diagram_line) {
+bool ExportDialog::exportDiagram(
+		ExportDiagramLine *diagram_line,
+		QString *error_message)
+{
+	if (!diagram_line || !diagram_line->diagram) {
+		if (error_message) {
+			*error_message = tr("Folio invalide.");
+		}
+		return false;
+	}
+
 	ExportProperties export_properties(epw -> exportProperties());
 	
 	// recupere le format a utiliser (acronyme et extension)
@@ -785,50 +946,130 @@ void ExportDialog::exportDiagram(ExportDiagramLine *diagram_line) {
 	
 	// verifie qu'il est possible d'ecrire dans le fichier en question
 	if (file_infos.exists() && !file_infos.isWritable()) {
-		QET::QetMessageBox::critical(
-			this,
-			tr("Impossible d'écrire dans ce fichier", "message box title"),
-			QString(
-				tr(
-					"Il semblerait que vous n'ayez pas les permissions "
-					"nécessaires pour écrire dans le fichier %1.",
-					"message box content"
-				)
-			).arg(diagram_path),
-			QMessageBox::Ok
-		);
-		return;
+		if (error_message) {
+			*error_message = tr("Le fichier existe mais n'est pas accessible en écriture.");
+		}
+		return false;
 	}
 	
-	// ouvre le fichier
-	QFile target_file(diagram_path);
-	
-	// enregistre l'image dans le fichier
+	if (format_acronym == "DXF") {
+		QTemporaryFile temporary_file(
+			target_dir_path.absoluteFilePath(QStringLiteral(".qet-export-XXXXXX.dxf")));
+		if (!temporary_file.open()) {
+			if (error_message) {
+				*error_message = tr("Impossible de créer le fichier DXF temporaire : %1")
+					.arg(temporary_file.errorString());
+			}
+			return false;
+		}
+		QString temporary_path = temporary_file.fileName();
+		temporary_file.close();
+		if (!generateDxf(
+				diagram_line -> diagram,
+				diagram_line -> width  -> value(),
+				diagram_line -> height -> value(),
+				temporary_path,
+				error_message)) {
+			return false;
+		}
+
+		QFile generated_file(temporary_path);
+		if (!generated_file.open(QIODevice::ReadOnly)) {
+			if (error_message) {
+				*error_message = tr("Impossible de relire le fichier DXF temporaire : %1")
+					.arg(generated_file.errorString());
+			}
+			return false;
+		}
+		QSaveFile target_file(diagram_path);
+		target_file.setDirectWriteFallback(false);
+		if (!target_file.open(QIODevice::WriteOnly)) {
+			if (error_message) {
+				*error_message = tr("Impossible d'ouvrir le fichier cible : %1")
+					.arg(target_file.errorString());
+			}
+			return false;
+		}
+		while (!generated_file.atEnd()) {
+			const QByteArray chunk = generated_file.read(64 * 1024);
+			if (chunk.isEmpty() && generated_file.error() != QFileDevice::NoError) {
+				target_file.cancelWriting();
+				if (error_message) {
+					*error_message = tr("Impossible de lire le fichier DXF temporaire : %1")
+						.arg(generated_file.errorString());
+				}
+				return false;
+			}
+			if (target_file.write(chunk) != chunk.size()) {
+				target_file.cancelWriting();
+				if (error_message) {
+					*error_message = tr("Impossible d'écrire le fichier cible : %1")
+						.arg(target_file.errorString());
+				}
+				return false;
+			}
+		}
+		if (!target_file.commit()) {
+			if (error_message) {
+				*error_message = tr("Impossible de finaliser le fichier cible : %1")
+					.arg(target_file.errorString());
+			}
+			return false;
+		}
+		return true;
+	}
+
+	QSaveFile target_file(diagram_path);
+	target_file.setDirectWriteFallback(false);
+	if (!target_file.open(QIODevice::WriteOnly)) {
+		if (error_message) {
+			*error_message = tr("Impossible d'ouvrir le fichier cible : %1")
+				.arg(target_file.errorString());
+		}
+		return false;
+	}
+
+	bool generated = false;
 	if (format_acronym == "SVG") {
-		generateSvg(
+		generated = generateSvg(
 			diagram_line -> diagram,
 			diagram_line -> width  -> value(),
 			diagram_line -> height -> value(),
 			diagram_line -> keep_ratio -> isChecked(),
-			target_file
-		);
-	} else if (format_acronym == "DXF") {
-		generateDxf(
-			diagram_line -> diagram,
-			diagram_line -> width  -> value(),
-			diagram_line -> height -> value(),
-			diagram_path
+			target_file,
+			error_message
 		);
 	} else {
-		QImage image = generateImage(
+		QImage image;
+		generated = generateImage(
 			diagram_line -> diagram,
 			diagram_line -> width  -> value(),
 			diagram_line -> height -> value(),
-			diagram_line -> keep_ratio -> isChecked()
+			diagram_line -> keep_ratio -> isChecked(),
+			image,
+			error_message
 		);
-		image.save(&target_file, format_acronym.toUtf8().data());
+		if (generated && !image.save(&target_file, format_acronym.toUtf8().constData())) {
+			generated = false;
+			if (error_message) {
+				*error_message = tr("Le format %1 n'a pas pu être écrit.")
+					.arg(format_acronym);
+			}
+		}
 	}
-	target_file.close();
+
+	if (!generated) {
+		target_file.cancelWriting();
+		return false;
+	}
+	if (!target_file.commit()) {
+		if (error_message) {
+			*error_message = tr("Impossible de finaliser le fichier cible : %1")
+				.arg(target_file.errorString());
+		}
+		return false;
+	}
+	return true;
 }
 
 /**
@@ -937,12 +1178,22 @@ void ExportDialog::slot_previewDiagram(int diagram_id) {
 	preview_dialog.setLayout(vboxlayout1);
 	
 	// genere le nouvel apercu
-	QImage preview_image = generateImage(
+	QImage preview_image;
+	QString preview_error;
+	if (!generateImage(
 		current_diagram -> diagram,
 		current_diagram -> width  -> value(),
 		current_diagram -> height -> value(),
-		current_diagram -> keep_ratio -> isChecked()
-	);
+		current_diagram -> keep_ratio -> isChecked(),
+		preview_image,
+		&preview_error)) {
+		QET::QetMessageBox::critical(
+			this,
+			tr("Aperçu indisponible", "message box title"),
+			preview_error,
+			QMessageBox::Ok);
+		return;
+	}
 	
 	// nettoie l'apercu
 	foreach (QGraphicsItem *qgi, preview_scene -> items()) {
@@ -977,23 +1228,43 @@ void ExportDialog::slot_exportToClipBoard(int diagram_id) {
 	if (format_acronym == "SVG") {
 		QByteArray ba;
 		QBuffer buffer(&ba);
-		buffer.open(QIODevice::WriteOnly);
-		generateSvg(
+		QString clipboard_error;
+		if (!buffer.open(QIODevice::WriteOnly)
+			|| !generateSvg(
 			diagram_line -> diagram,
 			diagram_line -> width  -> value(),
 			diagram_line -> height -> value(),
 			diagram_line -> keep_ratio -> isChecked(),
-			buffer
-		);
+			buffer,
+			&clipboard_error)) {
+			QET::QetMessageBox::critical(
+				this,
+				tr("Copie impossible", "message box title"),
+				clipboard_error.isEmpty()
+					? tr("Impossible de préparer le contenu SVG.")
+					: clipboard_error,
+				QMessageBox::Ok);
+			return;
+		}
 		buffer.close();
 		clipboard -> setText(ba);
 	} else {
-		QImage image = generateImage(
+		QImage image;
+		QString clipboard_error;
+		if (!generateImage(
 			diagram_line -> diagram,
 			diagram_line -> width  -> value(),
 			diagram_line -> height -> value(),
-			diagram_line -> keep_ratio -> isChecked()
-		);
+			diagram_line -> keep_ratio -> isChecked(),
+			image,
+			&clipboard_error)) {
+			QET::QetMessageBox::critical(
+				this,
+				tr("Copie impossible", "message box title"),
+				clipboard_error,
+				QMessageBox::Ok);
+			return;
+		}
 		clipboard -> setImage(image);
 	}
 }

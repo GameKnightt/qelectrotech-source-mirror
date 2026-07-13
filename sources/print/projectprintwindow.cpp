@@ -46,10 +46,94 @@
 #include <QPrintPreviewWidget>
 #include <QScreen>
 #include <QFile>
+#include <QGraphicsItem>
+#include <QGraphicsView>
 #include <QRegularExpression>
 #include <QMap>
 #include <QTimer>
 #include <QVector>
+
+namespace {
+
+/**
+ * Temporarily prepares a diagram for printing and restores its exact UI state
+ * when leaving the current scope, including early returns.
+ */
+class DiagramPrintStateGuard final
+{
+	public:
+		DiagramPrintStateGuard(
+			Diagram *diagram,
+			const ExportProperties &print_properties) :
+			m_diagram(diagram)
+		{
+			if (!m_diagram) {
+				return;
+			}
+
+			m_selected_items = m_diagram->selectedItems();
+			m_focused_item = m_diagram->focusItem();
+			for (QGraphicsItem *item : m_diagram->items()) {
+				m_focusable_states.append(qMakePair(
+					item,
+					bool(item->flags() & QGraphicsItem::ItemIsFocusable)));
+			}
+			for (QGraphicsView *view : m_diagram->views()) {
+				m_interactive_states.append(qMakePair(view, view->isInteractive()));
+			}
+
+			m_diagram->deselectAll();
+			for (const auto &state : m_focusable_states) {
+				state.first->setFlag(QGraphicsItem::ItemIsFocusable, false);
+			}
+			for (const auto &state : m_interactive_states) {
+				state.first->setInteractive(false);
+			}
+			m_previous_properties = m_diagram->applyProperties(print_properties);
+			m_properties_applied = true;
+		}
+
+		~DiagramPrintStateGuard()
+		{
+			if (!m_diagram) {
+				return;
+			}
+
+			if (m_properties_applied) {
+				m_diagram->applyProperties(m_previous_properties);
+			}
+			for (const auto &state : m_interactive_states) {
+				state.first->setInteractive(state.second);
+			}
+			for (const auto &state : m_focusable_states) {
+				state.first->setFlag(QGraphicsItem::ItemIsFocusable, state.second);
+			}
+			m_diagram->deselectAll();
+			for (QGraphicsItem *item : m_selected_items) {
+				if (item->scene() == m_diagram) {
+					item->setSelected(true);
+				}
+			}
+			if (m_focused_item && m_focused_item->scene() == m_diagram
+				&& (m_focused_item->flags() & QGraphicsItem::ItemIsFocusable)) {
+				m_focused_item->setFocus(Qt::OtherFocusReason);
+			}
+		}
+
+		DiagramPrintStateGuard(const DiagramPrintStateGuard &) = delete;
+		DiagramPrintStateGuard &operator=(const DiagramPrintStateGuard &) = delete;
+
+	private:
+		Diagram *m_diagram = nullptr;
+		QList<QGraphicsItem *> m_selected_items;
+		QGraphicsItem *m_focused_item = nullptr;
+		QList<QPair<QGraphicsItem *, bool>> m_focusable_states;
+		QList<QPair<QGraphicsView *, bool>> m_interactive_states;
+		ExportProperties m_previous_properties;
+		bool m_properties_applied = false;
+};
+
+}
 
 /**
  * @brief ProjectPrintWindow::ProjectPrintWindow
@@ -282,25 +366,12 @@ void ProjectPrintWindow::requestPaint()
  */
 void ProjectPrintWindow::printDiagram(Diagram *diagram, bool fit_page, QPainter *painter, QPrinter *printer, const QMap<Diagram*, int> &diagramPageMap)
 {
+	if (!diagram || !painter || !printer || !painter->isActive()) {
+		return;
+	}
 
-	////Prepare the print////
-	// Deselect all
-	diagram->deselectAll();
-	// Disable focus flags
-	QList<QGraphicsItem *> focusable_items;
-	for (auto qgi : diagram->items()) {
-		if (qgi->flags() & QGraphicsItem::ItemIsFocusable) {
-			focusable_items << qgi;
-			qgi->setFlag(QGraphicsItem::ItemIsFocusable, false);
-		}
-	}
-	// Disable interaction
-	for (auto view : diagram->views()) {
-		view->setInteractive(false);
-	}
 	auto option = exportProperties();
-	saveReloadDiagramParameters(diagram, option, true);
-	////Prepare end////
+	DiagramPrintStateGuard print_state(diagram, option);
 
 
 	auto full_page = printer->fullPage();
@@ -426,14 +497,6 @@ void ProjectPrintWindow::printDiagram(Diagram *diagram, bool fit_page, QPainter 
 	}
 	////PDF links end////
 
-	////Print is finished, restore diagram and graphics item properties
-	for (auto view : diagram->views()) {
-		view->setInteractive(true);
-	}
-	for (auto qgi : focusable_items) {
-		qgi->setFlag(QGraphicsItem::ItemIsFocusable, true);
-	}
-	saveReloadDiagramParameters(diagram, option, false);
 }
 
 /**
@@ -745,24 +808,6 @@ void ProjectPrintWindow::savePageSetupForCurrentPrinter()
 	settings.endGroup();
 	settings.sync();
 #endif
-}
-
-/**
- * @brief ProjectPrintWindow::saveReloadDiagramParameters
- * Save or restore the parameter of @diagram
- * @param diagram
- * @param options
- * @param save
- */
-void ProjectPrintWindow::saveReloadDiagramParameters(Diagram *diagram, const ExportProperties &options, bool save)
-{
-	static ExportProperties state_exportProperties;
-
-	if (save) {
-		state_exportProperties = diagram -> applyProperties(options);
-	} else {
-		diagram -> applyProperties(state_exportProperties);
-	}
 }
 
 QList<Diagram *> ProjectPrintWindow::selectedDiagram() const

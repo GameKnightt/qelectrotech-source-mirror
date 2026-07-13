@@ -109,6 +109,20 @@ set_tests_properties(
   PROPERTIES LABELS "workspace;ui-01")
 
 add_executable(
+  export_integrity_test
+  tst_exportutils.cpp
+  ${QET_DIR}/sources/createdxf.cpp
+  ${QET_DIR}/sources/createdxf.h
+  ${QET_DIR}/sources/utils/exportutils.cpp
+  ${QET_DIR}/sources/utils/exportutils.h)
+add_test(
+  NAME export_integrity_test
+  COMMAND export_integrity_test)
+set_tests_properties(
+  export_integrity_test
+  PROPERTIES LABELS "export;integrity;export-01")
+
+add_executable(
   elements_collection_search_test
   tst_elementscollectionsearchmodel.cpp
   ${QET_DIR}/sources/ElementsCollection/elementscollectionsearchmodel.cpp
@@ -209,6 +223,18 @@ target_link_libraries(
   workspace_profile_test
   PRIVATE
   Qt::Test
+  Qt::Widgets)
+
+target_include_directories(
+  export_integrity_test
+  PRIVATE
+  ${QET_DIR}/sources)
+
+target_link_libraries(
+  export_integrity_test
+  PRIVATE
+  Qt::Test
+  Qt::Core
   Qt::Widgets)
 
 target_link_libraries(

@@ -32,6 +32,8 @@ class Createdxf
 		~Createdxf();
 		static void dxfBegin (const QString&);
 		static void dxfEnd(const QString&);
+		static bool hasError();
+		static QString lastError();
 		// you can add more functions to create more drawings.
 		static void drawCircle(
 				const QString&,
@@ -159,6 +161,15 @@ class Createdxf
 		static const double sheetHeight;
 		static double		xScale;
 		static double		yScale;
+
+	private:
+		static void clearError();
+		static void setError(const QString &message);
+		static bool finalizeWrite(
+			QFile &file,
+			QTextStream &stream,
+			const QString &file_path);
+		static QString last_error_;
 };
 
 #endif // CREATEDXF_H

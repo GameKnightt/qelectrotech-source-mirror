@@ -95,6 +95,31 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
 - **Compatibilité amont :** forte.
 - **Critères d'acceptation :** option unique documentée, CI prouvant le nombre de tests, fixtures XML/SQLite, tests stable→fork→stable, duplication, variables, sauvegarde, Undo/Redo et exports.
 
+### EXPORT-01 — Garantir l'intégrité des exports interactifs
+
+- **État :** implémenté et validé sur la branche `codex/export-01-integrity`.
+- **Preuve :** suppressions préalables de CSV, erreurs d'écriture ignorées, succès partiels silencieux, état de rendu non restauré et arrêt du processus dans `Createdxf`.
+- **Utilisateurs touchés :** tous ceux produisant des livrables PDF, image, SVG, DXF ou CSV.
+- **Fréquence :** à chaque remise de dossier ou révision.
+- **Impact :** ancien livrable détruit, fichier incomplet présenté comme valide, perte de confiance ou fermeture de l'application.
+- **Effort :** M.
+- **Risque :** moyen, car les générateurs historiques restent utilisés sans changement de format.
+- **Dépendances :** `ExportDialog`, `Createdxf`, impression/PDF, BOM, export des conducteurs et `QSaveFile`.
+- **Compatibilité amont :** forte ; mêmes formats et mêmes points d'entrée, erreurs désormais bloquantes.
+- **Critères d'acceptation :** ancien fichier préservé sur échec, aucun succès sans rendu/écriture/commit valides, UTF-8 déterministe, CSV échappé, état UI restauré et erreur DXF sans arrêt du processus.
+
+### DATA-03 — Rendre le rafraîchissement de la base projet vérifiable
+
+- **Preuve :** `projectDataBase::updateDB()` retourne `void`, abandonne après certains échecs et plusieurs insertions journalisent leurs erreurs sans les propager.
+- **Utilisateurs touchés :** utilisateurs de nomenclatures, sommaires et vues fondées sur la base interne.
+- **Fréquence :** à chaque génération ou rafraîchissement de rapport.
+- **Impact :** rapport cohérent en apparence mais construit à partir de données antérieures ou incomplètes.
+- **Effort :** M.
+- **Risque :** élevé, transactions et synchronisation de plusieurs tables.
+- **Dépendances :** `projectDataBase`, requêtes BOM, modèle de projet et CLI.
+- **Compatibilité amont :** aucun format nouveau ; évolution du contrat interne de retour d'erreur.
+- **Critères d'acceptation :** résultat typé pour chaque rafraîchissement, rollback sur première erreur, export refusé avec diagnostic, tests injectant une erreur SQL dans chaque table et aucune donnée partielle observable.
+
 ### UX-01 — Rendre les dialogues adaptatifs à Windows/DPI
 
 - **Preuve :** E03, E07 ; forum #3073 ; minima 800×650 et 800×590 dans le code.

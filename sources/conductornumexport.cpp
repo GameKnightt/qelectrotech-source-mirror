@@ -24,6 +24,7 @@
 #include "qetgraphicsitem/conductortextitem.h"
 #include "qetgraphicsitem/element.h"
 #include "qetgraphicsitem/terminal.h"
+#include "utils/exportutils.h"
 
 #include <QFileDialog>
 
@@ -54,38 +55,24 @@ bool ConductorNumExport::toCsv()
 	//        name += ".csv";
 	//    }
 
-	QString filename = QFileDialog::getSaveFileName(m_parent_widget, QObject::tr("Enregister sous... "), name, QObject::tr("Fichiers csv (*.csv)"));
-	QFile file(filename);
-	if(!filename.isEmpty())
-	{
-		if(QFile::exists(filename))
-		{
-			// if file already exist -> delete it
-			if(!QFile::remove(filename))
-			{
-				QMessageBox::critical(m_parent_widget, QObject::tr("Erreur"),
-									  QObject::tr("Impossible de remplacer le fichier!\n\n") %
-									  "Destination : " % filename % "\n");
-				return false;
-			}
-		}
-		if (file.open(QIODevice::WriteOnly | QIODevice::Text))
-		{
-			QTextStream stream(&file);
-#if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)	// ### Qt 6: remove
-			stream << wiresNum() << endl;
-#else
-#if TODO_LIST
-#pragma message("@TODO remove code for QT 5.15 or later")
-#endif
-			stream << wiresNum() << &Qt::endl(stream);
-#endif
-		}
-		else {
-			return false;
-		}
+	const QString filename = QFileDialog::getSaveFileName(
+		m_parent_widget,
+		QObject::tr("Enregister sous... "),
+		name,
+		QObject::tr("Fichiers csv (*.csv)"));
+	if (filename.isEmpty()) {
+		return false;
 	}
-	else {
+
+	QString error_message;
+	if (!ExportUtils::writeTextAtomically(
+		filename, wiresNum(), &error_message)) {
+		QMessageBox::critical(
+			m_parent_widget,
+			QObject::tr("Erreur"),
+			QObject::tr("Impossible d'écrire le fichier sans remplacer la version existante.\n\n"
+						"Destination : %1\n%2")
+				.arg(filename, error_message));
 		return false;
 	}
 
@@ -105,7 +92,7 @@ QString ConductorNumExport::wiresNum() const
 	for (QString key : list)
 	{
 		for (int i=0; i<m_hash.value(key) ; ++i) {
-			csv.append(key % "\n");
+			csv.append(ExportUtils::csvField(key) % "\n");
 		}
 	}
 

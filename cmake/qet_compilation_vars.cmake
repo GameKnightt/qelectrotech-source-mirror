@@ -732,6 +732,8 @@ set(QET_SRC_FILES
   ${QET_DIR}/sources/utils/conductorcreator.h
   ${QET_DIR}/sources/utils/conductorinteraction.cpp
   ${QET_DIR}/sources/utils/conductorinteraction.h
+  ${QET_DIR}/sources/utils/exportutils.cpp
+  ${QET_DIR}/sources/utils/exportutils.h
   ${QET_DIR}/sources/utils/folionavigationindex.cpp
   ${QET_DIR}/sources/utils/folionavigationindex.h
   ${QET_DIR}/sources/utils/orderedindexcache.h

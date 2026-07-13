@@ -360,8 +360,11 @@ set(QET_SRC_FILES
   ${QET_DIR}/sources/ElementsCollection/elementcollectionhandler.h
   ${QET_DIR}/sources/ElementsCollection/elementcollectionitem.cpp
   ${QET_DIR}/sources/ElementsCollection/elementcollectionitem.h
+  ${QET_DIR}/sources/ElementsCollection/elementcollectionroles.h
   ${QET_DIR}/sources/ElementsCollection/elementscollectionmodel.cpp
   ${QET_DIR}/sources/ElementsCollection/elementscollectionmodel.h
+  ${QET_DIR}/sources/ElementsCollection/elementscollectionsearchmodel.cpp
+  ${QET_DIR}/sources/ElementsCollection/elementscollectionsearchmodel.h
   ${QET_DIR}/sources/ElementsCollection/elementscollectionwidget.cpp
   ${QET_DIR}/sources/ElementsCollection/elementscollectionwidget.h
   ${QET_DIR}/sources/ElementsCollection/elementslocation.cpp

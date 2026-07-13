@@ -77,6 +77,21 @@ add_test(
   NAME diagram_duplicate_uuid_remapper_test
   COMMAND diagram_duplicate_uuid_remapper_test)
 
+add_executable(
+  elements_collection_search_test
+  tst_elementscollectionsearchmodel.cpp
+  ${QET_DIR}/sources/ElementsCollection/elementscollectionsearchmodel.cpp
+  ${QET_DIR}/sources/ElementsCollection/elementscollectionsearchmodel.h
+  ${QET_DIR}/sources/ElementsCollection/elementcollectionroles.h)
+add_test(
+  NAME elements_collection_search_test
+  COMMAND elements_collection_search_test)
+
+target_include_directories(
+  elements_collection_search_test
+  PRIVATE
+  ${QET_DIR}/sources/ElementsCollection)
+
 target_link_libraries(
   ${PROJECT_NAME}
   PRIVATE
@@ -89,4 +104,10 @@ target_link_libraries(
   PRIVATE
   Qt::Test
   Qt::Xml)
+
+target_link_libraries(
+  elements_collection_search_test
+  PRIVATE
+  Qt::Test
+  Qt::Widgets)
 

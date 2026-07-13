@@ -70,6 +70,7 @@ class DiagramView : public QGraphicsView
 		QETDiagramEditor *diagramEditor() const;
 		void editSelection();
 		void setEventInterface (DVEventInterface *event_interface);
+		bool startAddingElement(const ElementsLocation &location);
 		QList<QAction *> contextMenuActions() const;
 	
 	protected:
@@ -95,6 +96,8 @@ class DiagramView : public QGraphicsView
 	
 	private:
 		void handleElementDrop(QDropEvent *);
+		bool startAddingElementAt(const ElementsLocation &location,
+								  const QPointF &initial_position);
 		void handleTitleBlockDrop(QDropEvent *);
 		void handleTextDrop(QDropEvent *);
 		void scrollOnMovement(QKeyEvent *);

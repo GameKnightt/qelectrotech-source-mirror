@@ -32,10 +32,15 @@ class ElementsCollectionModel;
 class QVBoxLayout;
 class QMenu;
 class QLineEdit;
+class QLabel;
+class QListView;
+class QComboBox;
+class QStackedWidget;
 class ElementCollectionItem;
 class QProgressBar;
 class QETProject;
 class ElementsTreeView;
+class ElementsCollectionSearchModel;
 
 /**
 	@brief The ElementsCollectionWidget class
@@ -59,6 +64,10 @@ class ElementsCollectionWidget : public QWidget
 
 	protected:
 		void leaveEvent(QEvent *event) override;
+		bool eventFilter(QObject *watched, QEvent *event) override;
+
+	signals:
+		void elementPlacementRequested(const ElementsLocation &location);
 
 	private:
 		void setUpAction();
@@ -76,6 +85,8 @@ class ElementsCollectionWidget : public QWidget
 		void resetShowThisDir();
 		void dirProperties();
 		void search();
+		void updateSearchSummary();
+		void activateSearchResult(const QModelIndex &index);
 		void hideCollection(bool hide = true);
 		void hideItem(bool hide, const QModelIndex &index = QModelIndex(), bool recursive = true);
 		void showAndExpandItem (const QModelIndex &index, bool parent = true, bool child = false);
@@ -95,6 +106,12 @@ class ElementsCollectionWidget : public QWidget
 		ElementsCollectionModel *m_macros_model = nullptr;
 		QLineEdit *m_search_field;
 		QTimer m_search_timer;
+		ElementsCollectionSearchModel *m_search_model = nullptr;
+		QListView *m_search_results = nullptr;
+		QLabel *m_search_summary = nullptr;
+		QComboBox *m_search_sort = nullptr;
+		QStackedWidget *m_content_stack = nullptr;
+		QWidget *m_search_page = nullptr;
 		ElementsTreeView *m_tree_view;
 		ElementsTreeView *m_macros_tree_view = nullptr;
 		QTabWidget *m_tab_widget = nullptr;

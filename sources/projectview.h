@@ -20,8 +20,11 @@
 
 #include "qetresult.h"
 #include "titleblock/templatelocation.h"
+#include "utils/folionavigationindex.h"
 
 #include <QCloseEvent>
+#include <QPointer>
+#include <QSet>
 #include <QTabBar>
 #include <QWidget>
 #include <QtWidgets>
@@ -69,6 +72,7 @@ class ElementsLocation;
 class QTabWidget;
 class QLabel;
 class QVBoxLayout;
+class FolioNavigatorDialog;
 
 
 /**
@@ -102,6 +106,9 @@ class ProjectView : public QWidget
 		void changeTabDown();
 		void changeFirstTab();
 		void changeLastTab();
+		void openFolioNavigator();
+		void navigateHistoryBack();
+		void navigateHistoryForward();
 
 	public slots:
 		void removeDiagram(DiagramView *diagram_view, bool silent = false);
@@ -156,6 +163,13 @@ class ProjectView : public QWidget
 		DiagramView *firstDiagram();
 		DiagramView *lastDiagram();
 		void rebuildDiagramsMap();
+		void recordNavigation(DiagramView *diagram_view);
+		void updateNavigationHistoryActions();
+		void pruneNavigationHistory();
+		void refreshFolioNavigator(bool preserve_filters);
+		QVector<FolioNavigationEntry> folioNavigationEntries() const;
+		void activateFolio(const QUuid &diagram_id);
+		void setFolioFavorite(const QUuid &diagram_id, bool favorite);
 		bool tryClosing();
 		bool tryClosingElementEditors();
 		int tryClosingDiagrams();
@@ -190,6 +204,13 @@ class ProjectView : public QWidget
 		QMap<int, DiagramView *> m_diagram_ids;
 		int m_previous_tab_index = -1;
 		QList<DiagramView *> m_diagram_view_list;
+		FolioNavigatorDialog *m_folio_navigator = nullptr;
+		QAction *m_history_back = nullptr;
+		QAction *m_history_forward = nullptr;
+		QList<QPointer<DiagramView>> m_navigation_history;
+		int m_navigation_history_index = -1;
+		bool m_navigating_history = false;
+		QSet<QUuid> m_favorite_folios;
 };
 
 

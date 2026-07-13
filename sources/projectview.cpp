@@ -31,6 +31,7 @@
 #include "ui/borderpropertieswidget.h"
 #include "ui/conductorpropertieswidget.h"
 #include "ui/dialogwaiting.h"
+#include "ui/folionavigatordialog.h"
 #include "ui/projectpropertiesdialog.h"
 #include "ui/titleblockpropertieswidget.h"
 
@@ -183,7 +184,9 @@ DiagramView *ProjectView::previousDiagram()
 void ProjectView::changeLastTab()
 {
 	DiagramView *lastDiagramView = this->lastDiagram();
-	m_tab->setCurrentWidget(lastDiagramView);
+	if (lastDiagramView) {
+		m_tab->setCurrentWidget(lastDiagramView);
+	}
 }
 
 /**
@@ -191,7 +194,7 @@ void ProjectView::changeLastTab()
 */
 DiagramView *ProjectView::lastDiagram()
 {
-	return(m_diagram_ids.last());
+	return m_diagram_ids.isEmpty() ? nullptr : m_diagram_ids.last();
 }
 
 /**
@@ -200,7 +203,9 @@ DiagramView *ProjectView::lastDiagram()
 void ProjectView::changeFirstTab()
 {
 	DiagramView *firstDiagramView = this->firstDiagram();
-	m_tab->setCurrentWidget(firstDiagramView);
+	if (firstDiagramView) {
+		m_tab->setCurrentWidget(firstDiagramView);
+	}
 }
 
 /**
@@ -208,7 +213,231 @@ void ProjectView::changeFirstTab()
 */
 DiagramView *ProjectView::firstDiagram()
 {
-	return(m_diagram_ids.first());
+	return m_diagram_ids.isEmpty() ? nullptr : m_diagram_ids.first();
+}
+
+void ProjectView::openFolioNavigator()
+{
+	if (!m_project) {
+		return;
+	}
+	if (!m_folio_navigator)
+	{
+		m_folio_navigator = new FolioNavigatorDialog(this);
+		connect(m_folio_navigator, &FolioNavigatorDialog::folioActivated,
+				this, &ProjectView::activateFolio);
+		connect(m_folio_navigator, &FolioNavigatorDialog::favoriteChanged,
+				this, &ProjectView::setFolioFavorite);
+		connect(m_folio_navigator, &FolioNavigatorDialog::navigateBackRequested,
+				this, &ProjectView::navigateHistoryBack);
+		connect(m_folio_navigator, &FolioNavigatorDialog::navigateForwardRequested,
+				this, &ProjectView::navigateHistoryForward);
+	}
+	refreshFolioNavigator(false);
+}
+
+void ProjectView::refreshFolioNavigator(bool preserve_filters)
+{
+	if (!m_project || !m_folio_navigator) {
+		return;
+	}
+	DiagramView *current = currentDiagram();
+	const QUuid active_id = current && current->diagram()
+			? current->diagram()->uuid() : QUuid();
+	m_folio_navigator->openForProject(
+			m_project->title(),
+			folioNavigationEntries(),
+			active_id,
+			m_history_back->isEnabled(),
+			m_history_forward->isEnabled(),
+			preserve_filters);
+}
+
+void ProjectView::navigateHistoryBack()
+{
+	pruneNavigationHistory();
+	for (int index = m_navigation_history_index - 1; index >= 0; --index)
+	{
+		DiagramView *diagram_view = m_navigation_history.at(index);
+		if (diagram_view && m_tab->indexOf(diagram_view) >= 0)
+		{
+			m_navigation_history_index = index;
+			m_navigating_history = true;
+			m_tab->setCurrentWidget(diagram_view);
+			updateNavigationHistoryActions();
+			return;
+		}
+	}
+}
+
+void ProjectView::navigateHistoryForward()
+{
+	pruneNavigationHistory();
+	for (int index = m_navigation_history_index + 1;
+			 index < m_navigation_history.size(); ++index)
+	{
+		DiagramView *diagram_view = m_navigation_history.at(index);
+		if (diagram_view && m_tab->indexOf(diagram_view) >= 0)
+		{
+			m_navigation_history_index = index;
+			m_navigating_history = true;
+			m_tab->setCurrentWidget(diagram_view);
+			updateNavigationHistoryActions();
+			return;
+		}
+	}
+}
+
+void ProjectView::recordNavigation(DiagramView *diagram_view)
+{
+	if (!diagram_view) {
+		return;
+	}
+	pruneNavigationHistory();
+	if (m_navigating_history)
+	{
+		m_navigating_history = false;
+		updateNavigationHistoryActions();
+		return;
+	}
+	if (m_navigation_history_index >= 0
+			&& m_navigation_history_index < m_navigation_history.size()
+			&& m_navigation_history.at(m_navigation_history_index) == diagram_view) {
+		updateNavigationHistoryActions();
+		return;
+	}
+	while (m_navigation_history.size() > m_navigation_history_index + 1) {
+		m_navigation_history.removeLast();
+	}
+	m_navigation_history.append(QPointer<DiagramView>(diagram_view));
+	while (m_navigation_history.size() > 50) {
+		m_navigation_history.removeFirst();
+	}
+	m_navigation_history_index = m_navigation_history.size() - 1;
+	updateNavigationHistoryActions();
+}
+
+void ProjectView::pruneNavigationHistory()
+{
+	QList<QPointer<DiagramView>> valid_history;
+	int new_index = -1;
+	for (int index = 0; index < m_navigation_history.size(); ++index)
+	{
+		DiagramView *diagram_view = m_navigation_history.at(index);
+		if (!diagram_view || m_tab->indexOf(diagram_view) < 0) {
+			continue;
+		}
+		valid_history.append(diagram_view);
+		if (index <= m_navigation_history_index) {
+			new_index = valid_history.size() - 1;
+		}
+	}
+	m_navigation_history = valid_history;
+	m_navigation_history_index = m_navigation_history.isEmpty()
+			? -1 : qBound(0, new_index, m_navigation_history.size() - 1);
+}
+
+void ProjectView::updateNavigationHistoryActions()
+{
+	pruneNavigationHistory();
+	m_history_back->setEnabled(m_navigation_history_index > 0);
+	m_history_forward->setEnabled(
+			m_navigation_history_index >= 0
+			&& m_navigation_history_index < m_navigation_history.size() - 1);
+}
+
+QVector<FolioNavigationEntry> ProjectView::folioNavigationEntries() const
+{
+	QVector<FolioNavigationEntry> entries;
+	if (!m_project) {
+		return entries;
+	}
+
+	QHash<QUuid, int> recent_ranks;
+	int recent_rank = 0;
+	for (int index = m_navigation_history.size() - 1;
+			 index >= 0 && recent_rank < 12; --index)
+	{
+		DiagramView *diagram_view = m_navigation_history.at(index);
+		if (!diagram_view || !diagram_view->diagram()) {
+			continue;
+		}
+		const QUuid id = diagram_view->diagram()->uuid();
+		if (!recent_ranks.contains(id)) {
+			recent_ranks.insert(id, recent_rank++);
+		}
+	}
+
+	DiagramView *active_view = currentDiagram();
+	const QList<Diagram *> diagrams = m_project->diagrams();
+	entries.reserve(diagrams.size());
+	for (int position = 0; position < diagrams.size(); ++position)
+	{
+		Diagram *diagram = diagrams.at(position);
+		if (!diagram) {
+			continue;
+		}
+		FolioNavigationEntry entry;
+		entry.diagram_id = diagram->uuid();
+		entry.position = position;
+		entry.folio_label = diagram->border_and_titleblock.finalfolio();
+		entry.raw_folio_label = diagram->border_and_titleblock.folio();
+		entry.title = diagram->title();
+		entry.plant = diagram->border_and_titleblock.plant();
+		entry.location = diagram->border_and_titleblock.locmach();
+		entry.file_name = diagram->border_and_titleblock.fileName();
+		const DiagramContext context =
+				diagram->border_and_titleblock.additionalFields();
+		for (const QString &key : context.keys()) {
+			entry.additional_fields.append(
+					key + QLatin1Char(' ') + context.value(key).toString());
+		}
+		QStringList group_parts;
+		if (!entry.plant.trimmed().isEmpty()) {
+			group_parts << entry.plant.trimmed();
+		}
+		if (!entry.location.trimmed().isEmpty()) {
+			group_parts << entry.location.trimmed();
+		}
+		entry.group = group_parts.isEmpty()
+				? tr("Sans installation ni localisation")
+				: group_parts.join(QStringLiteral(" / "));
+		entry.active = active_view && active_view->diagram() == diagram;
+		entry.favorite = m_favorite_folios.contains(entry.diagram_id);
+		entry.recent_rank = recent_ranks.value(entry.diagram_id, -1);
+		entries.append(entry);
+	}
+	return entries;
+}
+
+void ProjectView::activateFolio(const QUuid &diagram_id)
+{
+	if (diagram_id.isNull()) {
+		return;
+	}
+	for (DiagramView *diagram_view : m_diagram_view_list)
+	{
+		if (diagram_view && diagram_view->diagram()
+				&& diagram_view->diagram()->uuid() == diagram_id)
+		{
+			showDiagram(diagram_view);
+			return;
+		}
+	}
+}
+
+void ProjectView::setFolioFavorite(
+		const QUuid &diagram_id,
+		bool favorite)
+{
+	if (diagram_id.isNull()) {
+		return;
+	}
+	if (favorite) {
+		m_favorite_folios.insert(diagram_id);
+	} else {
+		m_favorite_folios.remove(diagram_id);
+	}
 }
 
 
@@ -392,6 +621,8 @@ void ProjectView::removeDiagram(DiagramView *diagram_view, bool silent)
 		}
 	}
 
+	const QUuid removed_diagram_id = diagram_view->diagram()->uuid();
+
 	//Remove the diagram view of the tabs widget
 	int index_to_remove = m_diagram_ids.key(diagram_view);
 	m_tab->removeTab(index_to_remove);
@@ -400,9 +631,15 @@ void ProjectView::removeDiagram(DiagramView *diagram_view, bool silent)
 
 	m_project -> removeDiagram(diagram_view -> diagram());
 	delete diagram_view;
+	m_favorite_folios.remove(removed_diagram_id);
+	pruneNavigationHistory();
+	updateNavigationHistoryActions();
 
 	emit(diagramRemoved(diagram_view));
 	updateAllTabsTitle();
+	if (m_folio_navigator && m_folio_navigator->isVisible()) {
+		refreshFolioNavigator(true);
+	}
 	m_project -> setModified(true);
 }
 
@@ -768,6 +1005,32 @@ void ProjectView::initActions()
 {
 	m_add_new_diagram = new QAction(QET::Icons::AddFolio, tr("Ajouter un folio"), this);
 	connect(m_add_new_diagram, &QAction::triggered, [this](){this->m_project->addNewDiagram();});
+
+	m_history_back = new QAction(
+			QET::Icons::ArrowLeft,
+			tr("Folio précédent dans l’historique"),
+			this);
+	m_history_back->setShortcut(QKeySequence(Qt::ALT | Qt::Key_Left));
+	m_history_back->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+	m_history_back->setToolTip(tr(
+			"Revenir au folio précédemment consulté (Alt+Gauche)"));
+	m_history_back->setEnabled(false);
+	addAction(m_history_back);
+	connect(m_history_back, &QAction::triggered,
+			this, &ProjectView::navigateHistoryBack);
+
+	m_history_forward = new QAction(
+			QET::Icons::ArrowRight,
+			tr("Folio suivant dans l’historique"),
+			this);
+	m_history_forward->setShortcut(QKeySequence(Qt::ALT | Qt::Key_Right));
+	m_history_forward->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+	m_history_forward->setToolTip(tr(
+			"Avancer dans l’historique des folios (Alt+Droite)"));
+	m_history_forward->setEnabled(false);
+	addAction(m_history_forward);
+	connect(m_history_forward, &QAction::triggered,
+			this, &ProjectView::navigateHistoryForward);
 	
 	m_first_view = new QAction(QET::Icons::ArrowLeftDouble, tr("Revenir au debut du projet"),this);
 	connect(m_first_view, &QAction::triggered, [this](){this->m_tab->setCurrentWidget(firstDiagram());});
@@ -938,7 +1201,9 @@ void ProjectView::loadDiagrams()
 	rebuildDiagramsMap();
 	updateAllTabsTitle();
 
-	m_tab->setCurrentWidget(firstDiagram());
+	if (DiagramView *first = firstDiagram()) {
+		m_tab->setCurrentWidget(first);
+	}
 }
 
 /**
@@ -999,6 +1264,9 @@ void ProjectView::diagramAdded(Diagram *diagram)
 	emit(diagramAdded(dv));
 	m_project->setModified(true);
 	showDiagram(dv);
+	if (m_folio_navigator && m_folio_navigator->isVisible()) {
+		refreshFolioNavigator(true);
+	}
 }
 
 /**
@@ -1031,6 +1299,10 @@ void ProjectView::updateTabTitle(DiagramView *diagram_view)
 		title += " - ";
 		title += diagram->title();
 		m_tab->setTabText(diagram_tab_id ,title);
+		if (m_folio_navigator && m_folio_navigator->isVisible())
+		{
+			refreshFolioNavigator(true);
+		}
 	}
 }
 
@@ -1061,6 +1333,9 @@ void ProjectView::tabMoved(int from, int to)
 	{
 		DiagramView *dv = m_diagram_ids.value(i);
 		updateTabTitle(dv);
+	}
+	if (m_folio_navigator && m_folio_navigator->isVisible()) {
+		refreshFolioNavigator(true);
 	}
 }
 
@@ -1102,20 +1377,36 @@ void ProjectView::rebuildDiagramsMap()
 */
 void ProjectView::tabChanged(int tab_id)
 {
-	if (tab_id == -1)
-		setDisplayFallbackWidget(true);
-	else if(m_tab->count() == 1)
-		setDisplayFallbackWidget(false);
+	if (tab_id < 0)
+	{
+		if (m_tab->count() == 0) {
+			setDisplayFallbackWidget(true);
+		}
+		updateNavigationHistoryActions();
+		return;
+	}
+
+	DiagramView *activated_view =
+			qobject_cast<DiagramView *>(m_tab->widget(tab_id));
+	if (!activated_view) {
+		updateNavigationHistoryActions();
+		return;
+	}
+	setDisplayFallbackWidget(false);
+
+	emit(diagramActivated(activated_view));
 	
-	emit(diagramActivated(m_diagram_ids[tab_id]));
-	
-	if (m_diagram_ids[tab_id] != nullptr)
-		m_diagram_ids[tab_id]->diagram()->diagramActivated();
+	if (activated_view)
+		activated_view->diagram()->diagramActivated();
 
 		//Clear the event interface of the previous diagram
 	if (DiagramView *dv = m_diagram_ids[m_previous_tab_index])
 		dv->diagram()->clearEventInterface();
 	m_previous_tab_index = tab_id;
+	recordNavigation(activated_view);
+	if (m_folio_navigator && m_folio_navigator->isVisible()) {
+		refreshFolioNavigator(true);
+	}
 }
 
 /**

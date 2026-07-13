@@ -77,6 +77,25 @@ add_test(
   NAME diagram_duplicate_uuid_remapper_test
   COMMAND diagram_duplicate_uuid_remapper_test)
 
+add_executable(
+  folio_navigator_test
+  tst_folionavigator.cpp
+  ${QET_DIR}/sources/ui/folionavigatordialog.cpp
+  ${QET_DIR}/sources/ui/folionavigatordialog.h
+  ${QET_DIR}/sources/ui/folionavigatormodel.cpp
+  ${QET_DIR}/sources/ui/folionavigatormodel.h
+  ${QET_DIR}/sources/utils/folionavigationindex.cpp
+  ${QET_DIR}/sources/utils/folionavigationindex.h)
+add_test(
+  NAME folio_navigator_test
+  COMMAND folio_navigator_test)
+add_test(
+  NAME folio_navigator_dpi_150_test
+  COMMAND folio_navigator_test exposesAccessibleNamesAndFitsScreen)
+set_tests_properties(
+  folio_navigator_dpi_150_test
+  PROPERTIES ENVIRONMENT "QT_SCALE_FACTOR=1.5;QT_QPA_PLATFORM=windows")
+
 target_link_libraries(
   ${PROJECT_NAME}
   PRIVATE
@@ -89,4 +108,15 @@ target_link_libraries(
   PRIVATE
   Qt::Test
   Qt::Xml)
+
+target_include_directories(
+  folio_navigator_test
+  PRIVATE
+  ${QET_DIR}/sources)
+
+target_link_libraries(
+  folio_navigator_test
+  PRIVATE
+  Qt::Test
+  Qt::Widgets)
 

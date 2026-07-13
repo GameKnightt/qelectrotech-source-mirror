@@ -21,6 +21,7 @@
 #include "SearchAndReplace/ui/searchandreplacewidget.h"
 #include "qetmainwindow.h"
 #include "ui/projectsavestatuswidget.h"
+#include "ui/workspaceprofilecontroller.h"
 
 #include <QActionGroup>
 #include <QCloseEvent>
@@ -29,6 +30,8 @@
 #include <QMdiArea>
 #include <QSignalMapper>
 #include <QUndoGroup>
+
+#include <memory>
 
 class QMdiSubWindow;
 class QETProject;
@@ -90,6 +93,11 @@ class QETDiagramEditor : public QETMainWindow
 		void setUpActions       ();
 		void setUpToolBar       ();
 		void setUpMenu          ();
+		void applyWorkspaceProfile(
+			WorkspaceProfileController::Profile profile,
+			bool reset_layout,
+			bool persist_selection);
+		void updateWorkspaceProfileActions();
 		
 		bool addProject(QETProject *, bool = true);
 		DiagramView *currentDiagramView() const;
@@ -221,10 +229,18 @@ class QETDiagramEditor : public QETMainWindow
 		*m_rotate_texts,		///< Direct selected text items to a specific angle
 		*m_find_element,		///< Find the selected element in the panel
 		*m_group_selected_texts = nullptr,
+		*m_new_file,			///< Create a new project
+		*m_open_file,			///< Open a project
 		*m_close_file,			///< Close current project file
 		*m_save_file,			///< Save current project
 		*m_save_file_as,		///< Save current project as a specific file
-		*m_find = nullptr;
+		*m_find = nullptr,
+		*m_workspace_essential_action = nullptr,
+		*m_workspace_classic_action = nullptr,
+		*m_workspace_reset_action = nullptr,
+		*m_handler_size_action = nullptr;
+
+		QActionGroup *m_workspace_profile_group = nullptr;
 
 		QList <QAction *> m_zoom_action_toolBar; ///Only zoom action must displayed in the toolbar
 
@@ -260,6 +276,8 @@ class QETDiagramEditor : public QETMainWindow
 		*diagram_tool_bar    = nullptr,
 		*m_add_item_tool_bar = nullptr,
 		*m_depth_tool_bar    = nullptr;
+
+		std::unique_ptr<WorkspaceProfileController> m_workspace_profile_controller;
 		
 		QUndoGroup undo_group;
 		AutoNumberingDockWidget *m_autonumbering_dock;

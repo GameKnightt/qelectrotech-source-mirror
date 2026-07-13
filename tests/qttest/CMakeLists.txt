@@ -97,6 +97,18 @@ add_test(
   COMMAND project_save_status_test)
 
 add_executable(
+  workspace_profile_test
+  tst_workspaceprofilecontroller.cpp
+  ${QET_DIR}/sources/ui/workspaceprofilecontroller.cpp
+  ${QET_DIR}/sources/ui/workspaceprofilecontroller.h)
+add_test(
+  NAME workspace_profile_test
+  COMMAND workspace_profile_test)
+set_tests_properties(
+  workspace_profile_test
+  PROPERTIES LABELS "workspace;ui-01")
+
+add_executable(
   elements_collection_search_test
   tst_elementscollectionsearchmodel.cpp
   ${QET_DIR}/sources/ElementsCollection/elementscollectionsearchmodel.cpp
@@ -184,6 +196,17 @@ target_include_directories(
 
 target_link_libraries(
   project_save_status_test
+  PRIVATE
+  Qt::Test
+  Qt::Widgets)
+
+target_include_directories(
+  workspace_profile_test
+  PRIVATE
+  ${QET_DIR}/sources)
+
+target_link_libraries(
+  workspace_profile_test
   PRIVATE
   Qt::Test
   Qt::Widgets)

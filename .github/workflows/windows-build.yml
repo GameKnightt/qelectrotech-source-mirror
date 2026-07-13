@@ -65,8 +65,11 @@ jobs:
           cmake --build build-tests --parallel "$(nproc)" --target \
             C_unittests \
             qt_unittests \
-            diagram_duplicate_uuid_remapper_test
+            diagram_duplicate_uuid_remapper_test \
+            config_dialog_ux_test
           ctest --test-dir build-tests --output-on-failure
+          QT_SCALE_FACTOR=1.5 ctest --test-dir build-tests \
+            -R '^config_dialog_ux_test$' --output-on-failure
 
   build-windows:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

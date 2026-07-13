@@ -119,7 +119,7 @@ NewDiagramPage::NewDiagramPage(QETProject *project,
 
 	diagram_layout -> addWidget(bpw);
 	diagram_layout -> addWidget(ipw);
-	tab_widget->setMinimumSize(800, 650);
+	tab_widget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
 	tab_widget -> addTab (diagram_widget, tr("Folio"));
 	tab_widget -> addTab (m_cpw,            tr("Conducteur"));

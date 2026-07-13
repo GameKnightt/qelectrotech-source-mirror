@@ -18,11 +18,19 @@
 #ifndef CONFIG_DIALOG_H
 #define CONFIG_DIALOG_H
 #include <QDialog>
+#include <QMetaObject>
+#include <QSize>
+
 class ConfigPage;
+class QLabel;
 class QListWidget;
 class QListWidgetItem;
 class QStackedWidget;
 class QDialogButtonBox;
+class QResizeEvent;
+class QScreen;
+class QShowEvent;
+class QRect;
 /**
 	This class represents the configuration dialog for QElectroTech.
 	It displays "configuration pages",
@@ -46,16 +54,33 @@ class ConfigDialog : public QDialog {
 		void applyConf();
 		void addPage(ConfigPage *);
 		void setCurrentPage(const int index);
+
+	public:
+		void fitToAvailableGeometry(const QRect &available_geometry);
+
+	protected:
+		void resizeEvent(QResizeEvent *event) override;
+		void showEvent(QShowEvent *event) override;
 	
 	private:
 		void buildPagesList();
 		void addPageToList(ConfigPage *);
+		void applyAvailableGeometry(
+				const QRect &available_geometry,
+				bool center_dialog);
+		QRect availableGeometry() const;
+		void followScreen(QScreen *screen, bool center_dialog = false);
 	
 	// attributes
 	private:
 		QListWidget *pages_list;
+		QLabel *page_title;
 		QStackedWidget *pages_widget;
 		QDialogButtonBox *buttons;
+		QSize m_desired_size {1400, 1000};
+		QMetaObject::Connection m_available_geometry_connection;
+		bool m_geometry_update_in_progress = false;
+		bool m_screen_tracking_initialized = false;
 
 
 

@@ -125,6 +125,7 @@ class Conductor : public QGraphicsObject
 		void calculateTextItemPosition();
 		virtual Highlight highlight() const;
 		virtual void setHighlighted(Highlight);
+		void setProximityHovered(bool hovered);
 		QSet<Conductor *> relatedPotentialConductors(
 				const bool all_diagram = true,
 				QList <Terminal *> *t_list=nullptr);
@@ -182,6 +183,7 @@ class Conductor : public QGraphicsObject
 		QVector<QetGraphicsHandlerItem *> m_handler_vector;
 		int m_vector_index = -1;
 		bool m_mouse_over;
+		bool m_proximity_hovered = false;
 			/// Functional properties
 		ConductorProperties m_properties;
 			/// Text input for non simple, non-singleline conductors

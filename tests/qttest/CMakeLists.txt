@@ -77,6 +77,15 @@ add_test(
   NAME diagram_duplicate_uuid_remapper_test
   COMMAND diagram_duplicate_uuid_remapper_test)
 
+add_executable(
+  conductor_interaction_test
+  tst_conductorinteraction.cpp
+  ${QET_DIR}/sources/utils/conductorinteraction.cpp
+  ${QET_DIR}/sources/utils/conductorinteraction.h)
+add_test(
+  NAME conductor_interaction_test
+  COMMAND conductor_interaction_test)
+
 target_link_libraries(
   ${PROJECT_NAME}
   PRIVATE
@@ -89,4 +98,10 @@ target_link_libraries(
   PRIVATE
   Qt::Test
   Qt::Xml)
+
+target_link_libraries(
+  conductor_interaction_test
+  PRIVATE
+  Qt::Test
+  Qt::Gui)
 

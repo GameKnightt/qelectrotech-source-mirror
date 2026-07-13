@@ -78,10 +78,18 @@ add_executable(
     ${PROJECT_NAME}
     tst_My_test.cpp
     src/borderproperties_test.cpp
+    src/titleblockcontext_test.cpp
     main.cpp
     ${QET_DIR}/sources/borderproperties.cpp
     ${QET_DIR}/sources/borderproperties.h
+    ${QET_DIR}/sources/diagramcontext.cpp
+    ${QET_DIR}/sources/diagramcontext.h
+    ${QET_DIR}/sources/qet.cpp
+    ${QET_DIR}/sources/qeticons.cpp
+    ${QET_DIR}/sources/utils/titleblockcontextresolver.h
     )
+
+add_test(NAME ${PROJECT_NAME} COMMAND ${PROJECT_NAME})
 
 if(NOT BUILD_WITH_KF5)
     target_sources(
@@ -102,8 +110,15 @@ target_link_libraries(
     PUBLIC
     Catch2::Catch2
     PRIVATE
+    pugixml::pugixml
     ${KF5_PRIVATE_LIBRARIES}
     ${QET_PRIVATE_LIBRARIES})
+
+target_include_directories(
+    ${PROJECT_NAME}
+    PRIVATE
+    ${QET_DIR}
+    ${QET_DIR}/sources)
 
 if (DEFINED ENV{CATCH_INCLUDE_DIR})
     set(CATCH_INCLUDE_DIR $ENV{CATCH_INCLUDE_DIR})

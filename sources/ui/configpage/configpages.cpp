@@ -159,6 +159,10 @@ void NewDiagramPage::applyConf()
 			modified_project = true;
 		}
 
+		// ProjectMainConfigPage is applied before this page. Refresh the
+		// in-dialog project context so newly added global variables do not
+		// produce empty folio-level placeholders in the same dialog session.
+		ipw->setProjectProperties(m_project->projectProperties());
 		TitleBlockProperties new_tbt_prop = ipw -> properties();
 		if (m_project -> defaultTitleBlockProperties() != new_tbt_prop) {
 			m_project -> setDefaultTitleBlockProperties(ipw -> properties());

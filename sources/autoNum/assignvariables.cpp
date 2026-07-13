@@ -24,6 +24,7 @@
 #include "../qetgraphicsitem/element.h"
 #include "../qetxml.h"
 #include "../qetproject.h"
+#include "../utils/titleblockcontextresolver.h"
 #include <QStringList>
 #include <QVariant>
 #include <utility>
@@ -367,35 +368,29 @@ namespace autonum
 			}
 
 			assignTitleBlockVar();
-			assignProjectVar();
 			assignSequence();
 		}
 	}
 
 	void AssignVariables::assignTitleBlockVar()
 	{
-		for (int i = 0; i < m_diagram->border_and_titleblock.additionalFields().count(); i++)
-		{
-			QString folio_variable = m_diagram->border_and_titleblock.additionalFields().keys().at(i);
-			QVariant folio_value = m_diagram->border_and_titleblock.additionalFields().operator [](folio_variable);
-
-			if (m_assigned_label.contains(folio_variable)) {
-				m_assigned_label.replace("%{" + folio_variable + "}", folio_value.toString());
-				m_assigned_label.replace("%"  + folio_variable      , folio_value.toString());
-			}
+		DiagramContext project_context;
+		if (m_diagram->project()) {
+			project_context = m_diagram->project()->projectProperties();
 		}
-	}
 
-	void AssignVariables::assignProjectVar()
-	{
-		for (int i = 0; i < m_diagram->project()->projectProperties().count(); i++)
+		const DiagramContext context = QET::effectiveTitleBlockContext(
+				project_context,
+				m_diagram->border_and_titleblock.additionalFields());
+
+		for (const QString &variable :
+			 context.keys(DiagramContext::DecreasingLength))
 		{
-			QString folio_variable = m_diagram->project()->projectProperties().keys().at(i);
-			QVariant folio_value = m_diagram->project()->projectProperties().operator [](folio_variable);
+			const QString value = context.value(variable).toString();
 
-			if (m_assigned_label.contains(folio_variable)) {
-				m_assigned_label.replace("%{" + folio_variable + "}", folio_value.toString());
-				m_assigned_label.replace("%"  + folio_variable      , folio_value.toString());
+			if (m_assigned_label.contains(variable)) {
+				m_assigned_label.replace("%{" + variable + "}", value);
+				m_assigned_label.replace("%"  + variable      , value);
 			}
 		}
 	}

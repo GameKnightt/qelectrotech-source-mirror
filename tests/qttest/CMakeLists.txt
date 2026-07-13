@@ -70,10 +70,23 @@ enable_testing()
 add_executable(${PROJECT_NAME} tst_mytest.cpp)
 add_test(NAME ${PROJECT_NAME} COMMAND ${PROJECT_NAME})
 
+add_executable(
+  diagram_duplicate_uuid_remapper_test
+  tst_diagramduplicateuuidremapper.cpp)
+add_test(
+  NAME diagram_duplicate_uuid_remapper_test
+  COMMAND diagram_duplicate_uuid_remapper_test)
+
 target_link_libraries(
   ${PROJECT_NAME}
   PRIVATE
   Qt::Test
   ${KF5_PRIVATE_LIBRARIES}
   ${QET_PRIVATE_LIBRARIES})
+
+target_link_libraries(
+  diagram_duplicate_uuid_remapper_test
+  PRIVATE
+  Qt::Test
+  Qt::Xml)
 

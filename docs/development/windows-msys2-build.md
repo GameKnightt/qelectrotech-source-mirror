@@ -65,7 +65,7 @@ Depuis le terminal UCRT64 :
 ```bash
 mkdir -p /c/dev
 cd /c/dev
-git clone --recursive https://github.com/GameKnightt/qelectrotech-source-mirror.git qelectrotech
+GIT_LFS_SKIP_SMUDGE=1 git clone --recursive https://github.com/GameKnightt/qelectrotech-source-mirror.git qelectrotech
 cd qelectrotech
 git remote add upstream https://github.com/qelectrotech/qelectrotech-source-mirror.git
 git submodule update --init --recursive
@@ -137,7 +137,10 @@ cmake -S . -B build-ucrt64-tests -G Ninja \
   -DSQLite3_INCLUDE_DIR=/ucrt64/include \
   -DSQLite3_LIBRARY=/ucrt64/lib/libsqlite3.dll.a
 
-cmake --build build-ucrt64-tests --parallel "$(nproc)"
+cmake --build build-ucrt64-tests --parallel "$(nproc)" --target \
+  C_unittests \
+  qt_unittests \
+  diagram_duplicate_uuid_remapper_test
 ctest --test-dir build-ucrt64-tests --output-on-failure
 ```
 

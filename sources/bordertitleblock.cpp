@@ -25,6 +25,7 @@
 #include "qetversion.h"
 #include "titleblocktemplate.h"
 #include "titleblocktemplaterenderer.h"
+#include "utils/titleblockcontextresolver.h"
 
 
 #include <QLocale>
@@ -896,12 +897,12 @@ void BorderTitleBlock::setFolio(const QString &folio)
 */
 void BorderTitleBlock::updateDiagramContextForTitleBlock(
 		const DiagramContext &initial_context) {
-	// Our final DiagramContext is the initial one (which is supposed to bring
-	// project-wide properties), overridden by the "additional fields" one...
-	DiagramContext context = initial_context;
-	foreach (QString key, additional_fields_.keys()) {
-		context.addValue(key, additional_fields_[key]);
-	}
+	// Folio values override project values only when they are non-empty.
+	// This preserves project-wide custom fields when a folio contains an empty
+	// placeholder created by an older version of the properties dialog.
+	DiagramContext context = QET::effectiveTitleBlockContext(
+			initial_context,
+			additional_fields_);
 
 	// ... overridden by the historical and/or dynamically generated fields
 	QLocale var;

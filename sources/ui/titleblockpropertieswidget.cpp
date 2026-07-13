@@ -170,6 +170,23 @@ void TitleBlockPropertiesWidget::setProperties(
 	m_dcw -> setContext(context);
 }
 
+void TitleBlockPropertiesWidget::setProjectProperties(
+		const DiagramContext &properties)
+{
+	m_project_properties = properties;
+}
+
+DiagramContext TitleBlockPropertiesWidget::customContext() const
+{
+	DiagramContext context = m_dcw->context();
+	for (const QString &key : m_project_properties.keys()) {
+		if (context.contains(key) && context.value(key).toString().isEmpty()) {
+			context.remove(key);
+		}
+	}
+	return context;
+}
+
 /**
 	@brief TitleBlockPropertiesWidget::properties
 	@return the edited properties
@@ -205,7 +222,7 @@ TitleBlockProperties TitleBlockPropertiesWidget::properties() const
 		prop.collection = m_map_index_to_collection_type.at(ui->m_tbt_cb->currentIndex());
 	}
 
-	prop.context = m_dcw -> context();
+	prop.context = customContext();
 
 	prop.auto_page_num = ui->auto_page_cb->currentText();
 
@@ -248,7 +265,7 @@ TitleBlockProperties TitleBlockPropertiesWidget::propertiesAutoNum(
 		prop.collection = m_map_index_to_collection_type.at(ui->m_tbt_cb->currentIndex());
 	}
 
-	prop.context = m_dcw -> context();
+	prop.context = customContext();
 
 	prop.auto_page_num = std::move(autoNum);
 
@@ -354,6 +371,7 @@ void TitleBlockPropertiesWidget::initDialog(
 		SLOT(changeCurrentTitleBlockTemplate(int)));
 
 	if (project!= nullptr){
+		m_project_properties = project->projectProperties();
 		keys_2 = project -> folioAutoNum().keys();
 		foreach (QString str, keys_2) { ui -> auto_page_cb -> addItem(str); }
 		if (ui->auto_page_cb->currentText()==nullptr)
@@ -489,7 +507,9 @@ void TitleBlockPropertiesWidget::addTemplateVariables(
 	const QStringList variables = tpl -> listOfVariables();
 	for (const QString &name : variables) {
 		if (name.isEmpty() || reserved.contains(name)) continue;
-		if (!context.contains(name)) context.addValue(name, "");
+		if (!context.contains(name) && !m_project_properties.contains(name)) {
+			context.addValue(name, "");
+		}
 	}
 }
 

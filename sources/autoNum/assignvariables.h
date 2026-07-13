@@ -69,7 +69,6 @@ namespace autonum
 		private:
 			AssignVariables(const QString& formula, const sequentialNumbers& seqStruct , Diagram *diagram, const Element *elmt = nullptr, const Conductor *cndr = nullptr);
 			void assignTitleBlockVar();
-			void assignProjectVar();
 			void assignSequence();
 
 			Diagram *m_diagram  = nullptr;

@@ -77,6 +77,16 @@ add_test(
   NAME diagram_duplicate_uuid_remapper_test
   COMMAND diagram_duplicate_uuid_remapper_test)
 
+add_executable(
+  config_dialog_ux_test
+  tst_configdialogux.cpp
+  ${QET_DIR}/sources/configdialog.cpp
+  ${QET_DIR}/sources/configdialog.h
+  ${QET_DIR}/sources/ui/configpage/configpage.h)
+add_test(
+  NAME config_dialog_ux_test
+  COMMAND config_dialog_ux_test)
+
 target_link_libraries(
   ${PROJECT_NAME}
   PRIVATE
@@ -89,4 +99,15 @@ target_link_libraries(
   PRIVATE
   Qt::Test
   Qt::Xml)
+
+target_include_directories(
+  config_dialog_ux_test
+  PRIVATE
+  ${QET_DIR}/sources)
+
+target_link_libraries(
+  config_dialog_ux_test
+  PRIVATE
+  Qt::Test
+  Qt::Widgets)
 

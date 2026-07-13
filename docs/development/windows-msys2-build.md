@@ -140,8 +140,11 @@ cmake -S . -B build-ucrt64-tests -G Ninja \
 cmake --build build-ucrt64-tests --parallel "$(nproc)" --target \
   C_unittests \
   qt_unittests \
-  diagram_duplicate_uuid_remapper_test
+  diagram_duplicate_uuid_remapper_test \
+  config_dialog_ux_test
 ctest --test-dir build-ucrt64-tests --output-on-failure
+QT_SCALE_FACTOR=1.5 ctest --test-dir build-ucrt64-tests \
+  -R '^config_dialog_ux_test$' --output-on-failure
 ```
 
 ## Diagnostic rapide

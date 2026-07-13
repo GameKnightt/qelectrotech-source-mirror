@@ -27,6 +27,7 @@
 #include "../qetproject.h"
 #include "elementcollectionitem.h"
 #include "elementscollectionmodel.h"
+#include "elementscollectionsearchmodel.h"
 #include "elementslocation.h"
 #include "elementstreeview.h"
 #include "fileelementcollectionitem.h"
@@ -41,6 +42,12 @@
 #include <QProgressBar>
 #include <QStatusBar>
 #include <QLineEdit>
+#include <QLabel>
+#include <QListView>
+#include <QComboBox>
+#include <QStackedWidget>
+#include <QShortcut>
+#include <QKeyEvent>
 
 /**
 	@brief ElementsCollectionWidget::ElementsCollectionWidget
@@ -67,7 +74,7 @@ ElementsCollectionWidget::ElementsCollectionWidget(QWidget *parent):
 	//Timer is used to avoid launching a new search for each letter typed by user
 	//Timer is started or restarted at every time user type a new letter.
 	//When the timer emit timeout, we start the search.
-	m_search_timer.setInterval(500);
+	m_search_timer.setInterval(200);
 	m_search_timer.setSingleShot(true);
 }
 
@@ -127,9 +134,14 @@ void ElementsCollectionWidget::setCurrentLocation(
 	if (!location.exist())
 		return;
 
-	if (m_model)
-		m_tree_view->setCurrentIndex(
-					m_model->indexFromLocation(location));
+	if (m_model) {
+		m_search_field->clear();
+		search();
+		const QModelIndex index = m_model->indexFromLocation(location);
+		showAndExpandItem(index);
+		m_tree_view->setCurrentIndex(index);
+		m_tree_view->scrollTo(index);
+	}
 }
 
 void ElementsCollectionWidget::leaveEvent(QEvent *event)
@@ -138,6 +150,40 @@ void ElementsCollectionWidget::leaveEvent(QEvent *event)
 		qde->statusBar()->clearMessage();
 
 	QWidget::leaveEvent(event);
+}
+
+bool ElementsCollectionWidget::eventFilter(QObject *watched, QEvent *event)
+{
+	if (watched == m_search_field && event->type() == QEvent::KeyPress) {
+		auto *key_event = static_cast<QKeyEvent *>(event);
+		if ((key_event->key() == Qt::Key_Return
+				|| key_event->key() == Qt::Key_Enter)) {
+			if (m_search_timer.isActive()) {
+				m_search_timer.stop();
+				search();
+			}
+			if (m_search_results->currentIndex().isValid()) {
+				activateSearchResult(m_search_results->currentIndex());
+				return true;
+			}
+		}
+		if (key_event->key() == Qt::Key_Down) {
+			if (m_search_timer.isActive()) {
+				m_search_timer.stop();
+				search();
+			}
+			if (m_search_model->rowCount() <= 0)
+				return false;
+			m_search_results->setCurrentIndex(m_search_model->index(0, 0));
+			m_search_results->setFocus();
+			return true;
+		}
+		if (key_event->key() == Qt::Key_Escape && !m_search_field->text().isEmpty()) {
+			m_search_field->clear();
+			return true;
+		}
+	}
+	return QWidget::eventFilter(watched, event);
 }
 
 void ElementsCollectionWidget::setUpAction()
@@ -178,10 +224,16 @@ void ElementsCollectionWidget::setUpWidget()
 	m_main_vlayout->setSpacing(2);
 
 	m_search_field = new QLineEdit(this);
+	m_search_field->setObjectName(QStringLiteral("elementCollectionSearchField"));
 	m_search_field->setPlaceholderText(tr("Rechercher..."));
 	m_search_field->setClearButtonEnabled(true);
+	m_search_field->setAccessibleName(tr("Rechercher un élément"));
+	m_search_field->setAccessibleDescription(
+		tr("Saisissez un nom, une référence, une discipline ou un chemin."));
+	m_search_field->installEventFilter(this);
 
 	m_tree_view = new ElementsTreeView(this);
+	m_tree_view->setObjectName(QStringLiteral("elementCollectionTree"));
 	m_tree_view->setHeaderHidden(true);
 	m_tree_view->setIconSize(QSize(50, 50));
 	m_tree_view->setDragDropMode(QAbstractItemView::DragDrop);
@@ -208,8 +260,47 @@ void ElementsCollectionWidget::setUpWidget()
 	m_tab_widget->addTab(m_tree_view, tr("Collections"));
 	m_tab_widget->addTab(m_macros_tree_view, tr("Modèles"));
 
+	m_search_model = new ElementsCollectionSearchModel(this);
+	m_search_results = new QListView(this);
+	m_search_results->setObjectName(QStringLiteral("elementCollectionSearchResults"));
+	m_search_results->setModel(m_search_model);
+	m_search_results->setIconSize(QSize(50, 50));
+	m_search_results->setDragEnabled(true);
+	m_search_results->setDragDropMode(QAbstractItemView::DragOnly);
+	m_search_results->setSelectionMode(QAbstractItemView::SingleSelection);
+	m_search_results->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+	m_search_results->setWordWrap(true);
+	m_search_results->setSpacing(3);
+	m_search_results->setAccessibleName(tr("Résultats de recherche d'éléments"));
+	m_search_results->setAccessibleDescription(
+		tr("Liste à plat. Appuyez sur Entrée ou double-cliquez pour placer l'élément."));
+
+	m_search_summary = new QLabel(this);
+	m_search_summary->setObjectName(QStringLiteral("elementCollectionSearchSummary"));
+	m_search_summary->setAccessibleName(tr("Nombre de résultats"));
+	m_search_summary->setTextFormat(Qt::PlainText);
+
+	m_search_sort = new QComboBox(this);
+	m_search_sort->setObjectName(QStringLiteral("elementCollectionSearchSort"));
+	m_search_sort->setAccessibleName(tr("Trier les résultats"));
+	m_search_sort->addItem(tr("Trier par nom"), ElementsCollectionSearchModel::SortByName);
+	m_search_sort->addItem(tr("Trier par discipline"), ElementsCollectionSearchModel::SortByDiscipline);
+	m_search_sort->addItem(tr("Trier par source"), ElementsCollectionSearchModel::SortByProvenance);
+
+	m_search_page = new QWidget(this);
+	auto *search_layout = new QVBoxLayout(m_search_page);
+	search_layout->setContentsMargins(0, 0, 0, 0);
+	search_layout->setSpacing(4);
+	search_layout->addWidget(m_search_summary);
+	search_layout->addWidget(m_search_sort);
+	search_layout->addWidget(m_search_results, 1);
+
+	m_content_stack = new QStackedWidget(this);
+	m_content_stack->addWidget(m_tab_widget);
+	m_content_stack->addWidget(m_search_page);
+
 	m_main_vlayout->addWidget(m_search_field);
-	m_main_vlayout->addWidget(m_tab_widget);
+	m_main_vlayout->addWidget(m_content_stack);
 
 	m_progress_bar = new QProgressBar(this);
 	m_progress_bar->setFormat(QObject::tr("chargement %p% (%v sur %m)"));
@@ -227,10 +318,51 @@ void ElementsCollectionWidget::setUpConnection()
 {
 	connect(m_tree_view, &QTreeView::customContextMenuRequested,
 		this, &ElementsCollectionWidget::customContextMenu);
-	connect(m_search_field, &QLineEdit::textEdited,
-		[this]() {m_search_timer.start();});
+	connect(m_search_field, &QLineEdit::textChanged,
+		[this](const QString &text) {
+			if (text.isEmpty())
+				search();
+			else
+				m_search_timer.start();
+		});
 	connect(&m_search_timer, &QTimer::timeout,
 		this, &ElementsCollectionWidget::search);
+	connect(m_search_results, &QListView::activated,
+		this, &ElementsCollectionWidget::activateSearchResult);
+	connect(m_search_sort,
+		QOverload<int>::of(&QComboBox::currentIndexChanged),
+		[this](int index) {
+			const QString selected_location = m_search_results->currentIndex().data(
+				ElementsCollectionSearchModel::LocationRole).toString();
+			m_search_model->setSortMode(
+				static_cast<ElementsCollectionSearchModel::SortMode>(
+					m_search_sort->itemData(index).toInt()));
+			QModelIndex restored_index;
+			for (int row = 0; row < m_search_model->rowCount(); ++row) {
+				const QModelIndex candidate = m_search_model->index(row, 0);
+				if (candidate.data(ElementsCollectionSearchModel::LocationRole).toString()
+						== selected_location) {
+					restored_index = candidate;
+					break;
+				}
+			}
+			if (!restored_index.isValid() && m_search_model->rowCount() > 0)
+				restored_index = m_search_model->index(0, 0);
+			m_search_results->setCurrentIndex(restored_index);
+			updateSearchSummary();
+		});
+	connect(m_search_model, &QAbstractItemModel::modelReset,
+		this, &ElementsCollectionWidget::updateSearchSummary);
+
+	const auto activate_current_result = [this]() {
+		activateSearchResult(m_search_results->currentIndex());
+	};
+	auto *activate_return = new QShortcut(QKeySequence(Qt::Key_Return), m_search_results);
+	activate_return->setContext(Qt::WidgetShortcut);
+	connect(activate_return, &QShortcut::activated, this, activate_current_result);
+	auto *activate_enter = new QShortcut(QKeySequence(Qt::Key_Enter), m_search_results);
+	activate_enter->setContext(Qt::WidgetShortcut);
+	connect(activate_enter, &QShortcut::activated, this, activate_current_result);
 	connect(m_open_dir, &QAction::triggered,
 		this, &ElementsCollectionWidget::openDir);
 	connect(m_edit_element, &QAction::triggered,
@@ -687,6 +819,10 @@ void ElementsCollectionWidget::dirProperties()
 */
 void ElementsCollectionWidget::reload()
 {
+	if (m_new_model) {
+		qInfo() << "Elements collection reload already in progress";
+		return;
+	}
 	m_loading_timer.reset(new QElapsedTimer());
 	qInfo()<<"Elements collection reload";
 	m_loading_timer->start();
@@ -707,9 +843,6 @@ void ElementsCollectionWidget::reload()
 	if (m_model)
 		project_list.append(m_model->project());
 
-	if(m_new_model) {
-		m_new_model->deleteLater();
-	}
 	m_new_model = new ElementsCollectionModel(m_tree_view);
 	connect(m_new_model,
 		&ElementsCollectionModel::loadingProgressRangeChanged,
@@ -746,10 +879,13 @@ void ElementsCollectionWidget::loadingFinished()
 		m_tree_view->setModel(m_new_model);
 		m_index_at_context_menu = QModelIndex();
 		m_showed_index = QModelIndex();
+		m_search_model->setSourceModel(nullptr);
 		if (m_model) delete m_model;
 		m_model = m_new_model;
 		m_new_model = nullptr;
+		m_search_model->setSourceModel(m_model);
 		expandFirstItems();
+		search();
 	}
 	else {
 		m_model->highlightUnusedElement();
@@ -804,59 +940,38 @@ void ElementsCollectionWidget::locationWasSaved(
 */
 void ElementsCollectionWidget::search()
 {
-	QString text = m_search_field->text();
-		//Reset the search
-	if (text.isEmpty())
-	{
-		QModelIndex current_index = m_tree_view->currentIndex();
-		m_tree_view->reset();
-
-		if (m_showed_index.isValid())
-		{
-			hideCollection(true);
-			showAndExpandItem(m_showed_index, true, true);
-		}
-		else
-			expandFirstItems();
-
-		//Expand the tree and scroll to the last selected index
-		if (current_index.isValid())
-		{
-			showAndExpandItem(current_index);
-			m_tree_view->setCurrentIndex(current_index);
-			m_tree_view->scrollTo(current_index);
-		}
+	const QString text = m_search_field->text().trimmed();
+	if (text.isEmpty()) {
+		m_search_model->setQuery(QString());
+		m_content_stack->setCurrentWidget(m_tab_widget);
 		return;
 	}
 
-		//start the search when text have at least 3 letters.
-	if (text.count() < 3) {
+	m_content_stack->setCurrentWidget(m_search_page);
+	m_search_model->setQuery(text);
+	updateSearchSummary();
+	if (m_search_model->rowCount() > 0 && !m_search_results->currentIndex().isValid())
+		m_search_results->setCurrentIndex(m_search_model->index(0, 0));
+}
+
+void ElementsCollectionWidget::updateSearchSummary()
+{
+	if (m_search_field->text().trimmed().size() < 2) {
+		m_search_summary->setText(tr("Saisissez au moins 2 caractères"));
 		return;
 	}
+	const int count = m_search_model->rowCount();
+	m_search_summary->setText(tr("%n résultat(s)", nullptr, count));
+}
 
-	hideCollection(true);
-#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)	// ### Qt 6: remove
-	const QStringList text_list = text.split("+", QString::SkipEmptyParts);
-#else
-#if TODO_LIST
-#pragma message("@TODO remove code for QT 5.14 or later")
-#endif
-	const QStringList text_list = text.split("+", Qt::SkipEmptyParts);
-#endif
-	QModelIndexList match_index;
-	for (QString txt : text_list) {
-		match_index << m_model->match(m_showed_index.isValid()
-						  ? m_model->index(0,0,m_showed_index)
-						  : m_model->index(0,0),
-						  Qt::UserRole+1,
-						  QVariant(txt),
-						  -1,
-						  Qt::MatchContains
-						  | Qt::MatchRecursive);
-	}
-
-	for(QModelIndex index : match_index)
-		showAndExpandItem(index);
+void ElementsCollectionWidget::activateSearchResult(const QModelIndex &index)
+{
+	if (!index.isValid())
+		return;
+	const QString location = index.data(
+		ElementsCollectionSearchModel::LocationRole).toString();
+	if (!location.isEmpty())
+		emit elementPlacementRequested(location);
 }
 
 /**

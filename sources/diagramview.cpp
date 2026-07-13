@@ -204,12 +204,6 @@ void DiagramView::handleElementDrop(QDropEvent *event)
 	//Build an element from the text of the mime data
 	ElementsLocation location(event->mimeData()->text());
 
-	if ( !(location.isElement() && location.exist()) )
-	{
-		qDebug() << "DiagramView::handleElementDrop, location can't be use : " << location;
-		return;
-	}
-
 	QPointF drop_pos;
 	#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)	// ### Qt 6: remove
 	drop_pos = mapToScene(event->pos());
@@ -217,14 +211,40 @@ void DiagramView::handleElementDrop(QDropEvent *event)
 	drop_pos = event->position();
 	#endif
 
-	if (location.path().endsWith(".qetmak")) {
-		diagram()->setEventInterface(new DiagramEventAddMacro(location, diagram(), drop_pos));
-	} else {
-		diagram()->setEventInterface(new DiagramEventAddElement(location, diagram(), drop_pos));
+	startAddingElementAt(location, drop_pos);
+}
+
+/**
+	@brief DiagramView::startAddingElement
+	Start the same interactive placement mode as an element dropped from the
+	collection. The initial preview is centred in the visible part of the folio.
+	@return true when placement mode was started.
+*/
+bool DiagramView::startAddingElement(const ElementsLocation &location)
+{
+	return startAddingElementAt(location, viewedSceneRect().center());
+}
+
+bool DiagramView::startAddingElementAt(const ElementsLocation &location,
+										   const QPointF &initial_position)
+{
+	if (!m_diagram || m_diagram->isReadOnly()
+			|| !(location.isElement() && location.exist())) {
+		qDebug() << "DiagramView::startAddingElement, location can't be used:"
+				 << location;
+		return false;
 	}
 
-	//Set focus to the view to get event
-	this->setFocus();
+	ElementsLocation placement_location(location);
+	if (placement_location.path().endsWith(".qetmak")) {
+		m_diagram->setEventInterface(new DiagramEventAddMacro(
+			placement_location, m_diagram, initial_position));
+	} else {
+		m_diagram->setEventInterface(new DiagramEventAddElement(
+			placement_location, m_diagram, initial_position));
+	}
+	setFocus();
+	return true;
 }
 
 /**

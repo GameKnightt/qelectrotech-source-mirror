@@ -202,12 +202,25 @@ void QETDiagramEditor::setUpElementsCollectionWidget()
 	m_qdw_elmt_collection = new QDockWidget(tr("Collections"), this);
 	m_qdw_elmt_collection->setObjectName("elements_collection_widget");
 	m_qdw_elmt_collection->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+	m_qdw_elmt_collection->setMinimumWidth(280);
 	m_qdw_elmt_collection->setFeatures(
 				QDockWidget::DockWidgetClosable
 				|QDockWidget::DockWidgetMovable
 				|QDockWidget::DockWidgetFloatable);
 
 	m_element_collection_widget = new ElementsCollectionWidget(m_qdw_elmt_collection);
+	connect(m_element_collection_widget,
+		&ElementsCollectionWidget::elementPlacementRequested,
+		this,
+		[this](const QString &location_uri) {
+			ElementsLocation location(location_uri);
+			DiagramView *view = currentDiagramView();
+			if (!view || !view->startAddingElement(location)) {
+				statusBar()->showMessage(
+					tr("Ouvrez un folio modifiable pour placer cet élément."),
+					4000);
+			}
+		});
 	m_qdw_elmt_collection->setWidget(m_element_collection_widget);
 	m_element_collection_widget->expandFirstItems();
 

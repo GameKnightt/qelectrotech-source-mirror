@@ -59,6 +59,11 @@ if(WIN32)
   set(QET_COMMON_COLLECTION_PATH  "elements/")
   set(QET_COMMON_TBT_PATH         "titleblocks/")
   set(QET_LANG_PATH               "l10n/")
+  # Keep CMake builds aligned with qelectrotech.pro: portable Windows
+  # packages resolve their data next to the executable, not from the process
+  # working directory chosen by the launcher.
+  set(QET_COMMON_COLLECTION_PATH_RELATIVE_TO_BINARY_PATH ON)
+  set(QET_LANG_PATH_RELATIVE_TO_BINARY_PATH ON)
   set(QET_LICENSE_PATH            "./")
   # Liste des ressources Windows
 #RC_FILE = qelectrotech.rc

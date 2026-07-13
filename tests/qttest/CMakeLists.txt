@@ -96,6 +96,24 @@ add_test(
   NAME project_save_status_test
   COMMAND project_save_status_test)
 
+add_executable(
+  elements_collection_search_test
+  tst_elementscollectionsearchmodel.cpp
+  ${QET_DIR}/sources/ElementsCollection/elementscollectionsearchmodel.cpp
+  ${QET_DIR}/sources/ElementsCollection/elementscollectionsearchmodel.h
+  ${QET_DIR}/sources/ElementsCollection/elementcollectionroles.h)
+add_test(
+  NAME elements_collection_search_test
+  COMMAND elements_collection_search_test)
+set_tests_properties(
+  elements_collection_search_test
+  PROPERTIES LABELS "element-collection;ux-03;deterministic-scale")
+
+target_include_directories(
+  elements_collection_search_test
+  PRIVATE
+  ${QET_DIR}/sources/ElementsCollection)
+
 target_link_libraries(
   ${PROJECT_NAME}
   PRIVATE
@@ -127,6 +145,12 @@ target_include_directories(
 
 target_link_libraries(
   project_save_status_test
+  PRIVATE
+  Qt::Test
+  Qt::Widgets)
+
+target_link_libraries(
+  elements_collection_search_test
   PRIVATE
   Qt::Test
   Qt::Widgets)

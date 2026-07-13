@@ -13,6 +13,7 @@
 
 #include <QComboBox>
 #include <QElapsedTimer>
+#include <QFont>
 #include <QGuiApplication>
 #include <QLineEdit>
 #include <QListView>
@@ -54,6 +55,7 @@ class FolioNavigatorTest : public QObject
 		void escapeAndEmptyResultsDoNotActivate();
 		void favoriteActionIsExplicit();
 		void exposesAccessibleNamesAndFitsScreen();
+		void exposesAccessibleNamesAndFitsScreenWithLargeText();
 };
 
 void FolioNavigatorTest::normalizesAccentsAndSpaces()
@@ -251,7 +253,57 @@ void FolioNavigatorTest::exposesAccessibleNamesAndFitsScreen()
 			QStringLiteral("folioNavigatorResults"))->accessibleName().isEmpty());
 	QScreen *screen = dialog.screen();
 	QVERIFY(screen);
-	QVERIFY(screen->availableGeometry().contains(dialog.frameGeometry()));
+	QVERIFY2(
+			screen->availableGeometry().contains(dialog.frameGeometry()),
+			qPrintable(QStringLiteral("available=%1,%2 %3x%4 frame=%5,%6 %7x%8 minimum=%9x%10")
+					.arg(screen->availableGeometry().x())
+					.arg(screen->availableGeometry().y())
+					.arg(screen->availableGeometry().width())
+					.arg(screen->availableGeometry().height())
+					.arg(dialog.frameGeometry().x())
+					.arg(dialog.frameGeometry().y())
+					.arg(dialog.frameGeometry().width())
+					.arg(dialog.frameGeometry().height())
+					.arg(dialog.minimumSizeHint().width())
+					.arg(dialog.minimumSizeHint().height())));
+	QVERIFY(dialog.minimumSizeHint().width()
+			<= screen->availableGeometry().width());
+	QVERIFY(dialog.minimumSizeHint().height()
+			<= screen->availableGeometry().height());
+	dialog.close();
+}
+
+void FolioNavigatorTest::exposesAccessibleNamesAndFitsScreenWithLargeText()
+{
+	const QFont original_font = QGuiApplication::font();
+	struct FontRestorer {
+		QFont font;
+		~FontRestorer() { QGuiApplication::setFont(font); }
+	} restorer {original_font};
+	QFont large_font = original_font;
+	const qreal base_size = original_font.pointSizeF() > 0
+			? original_font.pointSizeF() : 9.0;
+	large_font.setPointSizeF(base_size * 1.5);
+	QGuiApplication::setFont(large_font);
+
+	FolioNavigatorDialog dialog;
+	QVector<FolioNavigationEntry> entries {
+		entry(0, QStringLiteral("1"), QStringLiteral("Premier"))
+	};
+	dialog.openForProject(
+			QStringLiteral("Test"), entries, entries.at(0).diagram_id, true, true);
+	QVERIFY(!dialog.accessibleName().isEmpty());
+	QVERIFY(!dialog.findChild<QLineEdit *>(
+			QStringLiteral("folioNavigatorSearch"))->accessibleName().isEmpty());
+	QVERIFY(!dialog.findChild<QListView *>(
+			QStringLiteral("folioNavigatorResults"))->accessibleName().isEmpty());
+	const QSize target_logical_size(1280, 720);
+	QVERIFY2(
+			dialog.minimumSizeHint().width() <= target_logical_size.width(),
+			"The dialog must fit a 1920x1080 display at 150% scaling");
+	QVERIFY2(
+			dialog.minimumSizeHint().height() <= target_logical_size.height(),
+			"The dialog must fit a 1920x1080 display at 150% scaling");
 	dialog.close();
 }
 

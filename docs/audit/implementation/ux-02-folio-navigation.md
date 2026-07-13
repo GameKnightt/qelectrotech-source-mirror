@@ -43,9 +43,11 @@ Le test `folio_navigator_test` couvre :
 - filtrage de 500 folios pré-indexés sous un seuil volontairement large de
   1 000 ms.
 
-Un second passage CTest exécute le contrôle de dimensions avec
-`QT_SCALE_FACTOR=1.5` et le plugin Windows natif. La CI Windows construit
-explicitement ce nouveau test.
+Un second passage CTest exécute le contrôle de dimensions avec une police
+agrandie à 150 % et vérifie la cible logique 1280×720 correspondant à un écran
+1920×1080 réglé à 150 %. Ce stress de mise en page reste déterministe sur le
+rendu `offscreen` de la CI Windows, qui ne fournit pas de bureau interactif. La
+validation de l'application native complète le contrôle automatisé.
 
 Résultat local Windows 11, Qt 5 / MSYS2 : **5 tests sur 5 réussis**, dont les
 deux variantes du navigateur. L'exécutable complet `qelectrotech.exe` est

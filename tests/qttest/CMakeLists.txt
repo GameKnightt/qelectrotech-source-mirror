@@ -90,11 +90,8 @@ add_test(
   NAME folio_navigator_test
   COMMAND folio_navigator_test)
 add_test(
-  NAME folio_navigator_dpi_150_test
-  COMMAND folio_navigator_test exposesAccessibleNamesAndFitsScreen)
-set_tests_properties(
-  folio_navigator_dpi_150_test
-  PROPERTIES ENVIRONMENT "QT_SCALE_FACTOR=1.5;QT_QPA_PLATFORM=windows")
+  NAME folio_navigator_large_text_150_test
+  COMMAND folio_navigator_test exposesAccessibleNamesAndFitsScreenWithLargeText)
 
 target_link_libraries(
   ${PROJECT_NAME}

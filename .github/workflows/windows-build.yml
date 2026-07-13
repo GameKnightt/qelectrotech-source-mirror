@@ -70,6 +70,8 @@ jobs:
             project_save_status_test \
             elements_collection_search_test \
             conductor_interaction_test \
+            ordered_index_cache_test \
+            folio_navigator_test \
             qelectrotech
           ctest --test-dir build-tests --output-on-failure
           QT_SCALE_FACTOR=1.5 ctest --test-dir build-tests \

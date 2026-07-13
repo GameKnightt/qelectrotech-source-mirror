@@ -123,6 +123,36 @@ add_test(
   NAME conductor_interaction_test
   COMMAND conductor_interaction_test)
 
+add_executable(
+  ordered_index_cache_test
+  tst_orderedindexcache.cpp)
+add_test(
+  NAME ordered_index_cache_test
+  COMMAND ordered_index_cache_test)
+set_tests_properties(
+  ordered_index_cache_test
+  PROPERTIES LABELS "folio-navigation;deterministic-scale")
+
+add_executable(
+  folio_navigator_test
+  tst_folionavigator.cpp
+  ${QET_DIR}/sources/ui/folionavigatordialog.cpp
+  ${QET_DIR}/sources/ui/folionavigatordialog.h
+  ${QET_DIR}/sources/ui/folionavigatormodel.cpp
+  ${QET_DIR}/sources/ui/folionavigatormodel.h
+  ${QET_DIR}/sources/utils/folionavigationindex.cpp
+  ${QET_DIR}/sources/utils/folionavigationindex.h)
+add_test(
+  NAME folio_navigator_test
+  COMMAND folio_navigator_test)
+add_test(
+  NAME folio_navigator_large_text_150_test
+  COMMAND folio_navigator_test exposesAccessibleNamesAndFitsScreenWithLargeText)
+set_tests_properties(
+  folio_navigator_test
+  folio_navigator_large_text_150_test
+  PROPERTIES LABELS "folio-navigation;deterministic-scale")
+
 target_link_libraries(
   ${PROJECT_NAME}
   PRIVATE
@@ -170,3 +200,19 @@ target_link_libraries(
   Qt::Test
   Qt::Gui)
 
+target_link_libraries(
+  ordered_index_cache_test
+  PRIVATE
+  Qt::Test
+  Qt::Core)
+
+target_include_directories(
+  folio_navigator_test
+  PRIVATE
+  ${QET_DIR}/sources)
+
+target_link_libraries(
+  folio_navigator_test
+  PRIVATE
+  Qt::Test
+  Qt::Widgets)

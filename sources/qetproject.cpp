@@ -173,6 +173,7 @@ QETProject::~QETProject()
 	{
 		delete  diagram;
 		m_diagrams_list.removeOne(diagram);
+		m_diagram_index_cache.invalidate();
 	}
 }
 
@@ -316,8 +317,9 @@ QList<Diagram *> QETProject::diagrams() const
 */
 int QETProject::folioIndex(const Diagram *diagram) const
 {
-	// QList::indexOf returns -1 if no item matched.
-	return(m_diagrams_list.indexOf(const_cast<Diagram *>(diagram)));
+	return m_diagram_index_cache.indexOf(
+			m_diagrams_list,
+			const_cast<Diagram *>(diagram));
 }
 
 /**
@@ -1376,6 +1378,7 @@ void QETProject::removeDiagram(Diagram *diagram)
 
 	if (m_diagrams_list.removeAll(diagram))
 	{
+		m_diagram_index_cache.invalidate();
 		emit diagramRemoved(this, diagram);
 		diagram->deleteLater();
 	}
@@ -1398,6 +1401,7 @@ void QETProject::diagramOrderChanged(int old_index, int new_index) {
 	if (old_index > diagram_max_index || new_index > diagram_max_index) return;
 
 	m_diagrams_list.move(old_index, new_index);
+	m_diagram_index_cache.invalidate();
 	updateDiagramsFolioData();
 	setModified(true);
 	emit projectDiagramsOrderChanged(this, old_index, new_index);
@@ -1561,6 +1565,7 @@ void QETProject::readDiagramsXml(QDomDocument &xml_project)
 					.toElement();
 			auto diagram = new Diagram(this);
 			m_diagrams_list << diagram;
+			m_diagram_index_cache.invalidate();
 
 			connect(&diagram->border_and_titleblock, &BorderTitleBlock::needFolioData,
 					this, &QETProject::updateDiagramsFolioData);
@@ -1876,6 +1881,7 @@ void QETProject::addDiagram(Diagram *diagram, int pos)
 	} else {
 		m_diagrams_list.insert(pos, diagram);
 	}
+	m_diagram_index_cache.invalidate();
 
 	updateDiagramsFolioData();
 }

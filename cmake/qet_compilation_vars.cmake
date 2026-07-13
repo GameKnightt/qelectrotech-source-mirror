@@ -643,6 +643,10 @@ set(QET_SRC_FILES
   ${QET_DIR}/sources/ui/backupdialog.h
   ${QET_DIR}/sources/ui/dialogwaiting.cpp
   ${QET_DIR}/sources/ui/dialogwaiting.h
+  ${QET_DIR}/sources/ui/folionavigatordialog.cpp
+  ${QET_DIR}/sources/ui/folionavigatordialog.h
+  ${QET_DIR}/sources/ui/folionavigatormodel.cpp
+  ${QET_DIR}/sources/ui/folionavigatormodel.h
   ${QET_DIR}/sources/ui/dynamicelementtextitemeditor.cpp
   ${QET_DIR}/sources/ui/dynamicelementtextitemeditor.h
   ${QET_DIR}/sources/ui/dynamicelementtextmodel.cpp
@@ -726,6 +730,9 @@ set(QET_SRC_FILES
   ${QET_DIR}/sources/utils/conductorcreator.h
   ${QET_DIR}/sources/utils/conductorinteraction.cpp
   ${QET_DIR}/sources/utils/conductorinteraction.h
+  ${QET_DIR}/sources/utils/folionavigationindex.cpp
+  ${QET_DIR}/sources/utils/folionavigationindex.h
+  ${QET_DIR}/sources/utils/orderedindexcache.h
   ${QET_DIR}/sources/utils/macosxopenevent.cpp
   ${QET_DIR}/sources/utils/macosxopenevent.h
   ${QET_DIR}/sources/utils/qetsettings.cpp

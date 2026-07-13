@@ -433,6 +433,20 @@ void QETDiagramEditor::setUpActions()
 		editProjectProperties(currentProjectView());
 	});
 
+	//Reach a folio directly without expanding the project tree.
+	m_project_folio_navigator = new QAction(
+			QET::Icons::ZoomDraw,
+			tr("Atteindre un folio…"),
+			this);
+	m_project_folio_navigator->setShortcut(Qt::CTRL | Qt::Key_G);
+	m_project_folio_navigator->setStatusTip(tr(
+			"Recherche un folio du projet courant par numéro, titre ou propriété"));
+	connect(m_project_folio_navigator, &QAction::triggered, this, [this]() {
+		if (ProjectView *project_view = currentProjectView()) {
+			project_view->openFolioNavigator();
+		}
+	});
+
 		//Add new folio to current project
 	m_project_add_diagram = new QAction(QET::Icons::DiagramAdd, tr("Ajouter un folio"), this);
 	m_project_add_diagram->setShortcut(Qt::CTRL | Qt::Key_T);
@@ -877,6 +891,8 @@ void QETDiagramEditor::setUpMenu()
 
 	// menu Projet
 	menu_project -> addAction(m_project_edit_properties);
+	menu_project -> addAction(m_project_folio_navigator);
+	menu_project -> addSeparator();
 	menu_project -> addAction(m_project_add_diagram);
 	menu_project -> addAction(m_remove_diagram_from_project);
 	menu_project -> addAction(m_clean_project);
@@ -1630,6 +1646,7 @@ void QETDiagramEditor::slot_updateActions()
 
 		//Project menu
 	m_project_edit_properties     -> setEnabled(opened_project);
+	m_project_folio_navigator     -> setEnabled(opened_project);
 	m_project_add_diagram         -> setEnabled(editable_project);
 	m_remove_diagram_from_project -> setEnabled(editable_project);
 	m_clean_project               -> setEnabled(editable_project);

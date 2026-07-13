@@ -29,8 +29,16 @@ include(cmake/copyright_message.cmake)
 set(QET_DIR ${PROJECT_SOURCE_DIR})
 
 # Add sub directories
-option(PACKAGE_TESTS "Build the tests" ON)
-if(PACKAGE_TESTS)
+# BUILD_TESTING is the standard CMake switch provided by CTest. Keep the
+# historical PACKAGE_TESTS switch as a compatibility guard for existing
+# scripts: setting either option to OFF disables the project tests.
+include(CTest)
+option(
+    PACKAGE_TESTS
+    "Build the tests (legacy compatibility switch)"
+    "${BUILD_TESTING}"
+)
+if(BUILD_TESTING AND PACKAGE_TESTS)
     message("Add sub directory tests")
     add_subdirectory(tests)
 endif()

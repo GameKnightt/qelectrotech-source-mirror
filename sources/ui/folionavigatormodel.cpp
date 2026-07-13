@@ -10,6 +10,7 @@
 #include "folionavigatormodel.h"
 
 #include <QFont>
+#include <QSet>
 
 #include <algorithm>
 
@@ -97,6 +98,9 @@ void FolioNavigatorModel::setEntries(
 {
 	beginResetModel();
 	m_entries = entries;
+	for (FolioNavigationEntry &entry : m_entries) {
+		FolioNavigationIndex::prepareEntry(entry);
+	}
 	m_visible_indexes = FolioNavigationIndex::filteredIndexes(
 			m_entries, m_query, m_group, m_scope);
 	endResetModel();
@@ -159,14 +163,15 @@ int FolioNavigatorModel::preferredRow(const QUuid &preferred_id) const
 
 QStringList FolioNavigatorModel::groups() const
 {
-	QStringList result;
+	QSet<QString> unique_groups;
 	for (const FolioNavigationEntry &entry : m_entries)
 	{
 		const QString group = entry.group.trimmed();
-		if (!group.isEmpty() && !result.contains(group)) {
-			result.append(group);
+		if (!group.isEmpty()) {
+			unique_groups.insert(group);
 		}
 	}
+	QStringList result = unique_groups.values();
 	std::sort(result.begin(), result.end(), [](const QString &left, const QString &right) {
 		return QString::localeAwareCompare(left, right) < 0;
 	});

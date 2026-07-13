@@ -28,7 +28,7 @@ namespace
 				|| category == QChar::Mark_Enclosing;
 	}
 
-	QString searchableText(const FolioNavigationEntry &entry)
+	QString buildSearchableText(const FolioNavigationEntry &entry)
 	{
 		QStringList fields {
 			QString::number(entry.position + 1),
@@ -47,16 +47,26 @@ namespace
 	int matchScore(
 			const FolioNavigationEntry &entry,
 			const QString &normalized_query,
-			const QStringList &tokens)
+			const QStringList &tokens,
+			FolioNavigationStats *stats)
 	{
+		if (stats) {
+			++stats->match_evaluations;
+		}
 		if (normalized_query.isEmpty()) {
 			return 1000;
 		}
 
 		const QString position = QString::number(entry.position + 1);
-		const QString folio = FolioNavigationIndex::normalized(entry.folio_label);
-		const QString raw_folio = FolioNavigationIndex::normalized(entry.raw_folio_label);
-		const QString title = FolioNavigationIndex::normalized(entry.title);
+		const QString folio = entry.search_index_ready
+				? entry.normalized_folio_label
+				: FolioNavigationIndex::normalized(entry.folio_label);
+		const QString raw_folio = entry.search_index_ready
+				? entry.normalized_raw_folio_label
+				: FolioNavigationIndex::normalized(entry.raw_folio_label);
+		const QString title = entry.search_index_ready
+				? entry.normalized_title
+				: FolioNavigationIndex::normalized(entry.title);
 		if (normalized_query == position) {
 			return 0;
 		}
@@ -75,8 +85,21 @@ namespace
 			return 30;
 		}
 
-		const QString haystack = searchableText(entry);
+		if (stats) {
+			++stats->searchable_text_lookups;
+			if (entry.search_index_ready) {
+				++stats->prepared_search_hits;
+			} else {
+				++stats->fallback_search_builds;
+			}
+		}
+		const QString haystack = entry.search_index_ready
+				? entry.normalized_search_text
+				: buildSearchableText(entry);
 		for (const QString &token : tokens) {
+			if (stats) {
+				++stats->token_checks;
+			}
 			if (!haystack.contains(token)) {
 				return -1;
 			}
@@ -97,6 +120,15 @@ QString FolioNavigationIndex::normalized(const QString &text)
 		}
 	}
 	return result.simplified();
+}
+
+void FolioNavigationIndex::prepareEntry(FolioNavigationEntry &entry)
+{
+	entry.normalized_folio_label = normalized(entry.folio_label);
+	entry.normalized_raw_folio_label = normalized(entry.raw_folio_label);
+	entry.normalized_title = normalized(entry.title);
+	entry.normalized_search_text = buildSearchableText(entry);
+	entry.search_index_ready = true;
 }
 
 QString FolioNavigationIndex::displayFolio(
@@ -135,9 +167,28 @@ QVector<int> FolioNavigationIndex::filteredIndexes(
 		const QVector<FolioNavigationEntry> &entries,
 		const QString &query,
 		const QString &group,
-		Scope scope)
+		Scope scope,
+		FolioNavigationStats *stats)
 {
+	if (stats) {
+		*stats = FolioNavigationStats();
+	}
 	const QString normalized_query = normalized(query);
+	if (normalized_query.isEmpty()
+			&& group.isEmpty()
+			&& scope == Scope::All)
+	{
+		QVector<int> all_indexes;
+		all_indexes.reserve(entries.size());
+		for (int index = 0; index < entries.size(); ++index) {
+			all_indexes.append(index);
+			if (stats) {
+				++stats->entries_visited;
+				++stats->matches;
+			}
+		}
+		return all_indexes;
+	}
 	const QStringList tokens = normalized_query.split(
 			QLatin1Char(' '), Qt::SkipEmptyParts);
 	QVector<RankedIndex> ranked;
@@ -145,6 +196,9 @@ QVector<int> FolioNavigationIndex::filteredIndexes(
 
 	for (int index = 0; index < entries.size(); ++index)
 	{
+		if (stats) {
+			++stats->entries_visited;
+		}
 		const FolioNavigationEntry &entry = entries.at(index);
 		if (!group.isEmpty() && entry.group != group) {
 			continue;
@@ -156,17 +210,24 @@ QVector<int> FolioNavigationIndex::filteredIndexes(
 			continue;
 		}
 
-		const int score = matchScore(entry, normalized_query, tokens);
+		const int score = matchScore(
+				entry, normalized_query, tokens, stats);
 		if (score >= 0) {
 			ranked.append({index, score});
+			if (stats) {
+				++stats->matches;
+			}
 		}
 	}
 
 	std::stable_sort(
 			ranked.begin(), ranked.end(),
-			[&entries, scope, &normalized_query](
+			[&entries, scope, &normalized_query, stats](
 					const RankedIndex &left,
 					const RankedIndex &right) {
+				if (stats) {
+					++stats->sort_comparisons;
+				}
 				if (left.score != right.score) {
 					return left.score < right.score;
 				}

@@ -721,6 +721,7 @@ set(QET_SRC_FILES
   ${QET_DIR}/sources/utils/conductorcreator.h
   ${QET_DIR}/sources/utils/folionavigationindex.cpp
   ${QET_DIR}/sources/utils/folionavigationindex.h
+  ${QET_DIR}/sources/utils/orderedindexcache.h
   ${QET_DIR}/sources/utils/macosxopenevent.cpp
   ${QET_DIR}/sources/utils/macosxopenevent.h
   ${QET_DIR}/sources/utils/qetsettings.cpp

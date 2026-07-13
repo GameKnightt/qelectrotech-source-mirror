@@ -65,7 +65,7 @@ class projectDataBase : public QObject
 		bool createDataBase();
 		void createElementNomenclatureView();
 		void createSummaryView();
-		void populateDiagramTable();
+		bool populateDiagramTable();
 		void populateElementTable();
 		void populateElementInfoTable();
 		void populateDiagramInfoTable();

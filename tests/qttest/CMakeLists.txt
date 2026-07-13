@@ -78,6 +78,16 @@ add_test(
   COMMAND diagram_duplicate_uuid_remapper_test)
 
 add_executable(
+  ordered_index_cache_test
+  tst_orderedindexcache.cpp)
+add_test(
+  NAME ordered_index_cache_test
+  COMMAND ordered_index_cache_test)
+set_tests_properties(
+  ordered_index_cache_test
+  PROPERTIES LABELS "folio-navigation;deterministic-scale")
+
+add_executable(
   folio_navigator_test
   tst_folionavigator.cpp
   ${QET_DIR}/sources/ui/folionavigatordialog.cpp
@@ -92,6 +102,10 @@ add_test(
 add_test(
   NAME folio_navigator_large_text_150_test
   COMMAND folio_navigator_test exposesAccessibleNamesAndFitsScreenWithLargeText)
+set_tests_properties(
+  folio_navigator_test
+  folio_navigator_large_text_150_test
+  PROPERTIES LABELS "folio-navigation;deterministic-scale")
 
 target_link_libraries(
   ${PROJECT_NAME}
@@ -105,6 +119,12 @@ target_link_libraries(
   PRIVATE
   Qt::Test
   Qt::Xml)
+
+target_link_libraries(
+  ordered_index_cache_test
+  PRIVATE
+  Qt::Test
+  Qt::Core)
 
 target_include_directories(
   folio_navigator_test

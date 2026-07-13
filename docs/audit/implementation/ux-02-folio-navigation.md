@@ -76,8 +76,9 @@ finale résout directement la vue depuis l'onglet Qt actif pendant cette phase.
 
 ## Suite recommandée
 
-UX-02b devra traiter séparément le coût de chargement et de mise à jour des
-onglets sur les très grands projets. `ProjectView::loadDiagrams` et certaines
-mises à jour de titres conservent des parcours répétés qui peuvent devenir
-quadratiques ; les modifier dans UX-02 aurait augmenté le risque fonctionnel
-sans être nécessaire au navigateur, dont le filtrage lui-même reste linéaire.
+UX-02b traite séparément le coût des index, onglets, groupes et positions
+SQLite sur les très grands projets. Les résultats, budgets 500/1000 et mesures
+Windows sont consignés dans
+`docs/audit/implementation/ux-02b-large-project-performance.md`. Le chargement
+reste entièrement anticipé : le parsing et la création différée des
+`DiagramView` constituent le chantier de performance suivant.

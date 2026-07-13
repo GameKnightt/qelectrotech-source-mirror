@@ -51,17 +51,38 @@ projectDataBase::projectDataBase(QETProject *project, QObject *parent) :
 	});
 	connect(m_project, &QETProject::projectDiagramsOrderChanged, [this]()
 	{
-		for (auto diagram : m_project->diagrams())
+		const QList<Diagram *> diagrams = m_project->diagrams();
+		if (!m_data_base.transaction())
 		{
-			m_diagram_order_changed.bindValue(":pos", m_project->folioIndex(diagram)+1);
+			qWarning() << "projectDataBase: unable to start diagram-order transaction:"
+					   << m_data_base.lastError();
+			return;
+		}
+		bool success = true;
+		for (int position = 0; position < diagrams.size(); ++position)
+		{
+			Diagram *diagram = diagrams.at(position);
+			m_diagram_order_changed.bindValue(":pos", position + 1);
 			m_diagram_order_changed.bindValue(":uuid", diagram->uuid());
-			m_diagram_order_changed.exec();
+			success = m_diagram_order_changed.exec() && success;
 
 
 			m_diagram_info_order_changed.bindValue(":folio", diagram->border_and_titleblock.titleblockInformation().value("folio"));
 			m_diagram_info_order_changed.bindValue(":uuid", diagram->uuid());
-			m_diagram_info_order_changed.exec();
+			success = m_diagram_info_order_changed.exec() && success;
 
+		}
+		if (!success)
+		{
+			m_data_base.rollback();
+			return;
+		}
+		if (!m_data_base.commit())
+		{
+			qWarning() << "projectDataBase: unable to commit diagram order:"
+					   << m_data_base.lastError();
+			m_data_base.rollback();
+			return;
 		}
 		emit dataBaseUpdated();
 	});
@@ -83,7 +104,9 @@ projectDataBase::~projectDataBase()
 */
 void projectDataBase::updateDB()
 {
-	populateDiagramTable();
+	if (!populateDiagramTable()) {
+		return;
+	}
 	populateDiagramInfoTable();
 	populateElementTable();
 	populateElementInfoTable();
@@ -431,19 +454,42 @@ void projectDataBase::createSummaryView()
 	}
 }
 
-void projectDataBase::populateDiagramTable()
+bool projectDataBase::populateDiagramTable()
 {
-	QSqlQuery query_(m_data_base);
-	query_.exec("DELETE FROM diagram");
-
-	for (auto diagram : m_project->diagrams())
+	if (!m_data_base.transaction())
 	{
+		qWarning() << "projectDataBase::populateDiagramTable transaction error:"
+				   << m_data_base.lastError();
+		return false;
+	}
+	bool success = true;
+	QSqlQuery query_(m_data_base);
+	success = query_.exec("DELETE FROM diagram");
+
+	const QList<Diagram *> diagrams = m_project->diagrams();
+	for (int position = 0; position < diagrams.size(); ++position)
+	{
+		Diagram *diagram = diagrams.at(position);
 		m_insert_diagram_query.bindValue(":uuid", diagram->uuid().toString());
-		m_insert_diagram_query.bindValue(":pos", m_project->folioIndex(diagram)+1);
+		m_insert_diagram_query.bindValue(":pos", position + 1);
 		if(!m_insert_diagram_query.exec()) {
 			qDebug() << "projectDataBase::populateDiagramTable insert error : " << m_insert_diagram_query.lastError();
+			success = false;
 		}
 	}
+	if (!success)
+	{
+		m_data_base.rollback();
+		return false;
+	}
+	if (!m_data_base.commit())
+	{
+		qWarning() << "projectDataBase::populateDiagramTable commit error:"
+				   << m_data_base.lastError();
+		m_data_base.rollback();
+		return false;
+	}
+	return true;
 }
 
 /**

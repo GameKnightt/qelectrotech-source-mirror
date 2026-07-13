@@ -253,8 +253,8 @@ void FolioNavigatorDialog::activateCurrent()
 	if (diagram_id.isNull()) {
 		return;
 	}
-	emit folioActivated(diagram_id);
 	accept();
+	emit folioActivated(diagram_id);
 }
 
 void FolioNavigatorDialog::toggleCurrentFavorite()

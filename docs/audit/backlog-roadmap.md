@@ -231,7 +231,13 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
 
 ### PERF-01 — Budget de performance grands projets
 
-- **Preuve :** E04, exemple 150 folios en ~7,5 s ; aucune mesure instrumentée.
+- **Preuve :** E04, exemple 150 folios en ~7,5 s sans instrumentation ; UX-02b
+  ajoute des budgets d'opérations et des mesures Windows synthétiques 150/500.
+- **État du fork :** première passe UX-02b réalisée sur les index de folios,
+  onglets, navigateur et positions SQLite. Budgets d'opérations 500/1000 et
+  mesures Windows synthétiques documentés dans
+  `docs/audit/implementation/ux-02b-large-project-performance.md`. Le parsing,
+  l'export, la mémoire et les projets industriels réels restent à profiler.
 - **Utilisateurs touchés :** grands projets.
 - **Fréquence :** ouverture, recherche, génération.
 - **Impact :** productivité.

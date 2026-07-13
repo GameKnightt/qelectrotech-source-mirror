@@ -29,6 +29,7 @@
 #include "titleblock/templatescollection.h"
 #include "titleblockproperties.h"
 #include "diagram.h"
+#include "utils/orderedindexcache.h"
 #ifdef BUILD_WITHOUT_KF5
 #	include "ui/nokde/kautosavefile.h"
 #else
@@ -270,6 +271,8 @@ class QETProject : public QObject
 		ProjectState m_state;
 			/// Diagrams carried by the project
 		QList<Diagram *> m_diagrams_list;
+			/// Cached diagram positions, validated against m_diagrams_list.
+		mutable OrderedIndexCache<Diagram *> m_diagram_index_cache;
 			/// Project title
 		QString project_title_;
 			/// QElectroTech version declared in the XML document at opening time

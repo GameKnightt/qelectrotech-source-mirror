@@ -12,7 +12,6 @@
 #include "../../sources/utils/folionavigationindex.h"
 
 #include <QComboBox>
-#include <QElapsedTimer>
 #include <QFont>
 #include <QGuiApplication>
 #include <QLineEdit>
@@ -49,7 +48,8 @@ class FolioNavigatorTest : public QObject
 		void matchesAllTokensAcrossMetadata();
 		void preservesDuplicateTitles();
 		void filtersGroupsFavoritesAndRecents();
-		void handlesFiveHundredFoliosInLinearTime();
+		void enforcesDeterministicScaleBudgets();
+		void buildsOneThousandDistinctGroups();
 		void modelKeepsIdentityAndActiveSelection();
 		void keyboardMovesWithoutActivatingThenEnterActivates();
 		void escapeAndEmptyResultsDoNotActivate();
@@ -134,24 +134,106 @@ void FolioNavigatorTest::filtersGroupsFavoritesAndRecents()
 			QVector<int>({1, 0}));
 }
 
-void FolioNavigatorTest::handlesFiveHundredFoliosInLinearTime()
+void FolioNavigatorTest::enforcesDeterministicScaleBudgets()
+{
+	for (const int count : {500, 1000})
+	{
+		QVector<FolioNavigationEntry> entries;
+		entries.reserve(count);
+		for (int index = 0; index < count; ++index)
+		{
+			FolioNavigationEntry item = entry(
+					index,
+					QStringLiteral("F-%1").arg(
+							index + 1, 5, 10, QLatin1Char('0')),
+					QStringLiteral("Commande moteur industriel"));
+			item.diagram_id = QUuid(QStringLiteral(
+					"{00000000-0000-0000-0000-%1}").arg(
+							index + 1, 12, 16, QLatin1Char('0')));
+			item.plant = QStringLiteral("Atelier nord");
+			item.location = QStringLiteral("Armoire A3");
+			item.additional_fields << QStringLiteral("discipline automatisme");
+			FolioNavigationIndex::prepareEntry(item);
+			entries.append(item);
+		}
+
+		FolioNavigationStats empty_stats;
+		const QVector<int> all = FolioNavigationIndex::filteredIndexes(
+				entries, QString(), QString(),
+				FolioNavigationIndex::Scope::All, &empty_stats);
+		QCOMPARE(all.size(), count);
+		QCOMPARE(empty_stats.entries_visited, qsizetype(count));
+		QCOMPARE(empty_stats.match_evaluations, qsizetype(0));
+		QCOMPARE(empty_stats.sort_comparisons, qsizetype(0));
+
+		FolioNavigationStats absent_stats;
+		QVERIFY(FolioNavigationIndex::filteredIndexes(
+				entries, QStringLiteral("zzzz-absent"), QString(),
+				FolioNavigationIndex::Scope::All, &absent_stats).isEmpty());
+		QCOMPARE(absent_stats.entries_visited, qsizetype(count));
+		QCOMPARE(absent_stats.match_evaluations, qsizetype(count));
+		QCOMPARE(absent_stats.searchable_text_lookups, qsizetype(count));
+		QCOMPARE(absent_stats.prepared_search_hits, qsizetype(count));
+		QCOMPARE(absent_stats.fallback_search_builds, qsizetype(0));
+		QCOMPARE(absent_stats.token_checks, qsizetype(count));
+		QCOMPARE(absent_stats.sort_comparisons, qsizetype(0));
+
+		QVector<FolioNavigationEntry> unprepared_entries = entries;
+		for (FolioNavigationEntry &item : unprepared_entries) {
+			item.search_index_ready = false;
+		}
+		FolioNavigationStats fallback_stats;
+		QVERIFY(FolioNavigationIndex::filteredIndexes(
+				unprepared_entries, QStringLiteral("zzzz-absent"), QString(),
+				FolioNavigationIndex::Scope::All, &fallback_stats).isEmpty());
+		QCOMPARE(fallback_stats.prepared_search_hits, qsizetype(0));
+		QCOMPARE(fallback_stats.fallback_search_builds, qsizetype(count));
+
+		FolioNavigationStats broad_stats;
+		const QVector<int> broad = FolioNavigationIndex::filteredIndexes(
+				entries, QStringLiteral("commande atelier automatisme"),
+				QString(), FolioNavigationIndex::Scope::All, &broad_stats);
+		QCOMPARE(broad.size(), count);
+		QCOMPARE(broad_stats.entries_visited, qsizetype(count));
+		QCOMPARE(broad_stats.prepared_search_hits, qsizetype(count));
+		QCOMPARE(broad_stats.fallback_search_builds, qsizetype(0));
+		QCOMPARE(broad_stats.token_checks, qsizetype(3 * count));
+		const int logarithm = count == 500 ? 9 : 10;
+		QVERIFY(broad_stats.sort_comparisons
+				<= qsizetype(4 * count * logarithm * logarithm));
+
+		FolioNavigationStats exact_stats;
+		const QString last_folio = QStringLiteral("F-%1").arg(
+				count, 5, 10, QLatin1Char('0'));
+		const QVector<int> exact = FolioNavigationIndex::filteredIndexes(
+				entries, last_folio, QString(),
+				FolioNavigationIndex::Scope::All, &exact_stats);
+		QCOMPARE(exact, QVector<int>({count - 1}));
+		QCOMPARE(exact_stats.entries_visited, qsizetype(count));
+		QCOMPARE(exact_stats.matches, qsizetype(1));
+	}
+}
+
+void FolioNavigatorTest::buildsOneThousandDistinctGroups()
 {
 	QVector<FolioNavigationEntry> entries;
-	entries.reserve(500);
-	for (int index = 0; index < 500; ++index) {
-		entries.append(entry(
+	entries.reserve(1000);
+	for (int index = 0; index < 1000; ++index)
+	{
+		FolioNavigationEntry item = entry(
 				index,
-				QStringLiteral("F-%1").arg(index + 1),
-				QStringLiteral("Folio industriel %1").arg(index + 1)));
+				QString::number(index + 1),
+				QStringLiteral("Folio"));
+		item.group = QStringLiteral("Groupe %1").arg(
+				index, 4, 10, QLatin1Char('0'));
+		entries.append(item);
 	}
-	QElapsedTimer timer;
-	timer.start();
-	const QVector<int> result = FolioNavigationIndex::filteredIndexes(
-			entries, QStringLiteral("F-437"));
-	QCOMPARE(result.size(), 1);
-	QCOMPARE(entries.at(result.first()).position, 436);
-	QVERIFY2(timer.elapsed() < 1000,
-			"Filtering 500 pre-indexed folios must stay comfortably interactive");
+	FolioNavigatorModel model;
+	model.setEntries(entries);
+	const QStringList groups = model.groups();
+	QCOMPARE(groups.size(), 1000);
+	QCOMPARE(groups.first(), QStringLiteral("Groupe 0000"));
+	QCOMPARE(groups.last(), QStringLiteral("Groupe 0999"));
 }
 
 void FolioNavigatorTest::modelKeepsIdentityAndActiveSelection()
@@ -184,6 +266,11 @@ void FolioNavigatorTest::keyboardMovesWithoutActivatingThenEnterActivates()
 	entries[0].active = true;
 	FolioNavigatorDialog dialog;
 	QSignalSpy activated(&dialog, &FolioNavigatorDialog::folioActivated);
+	bool closed_before_activation = false;
+	connect(&dialog, &FolioNavigatorDialog::folioActivated,
+			&dialog, [&dialog, &closed_before_activation]() {
+		closed_before_activation = !dialog.isVisible();
+	});
 	dialog.openForProject(
 			QStringLiteral("Test"), entries, entries.at(0).diagram_id, false, false);
 	auto *search = dialog.findChild<QLineEdit *>(QStringLiteral("folioNavigatorSearch"));
@@ -196,6 +283,7 @@ void FolioNavigatorTest::keyboardMovesWithoutActivatingThenEnterActivates()
 	QTest::keyClick(search, Qt::Key_Return);
 	QCOMPARE(activated.count(), 1);
 	QCOMPARE(activated.at(0).at(0).toUuid(), entries.at(1).diagram_id);
+	QVERIFY(closed_before_activation);
 	QVERIFY(!dialog.isVisible());
 }
 

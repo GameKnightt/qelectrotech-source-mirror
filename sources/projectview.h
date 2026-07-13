@@ -158,15 +158,18 @@ class ProjectView : public QWidget
 		void initLayout();
 		void loadDiagrams();
 		DiagramView *findDiagram(Diagram *);
+		int diagramIndex(DiagramView *) const;
 		DiagramView *nextDiagram();
 		DiagramView *previousDiagram();
 		DiagramView *firstDiagram();
 		DiagramView *lastDiagram();
 		void rebuildDiagramsMap();
+		void updateTabTitleAtIndex(DiagramView *, int, bool);
 		void recordNavigation(DiagramView *diagram_view);
 		void updateNavigationHistoryActions();
 		void pruneNavigationHistory();
 		void refreshFolioNavigator(bool preserve_filters);
+		void scheduleFolioNavigatorRefresh();
 		QVector<FolioNavigationEntry> folioNavigationEntries() const;
 		void activateFolio(const QUuid &diagram_id);
 		void setFolioFavorite(const QUuid &diagram_id, bool favorite);
@@ -202,6 +205,9 @@ class ProjectView : public QWidget
 #endif
 
 		QMap<int, DiagramView *> m_diagram_ids;
+		QHash<DiagramView *, int> m_diagram_indexes;
+		QHash<Diagram *, DiagramView *> m_diagram_views;
+		QHash<QUuid, DiagramView *> m_diagram_views_by_id;
 		int m_previous_tab_index = -1;
 		QList<DiagramView *> m_diagram_view_list;
 		FolioNavigatorDialog *m_folio_navigator = nullptr;
@@ -210,6 +216,7 @@ class ProjectView : public QWidget
 		QList<QPointer<DiagramView>> m_navigation_history;
 		int m_navigation_history_index = -1;
 		bool m_navigating_history = false;
+		bool m_folio_refresh_scheduled = false;
 		QSet<QUuid> m_favorite_folios;
 };
 

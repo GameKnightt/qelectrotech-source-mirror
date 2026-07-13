@@ -51,6 +51,7 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QDir>
+#include <QEventLoop>
 #ifdef BUILD_WITHOUT_KF5
 #	include "ui/nokde/kautosavefile.h"
 #else
@@ -106,6 +107,8 @@ QETDiagramEditor::QETDiagramEditor(const QStringList &files, QWidget *parent) :
 	setWindowTitle(tr("QElectroTech", "window title"));
 	setWindowIcon(QET::Icons::QETLogo);
 	statusBar() -> showMessage(tr("QElectroTech", "status bar message"));
+	m_project_save_status = new ProjectSaveStatusWidget(statusBar());
+	statusBar()->addPermanentWidget(m_project_save_status);
 
 	setUpElementsPanel();
 	setUpElementsCollectionWidget();
@@ -960,6 +963,9 @@ void QETDiagramEditor::save()
 	if (ProjectView *project_view = currentProjectView()) {
 		QETResult saved = project_view -> save();
 
+		if (saved.isCancelled()) {
+			return;
+		}
 		if (saved.isOk()) {
 			//save_file -> setDisabled(true);
 			QETApp::projectsRecentFiles() -> fileWasOpened(project_view -> project() -> filePath());
@@ -984,6 +990,9 @@ void QETDiagramEditor::saveAs()
 {
 	if (ProjectView *project_view = currentProjectView()) {
 		QETResult save_file = project_view -> saveAs();
+		if (save_file.isCancelled()) {
+			return;
+		}
 		if (save_file.isOk()) {
 			QETApp::projectsRecentFiles() -> fileWasOpened(project_view -> project() -> filePath());
 
@@ -1867,9 +1876,40 @@ void QETDiagramEditor::addProjectView(ProjectView *project_view)
 	connect(project_view, SIGNAL(diagramAdded(DiagramView *)),
 		this, SLOT(diagramWasAdded(DiagramView *)));
 
-	if (QETProject *project = project_view -> project())
+	if (QETProject *project = project_view -> project()) {
 		connect(project, SIGNAL(readOnlyChanged(QETProject *, bool)),
 			this, SLOT(slot_updateActions()));
+
+		m_project_save_states.insert(
+			project,
+			(project->filePath().isEmpty() || project->projectWasModified())
+				? ProjectSaveStatusWidget::State::Modified
+				: ProjectSaveStatusWidget::State::Saved);
+
+		connect(project, &QETProject::projectModified, this,
+			[this](QETProject *modified_project, bool modified) {
+				if (m_project_save_states.value(modified_project) == ProjectSaveStatusWidget::State::Saving)
+					return;
+				setProjectSaveState(
+					modified_project,
+					modified ? ProjectSaveStatusWidget::State::Modified
+							 : ProjectSaveStatusWidget::State::Saved);
+			});
+
+		connect(project_view, &ProjectView::saveStarted, this,
+			[this](QETProject *saving_project) {
+				setProjectSaveState(saving_project, ProjectSaveStatusWidget::State::Saving);
+				QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+			});
+		connect(project_view, &ProjectView::saveFinished, this,
+			[this](QETProject *saved_project, bool ok, const QString &error) {
+				setProjectSaveState(
+					saved_project,
+					ok ? ProjectSaveStatusWidget::State::Saved
+					   : ProjectSaveStatusWidget::State::Error,
+					error);
+			});
+	}
 
 	//Manage request for edit or find element and titleblock
 	connect (project_view, &ProjectView::findElementRequired,
@@ -1927,6 +1967,7 @@ void QETDiagramEditor::addProjectView(ProjectView *project_view)
 		//Display the new window
 	if (maximise) project_view -> showMaximized();
 	else          project_view -> show();
+	refreshProjectSaveStatus();
 }
 
 /**
@@ -1985,7 +2026,8 @@ void QETDiagramEditor::openBackupFiles(QList<KAutoSaveFile *> backup_files)
 {
 	for (KAutoSaveFile *file : backup_files)
 	{
-			//Create the project
+		const QString managed_file_path = file->managedFile().fileName();
+		//Create the project
 		DialogWaiting::instance(this);
 
 		QETProject *project = new QETProject(file, this);
@@ -1998,10 +2040,11 @@ void QETDiagramEditor::openBackupFiles(QList<KAutoSaveFile *> backup_files)
 					tr("Échec de l'ouverture du projet", "message box title"),
 					QString(tr(
 						"Une erreur est survenue lors de l'ouverture du fichier %1.",
-						"message box content")).arg(file->managedFile().fileName()));
+						"message box content")).arg(managed_file_path));
 			}
 			delete project;
 			DialogWaiting::dropInstance();
+			continue;
 		}
 		addProject(project);
 		DialogWaiting::dropInstance();
@@ -2160,6 +2203,8 @@ void QETDiagramEditor::projectWasClosed(ProjectView *project_view)
 	QETProject *project = project_view -> project();
 	if (project)
 	{
+		m_project_save_states.remove(project);
+		m_project_save_errors.remove(project);
 		pa -> elementsPanel().projectWasClosed(project);
 		m_element_collection_widget->removeProject(project);
 		undo_group.removeStack(project -> undoStack());
@@ -2172,6 +2217,7 @@ void QETDiagramEditor::projectWasClosed(ProjectView *project_view)
 	m_selection_properties_editor->setDiagram(nullptr);
 	project_view -> deleteLater();
 	project -> deleteLater();
+	QTimer::singleShot(0, this, &QETDiagramEditor::refreshProjectSaveStatus);
 }
 
 /**
@@ -2465,7 +2511,53 @@ void QETDiagramEditor::subWindowActivated(QMdiSubWindow *subWindows)
 
 	slot_updateActions();
 	slot_updateWindowsMenu();
+	refreshProjectSaveStatus();
 	emit syncElementsPanel();
+}
+
+/**
+	Update the persistent save state associated with a project.
+*/
+void QETDiagramEditor::setProjectSaveState(
+	QETProject *project,
+	ProjectSaveStatusWidget::State state,
+	const QString &detail)
+{
+	if (!project) return;
+	m_project_save_states.insert(project, state);
+	if (state == ProjectSaveStatusWidget::State::Error)
+		m_project_save_errors.insert(project, detail);
+	else
+		m_project_save_errors.remove(project);
+	if (project == currentProject())
+		refreshProjectSaveStatus();
+}
+
+/**
+	Display the save state of the active project without replacing transient
+	status-bar messages.
+*/
+void QETDiagramEditor::refreshProjectSaveStatus()
+{
+	if (!m_project_save_status) return;
+	QETProject *project = currentProject();
+	if (!project) {
+		m_project_save_status->setState(ProjectSaveStatusWidget::State::NoProject);
+		return;
+	}
+
+	QString project_name = project->title();
+	if (project_name.isEmpty())
+		project_name = tr("Sans titre");
+	m_project_save_status->setState(
+		m_project_save_states.value(
+			project,
+			(project->filePath().isEmpty() || project->projectWasModified())
+				? ProjectSaveStatusWidget::State::Modified
+				: ProjectSaveStatusWidget::State::Saved),
+		project_name,
+		project->filePath(),
+		m_project_save_errors.value(project));
 }
 
 /**

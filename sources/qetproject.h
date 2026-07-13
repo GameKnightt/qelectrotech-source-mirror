@@ -189,6 +189,7 @@ class QETProject : public QObject
 		QDomDocument toXml();
 		bool close();
 		QETResult write();
+		QETResult write(const QString &file_path);
 		bool isReadOnly() const;
 		void setReadOnly(bool);
 		bool isEmpty() const;

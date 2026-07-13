@@ -66,7 +66,8 @@ jobs:
             C_unittests \
             qt_unittests \
             diagram_duplicate_uuid_remapper_test \
-            config_dialog_ux_test
+            config_dialog_ux_test \
+            project_save_status_test
           ctest --test-dir build-tests --output-on-failure
           QT_SCALE_FACTOR=1.5 ctest --test-dir build-tests \
             -R '^config_dialog_ux_test$' --output-on-failure

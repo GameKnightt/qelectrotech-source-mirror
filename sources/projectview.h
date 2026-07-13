@@ -129,7 +129,7 @@ class ProjectView : public QWidget
 		void exportProject();
 		QETResult save();
 		QETResult saveAs();
-		QETResult doSave();
+		QETResult doSave(const QString &file_path = QString());
 		int cleanProject();
 		void updateWindowTitle();
 		void updateTabTitle(DiagramView *);
@@ -142,6 +142,8 @@ class ProjectView : public QWidget
 		void diagramActivated(DiagramView *);
 		void projectClosed(ProjectView *);
 		void errorEncountered(const QString &);
+		void saveStarted(QETProject *);
+		void saveFinished(QETProject *, bool, const QString &);
 			// relayed signals
 		void findElementRequired(const ElementsLocation &);
 

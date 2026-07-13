@@ -87,6 +87,15 @@ add_test(
   NAME config_dialog_ux_test
   COMMAND config_dialog_ux_test)
 
+add_executable(
+  project_save_status_test
+  tst_projectsavestatus.cpp
+  ${QET_DIR}/sources/qetresult.cpp
+  ${QET_DIR}/sources/ui/projectsavestatuswidget.cpp)
+add_test(
+  NAME project_save_status_test
+  COMMAND project_save_status_test)
+
 target_link_libraries(
   ${PROJECT_NAME}
   PRIVATE
@@ -107,6 +116,17 @@ target_include_directories(
 
 target_link_libraries(
   config_dialog_ux_test
+  PRIVATE
+  Qt::Test
+  Qt::Widgets)
+
+target_include_directories(
+  project_save_status_test
+  PRIVATE
+  ${QET_DIR}/sources)
+
+target_link_libraries(
+  project_save_status_test
   PRIVATE
   Qt::Test
   Qt::Widgets)

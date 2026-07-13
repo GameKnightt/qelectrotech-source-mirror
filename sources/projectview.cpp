@@ -255,8 +255,12 @@ bool ProjectView::tryClosing()
 	}
 
 	if (m_project -> filePath().isEmpty()) {
-		QString filepath = askUserForFilePath();
+		QString filepath = askUserForFilePath(false);
 		if (filepath.isEmpty()) return(false); // users may cancel the closing
+		QETResult result = m_project -> write(filepath);
+		updateWindowTitle();
+		if (!result.isOk()) emit(errorEncountered(result.errorMessage()));
+		return(result.isOk());
 	}
 	QETResult result = m_project -> write();
 	updateWindowTitle();
@@ -660,38 +664,42 @@ QETResult ProjectView::save()
 	Ask users for a filepath in order to save the project.
 	@param options May be used to specify what should be saved; defaults to
 	all modified diagrams.
-	@return a QETResult object reflecting the situation; note that a valid
-	QETResult object is returned if the operation was cancelled.
+	@return a QETResult object reflecting the situation, including cancellation.
 */
 QETResult ProjectView::saveAs()
 {
 	if (!m_project) return(noProjectResult());
 
-	QString filepath = askUserForFilePath();
-	if (filepath.isEmpty()) return(QETResult());
-	return(doSave());
+	QString filepath = askUserForFilePath(false);
+	if (filepath.isEmpty()) return(QETResult::cancelled());
+	return(doSave(filepath));
 }
 
 /**
 	Save project content, then write the project file. May
 	call saveAs if no filepath was provided before.
-	@return a QETResult object reflecting the situation; note that a valid
-	QETResult object is returned if the operation was cancelled.
+	@return a QETResult object reflecting the situation, including cancellation.
 */
-QETResult ProjectView::doSave()
+QETResult ProjectView::doSave(const QString &file_path)
 {
 	if (!m_project) return(noProjectResult());
 
-	if (m_project -> filePath().isEmpty()) {
+	if (m_project -> filePath().isEmpty() && file_path.isEmpty()) {
 		// The project has not been saved to a file yet,
 		// so save() actually means saveAs().
 		return(saveAs());
 	}
 
 	// write to file
-	QETResult result = m_project -> write();
+	emit saveStarted(m_project);
+	QETResult result = file_path.isEmpty()
+			? m_project -> write()
+			: m_project -> write(file_path);
 	updateWindowTitle();
-	project()->undoStack()->clear();
+	if (result.isOk()) {
+		project()->undoStack()->clear();
+	}
+	emit saveFinished(m_project, result.isOk(), result.errorMessage());
 	return(result);
 }
 

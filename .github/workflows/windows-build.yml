@@ -65,7 +65,8 @@ jobs:
           cmake --build build-tests --parallel "$(nproc)" --target \
             C_unittests \
             qt_unittests \
-            diagram_duplicate_uuid_remapper_test
+            diagram_duplicate_uuid_remapper_test \
+            project_save_status_test
           ctest --test-dir build-tests --output-on-failure
 
   build-windows:

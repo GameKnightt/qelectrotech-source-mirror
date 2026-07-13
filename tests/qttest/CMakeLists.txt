@@ -77,6 +77,15 @@ add_test(
   NAME diagram_duplicate_uuid_remapper_test
   COMMAND diagram_duplicate_uuid_remapper_test)
 
+add_executable(
+  project_save_status_test
+  tst_projectsavestatus.cpp
+  ${QET_DIR}/sources/qetresult.cpp
+  ${QET_DIR}/sources/ui/projectsavestatuswidget.cpp)
+add_test(
+  NAME project_save_status_test
+  COMMAND project_save_status_test)
+
 target_link_libraries(
   ${PROJECT_NAME}
   PRIVATE
@@ -89,4 +98,14 @@ target_link_libraries(
   PRIVATE
   Qt::Test
   Qt::Xml)
+
+target_include_directories(
+  project_save_status_test
+  PRIVATE
+  ${QET_DIR}/sources)
+target_link_libraries(
+  project_save_status_test
+  PRIVATE
+  Qt::Test
+  Qt::Widgets)
 

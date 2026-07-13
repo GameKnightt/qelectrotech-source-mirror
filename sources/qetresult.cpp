@@ -43,6 +43,17 @@ QETResult::~QETResult()
 }
 
 /**
+	Construct a result representing an operation cancelled by the user.
+*/
+QETResult QETResult::cancelled()
+{
+	QETResult result;
+	result.result_ = false;
+	result.cancelled_ = true;
+	return result;
+}
+
+/**
 	@return the boolean value embedded within this result.
 */
 bool QETResult::isOk() const
@@ -51,10 +62,19 @@ bool QETResult::isOk() const
 }
 
 /**
+	@return whether the operation was explicitly cancelled by the user.
+*/
+bool QETResult::isCancelled() const
+{
+	return(cancelled_);
+}
+
+/**
 	Embed \a result.
 */
 void QETResult::setResult(bool result) {
 	result_ = result;
+	cancelled_ = false;
 }
 
 /**

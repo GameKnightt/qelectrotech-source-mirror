@@ -29,10 +29,12 @@ class QETResult {
 	QETResult();
 	QETResult(const QString &error_message, bool = false);
 	virtual ~QETResult();
+	static QETResult cancelled();
 	
 	// methods
 	public:
 	bool isOk() const;
+	bool isCancelled() const;
 	void setResult(bool);
 	QString errorMessage() const;
 	void setErrorMessage(const QString &);
@@ -40,6 +42,7 @@ class QETResult {
 	// attributes
 	private:
 	bool result_;           ///< Embedded boolean value
+	bool cancelled_ = false;///< Whether the operation was explicitly cancelled by the user
 	QString error_message_; ///< Embedded error message, typically used to explain what failed to users
 };
 

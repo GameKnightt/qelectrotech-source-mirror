@@ -20,10 +20,12 @@
 
 #include "SearchAndReplace/ui/searchandreplacewidget.h"
 #include "qetmainwindow.h"
+#include "ui/projectsavestatuswidget.h"
 
 #include <QActionGroup>
 #include <QCloseEvent>
 #include <QDir>
+#include <QHash>
 #include <QMdiArea>
 #include <QSignalMapper>
 #include <QUndoGroup>
@@ -226,6 +228,11 @@ class QETDiagramEditor : public QETMainWindow
 		QList <QAction *> m_zoom_action_toolBar; ///Only zoom action must displayed in the toolbar
 
 		void removeDiagramSilent(Diagram *diagram);
+		void setProjectSaveState(
+			QETProject *project,
+			ProjectSaveStatusWidget::State state,
+			const QString &detail = QString());
+		void refreshProjectSaveStatus();
 
 		QMdiArea m_workspace;
 		QSignalMapper windowMapper;
@@ -237,6 +244,9 @@ class QETDiagramEditor : public QETMainWindow
 		*qdw_undo; /// Dock for the undo list
 
 		ElementsCollectionWidget *m_element_collection_widget;
+		ProjectSaveStatusWidget *m_project_save_status = nullptr;
+		QHash<QETProject *, ProjectSaveStatusWidget::State> m_project_save_states;
+		QHash<QETProject *, QString> m_project_save_errors;
 			
 		DiagramPropertiesEditorDockWidget *m_selection_properties_editor;
 			/// Elements panel

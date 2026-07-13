@@ -142,6 +142,8 @@ class ProjectView : public QWidget
 		void diagramActivated(DiagramView *);
 		void projectClosed(ProjectView *);
 		void errorEncountered(const QString &);
+		void saveStarted(QETProject *);
+		void saveFinished(QETProject *, bool, const QString &);
 			// relayed signals
 		void findElementRequired(const ElementsLocation &);
 

@@ -660,23 +660,21 @@ QETResult ProjectView::save()
 	Ask users for a filepath in order to save the project.
 	@param options May be used to specify what should be saved; defaults to
 	all modified diagrams.
-	@return a QETResult object reflecting the situation; note that a valid
-	QETResult object is returned if the operation was cancelled.
+	@return a QETResult object reflecting the situation, including cancellation.
 */
 QETResult ProjectView::saveAs()
 {
 	if (!m_project) return(noProjectResult());
 
 	QString filepath = askUserForFilePath();
-	if (filepath.isEmpty()) return(QETResult());
+	if (filepath.isEmpty()) return(QETResult::cancelled());
 	return(doSave());
 }
 
 /**
 	Save project content, then write the project file. May
 	call saveAs if no filepath was provided before.
-	@return a QETResult object reflecting the situation; note that a valid
-	QETResult object is returned if the operation was cancelled.
+	@return a QETResult object reflecting the situation, including cancellation.
 */
 QETResult ProjectView::doSave()
 {
@@ -689,9 +687,11 @@ QETResult ProjectView::doSave()
 	}
 
 	// write to file
+	emit saveStarted(m_project);
 	QETResult result = m_project -> write();
 	updateWindowTitle();
 	project()->undoStack()->clear();
+	emit saveFinished(m_project, result.isOk(), result.errorMessage());
 	return(result);
 }
 

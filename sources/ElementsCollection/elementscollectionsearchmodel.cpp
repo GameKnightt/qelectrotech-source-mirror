@@ -152,6 +152,12 @@ ElementsCollectionSearchModel::SortMode ElementsCollectionSearchModel::sortMode(
 	return m_sort_mode;
 }
 
+ElementsCollectionSearchModel::SearchStats
+ElementsCollectionSearchModel::lastSearchStats() const
+{
+	return m_last_search_stats;
+}
+
 void ElementsCollectionSearchModel::rebuild()
 {
 	beginResetModel();
@@ -205,21 +211,26 @@ void ElementsCollectionSearchModel::applyFilter()
 {
 	beginResetModel();
 	m_matches.clear();
+	m_last_search_stats = SearchStats();
 
 	const QString normalized_query = normalized(m_query);
 	const QStringList tokens = normalized_query.split(
 		QRegularExpression(QStringLiteral("[\\s+]+")), Qt::SkipEmptyParts);
 	if (normalized_query.size() >= 2) {
 		for (int i = 0; i < m_entries.size(); ++i) {
+			++m_last_search_stats.entries_visited;
 			bool matches = true;
 			for (const QString &token : tokens) {
+				++m_last_search_stats.token_checks;
 				if (!m_entries.at(i).searchable_text.contains(token)) {
 					matches = false;
 					break;
 				}
 			}
-			if (matches)
+			if (matches) {
 				m_matches.append(i);
+				++m_last_search_stats.matches;
+			}
 		}
 	}
 
@@ -228,6 +239,7 @@ void ElementsCollectionSearchModel::applyFilter()
 	collator.setNumericMode(true);
 	std::sort(m_matches.begin(), m_matches.end(),
 		[this, &collator](int left_index, int right_index) {
+			++m_last_search_stats.sort_comparisons;
 			const Entry &left = m_entries.at(left_index);
 			const Entry &right = m_entries.at(right_index);
 			QString left_primary;

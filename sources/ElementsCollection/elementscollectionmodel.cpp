@@ -43,6 +43,17 @@ ElementsCollectionModel::ElementsCollectionModel(QObject *parent) :
 {
 }
 
+ElementsCollectionModel::~ElementsCollectionModel()
+{
+	// setUpData() operates on items owned by this model. Keep them alive until
+	// every concurrent task has stopped before QStandardItemModel destroys the
+	// hierarchy.
+	if (m_future.isRunning()) {
+		m_future.cancel();
+		m_future.waitForFinished();
+	}
+}
+
 /**
 	@brief ElementsCollectionModel::data
 	Reimplemented from QStandardItemModel
@@ -279,6 +290,10 @@ void ElementsCollectionModel::loadCollections(bool common_collection,
 											  bool custom_collection,
 											  QList<QETProject *> projects)
 {
+	if (m_future.isRunning()) {
+		m_future.cancel();
+		m_future.waitForFinished();
+	}
 	clear();
 
 	m_items_list_to_setUp.clear();

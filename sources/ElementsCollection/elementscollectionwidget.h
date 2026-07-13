@@ -67,7 +67,7 @@ class ElementsCollectionWidget : public QWidget
 		bool eventFilter(QObject *watched, QEvent *event) override;
 
 	signals:
-		void elementPlacementRequested(const ElementsLocation &location);
+		void elementPlacementRequested(const QString &location);
 
 	private:
 		void setUpAction();

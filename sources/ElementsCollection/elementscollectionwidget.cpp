@@ -156,7 +156,24 @@ bool ElementsCollectionWidget::eventFilter(QObject *watched, QEvent *event)
 {
 	if (watched == m_search_field && event->type() == QEvent::KeyPress) {
 		auto *key_event = static_cast<QKeyEvent *>(event);
-		if (key_event->key() == Qt::Key_Down && m_search_model->rowCount() > 0) {
+		if ((key_event->key() == Qt::Key_Return
+				|| key_event->key() == Qt::Key_Enter)) {
+			if (m_search_timer.isActive()) {
+				m_search_timer.stop();
+				search();
+			}
+			if (m_search_results->currentIndex().isValid()) {
+				activateSearchResult(m_search_results->currentIndex());
+				return true;
+			}
+		}
+		if (key_event->key() == Qt::Key_Down) {
+			if (m_search_timer.isActive()) {
+				m_search_timer.stop();
+				search();
+			}
+			if (m_search_model->rowCount() <= 0)
+				return false;
 			m_search_results->setCurrentIndex(m_search_model->index(0, 0));
 			m_search_results->setFocus();
 			return true;
@@ -207,6 +224,7 @@ void ElementsCollectionWidget::setUpWidget()
 	m_main_vlayout->setSpacing(2);
 
 	m_search_field = new QLineEdit(this);
+	m_search_field->setObjectName(QStringLiteral("elementCollectionSearchField"));
 	m_search_field->setPlaceholderText(tr("Rechercher..."));
 	m_search_field->setClearButtonEnabled(true);
 	m_search_field->setAccessibleName(tr("Rechercher un élément"));
@@ -215,6 +233,7 @@ void ElementsCollectionWidget::setUpWidget()
 	m_search_field->installEventFilter(this);
 
 	m_tree_view = new ElementsTreeView(this);
+	m_tree_view->setObjectName(QStringLiteral("elementCollectionTree"));
 	m_tree_view->setHeaderHidden(true);
 	m_tree_view->setIconSize(QSize(50, 50));
 	m_tree_view->setDragDropMode(QAbstractItemView::DragDrop);
@@ -243,6 +262,7 @@ void ElementsCollectionWidget::setUpWidget()
 
 	m_search_model = new ElementsCollectionSearchModel(this);
 	m_search_results = new QListView(this);
+	m_search_results->setObjectName(QStringLiteral("elementCollectionSearchResults"));
 	m_search_results->setModel(m_search_model);
 	m_search_results->setIconSize(QSize(50, 50));
 	m_search_results->setDragEnabled(true);
@@ -256,10 +276,12 @@ void ElementsCollectionWidget::setUpWidget()
 		tr("Liste à plat. Appuyez sur Entrée ou double-cliquez pour placer l'élément."));
 
 	m_search_summary = new QLabel(this);
+	m_search_summary->setObjectName(QStringLiteral("elementCollectionSearchSummary"));
 	m_search_summary->setAccessibleName(tr("Nombre de résultats"));
 	m_search_summary->setTextFormat(Qt::PlainText);
 
 	m_search_sort = new QComboBox(this);
+	m_search_sort->setObjectName(QStringLiteral("elementCollectionSearchSort"));
 	m_search_sort->setAccessibleName(tr("Trier les résultats"));
 	m_search_sort->addItem(tr("Trier par nom"), ElementsCollectionSearchModel::SortByName);
 	m_search_sort->addItem(tr("Trier par discipline"), ElementsCollectionSearchModel::SortByDiscipline);
@@ -310,9 +332,23 @@ void ElementsCollectionWidget::setUpConnection()
 	connect(m_search_sort,
 		QOverload<int>::of(&QComboBox::currentIndexChanged),
 		[this](int index) {
+			const QString selected_location = m_search_results->currentIndex().data(
+				ElementsCollectionSearchModel::LocationRole).toString();
 			m_search_model->setSortMode(
 				static_cast<ElementsCollectionSearchModel::SortMode>(
 					m_search_sort->itemData(index).toInt()));
+			QModelIndex restored_index;
+			for (int row = 0; row < m_search_model->rowCount(); ++row) {
+				const QModelIndex candidate = m_search_model->index(row, 0);
+				if (candidate.data(ElementsCollectionSearchModel::LocationRole).toString()
+						== selected_location) {
+					restored_index = candidate;
+					break;
+				}
+			}
+			if (!restored_index.isValid() && m_search_model->rowCount() > 0)
+				restored_index = m_search_model->index(0, 0);
+			m_search_results->setCurrentIndex(restored_index);
 			updateSearchSummary();
 		});
 	connect(m_search_model, &QAbstractItemModel::modelReset,
@@ -783,6 +819,10 @@ void ElementsCollectionWidget::dirProperties()
 */
 void ElementsCollectionWidget::reload()
 {
+	if (m_new_model) {
+		qInfo() << "Elements collection reload already in progress";
+		return;
+	}
 	m_loading_timer.reset(new QElapsedTimer());
 	qInfo()<<"Elements collection reload";
 	m_loading_timer->start();
@@ -803,9 +843,6 @@ void ElementsCollectionWidget::reload()
 	if (m_model)
 		project_list.append(m_model->project());
 
-	if(m_new_model) {
-		m_new_model->deleteLater();
-	}
 	m_new_model = new ElementsCollectionModel(m_tree_view);
 	connect(m_new_model,
 		&ElementsCollectionModel::loadingProgressRangeChanged,
@@ -931,9 +968,9 @@ void ElementsCollectionWidget::activateSearchResult(const QModelIndex &index)
 {
 	if (!index.isValid())
 		return;
-	ElementsLocation location(index.data(
-		ElementsCollectionSearchModel::LocationRole).toString());
-	if (location.isElement() && location.exist())
+	const QString location = index.data(
+		ElementsCollectionSearchModel::LocationRole).toString();
+	if (!location.isEmpty())
 		emit elementPlacementRequested(location);
 }
 

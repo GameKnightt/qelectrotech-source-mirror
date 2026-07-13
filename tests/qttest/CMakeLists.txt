@@ -86,6 +86,9 @@ add_executable(
 add_test(
   NAME elements_collection_search_test
   COMMAND elements_collection_search_test)
+set_tests_properties(
+  elements_collection_search_test
+  PROPERTIES LABELS "element-collection;ux-03;deterministic-scale")
 
 target_include_directories(
   elements_collection_search_test

@@ -51,6 +51,14 @@ class ElementsCollectionSearchModel : public QAbstractListModel
 		void setSortMode(SortMode sort_mode);
 		SortMode sortMode() const;
 
+		struct SearchStats {
+			qsizetype entries_visited = 0;
+			qsizetype token_checks = 0;
+			qsizetype matches = 0;
+			qsizetype sort_comparisons = 0;
+		};
+		SearchStats lastSearchStats() const;
+
 	private:
 		struct Entry {
 			QPersistentModelIndex source_index;
@@ -74,6 +82,7 @@ class ElementsCollectionSearchModel : public QAbstractListModel
 		QList<int> m_matches;
 		QString m_query;
 		SortMode m_sort_mode = SortByName;
+		SearchStats m_last_search_stats;
 };
 
 #endif // ELEMENTSCOLLECTIONSEARCHMODEL_H

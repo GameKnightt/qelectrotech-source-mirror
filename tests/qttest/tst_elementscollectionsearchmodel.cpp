@@ -165,6 +165,40 @@ class ElementsCollectionSearchModelTest : public QObject
 			QVERIFY(collapsed_branch.isValid());
 			QCOMPARE(source->rowCount(collapsed_branch), 1);
 		}
+
+		void deterministicBudgetForTenThousandElements()
+		{
+			QStandardItemModel source;
+			auto *root = new QStandardItem(QStringLiteral("Collection QET"));
+			auto *discipline = new QStandardItem(QStringLiteral("Pneumatique"));
+			root->appendRow(discipline);
+			source.appendRow(root);
+			constexpr int count = 10000;
+			for (int index = 0; index < count; ++index) {
+				discipline->appendRow(element(
+					QStringLiteral("Actionneur industriel %1").arg(
+						index, 5, 10, QLatin1Char('0')),
+					QStringLiteral("common://50_pneumatic/actionneur_%1.elmt").arg(index),
+					QStringLiteral("pneumatique atelier")));
+			}
+
+			ElementsCollectionSearchModel model;
+			model.setSourceModel(&source);
+			model.setQuery(QStringLiteral("actionneur pneumatique atelier"));
+			QCOMPARE(model.rowCount(), count);
+			const auto broad_stats = model.lastSearchStats();
+			QCOMPARE(broad_stats.entries_visited, qsizetype(count));
+			QCOMPARE(broad_stats.token_checks, qsizetype(3 * count));
+			QCOMPARE(broad_stats.matches, qsizetype(count));
+			QVERIFY(broad_stats.sort_comparisons < qsizetype(20 * count));
+
+			model.setQuery(QStringLiteral("introuvable"));
+			QCOMPARE(model.rowCount(), 0);
+			const auto absent_stats = model.lastSearchStats();
+			QCOMPARE(absent_stats.entries_visited, qsizetype(count));
+			QCOMPARE(absent_stats.token_checks, qsizetype(count));
+			QCOMPARE(absent_stats.sort_comparisons, qsizetype(0));
+		}
 };
 
 QTEST_MAIN(ElementsCollectionSearchModelTest)

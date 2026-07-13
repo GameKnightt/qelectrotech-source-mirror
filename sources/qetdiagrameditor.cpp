@@ -209,7 +209,8 @@ void QETDiagramEditor::setUpElementsCollectionWidget()
 	connect(m_element_collection_widget,
 		&ElementsCollectionWidget::elementPlacementRequested,
 		this,
-		[this](const ElementsLocation &location) {
+		[this](const QString &location_uri) {
+			ElementsLocation location(location_uri);
 			DiagramView *view = currentDiagramView();
 			if (!view || !view->startAddingElement(location)) {
 				statusBar()->showMessage(

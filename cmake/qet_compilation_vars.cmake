@@ -625,6 +625,8 @@ set(QET_SRC_FILES
   ${QET_DIR}/sources/ui/conductorpropertiesdialog.h
   ${QET_DIR}/sources/ui/conductorpropertieswidget.cpp
   ${QET_DIR}/sources/ui/conductorpropertieswidget.h
+  ${QET_DIR}/sources/ui/conductorpropertieseditor.cpp
+  ${QET_DIR}/sources/ui/conductorpropertieseditor.h
   ${QET_DIR}/sources/ui/configsaveloaderwidget.cpp
   ${QET_DIR}/sources/ui/configsaveloaderwidget.h
   ${QET_DIR}/sources/ui/diagramcontextwidget.cpp
@@ -703,6 +705,8 @@ set(QET_SRC_FILES
   ${QET_DIR}/sources/undocommand/changeelementdatacommand.h
   ${QET_DIR}/sources/undocommand/changeelementinformationcommand.cpp
   ${QET_DIR}/sources/undocommand/changeelementinformationcommand.h
+  ${QET_DIR}/sources/undocommand/changeconductorspropertiescommand.cpp
+  ${QET_DIR}/sources/undocommand/changeconductorspropertiescommand.h
   ${QET_DIR}/sources/undocommand/changetitleblockcommand.cpp
   ${QET_DIR}/sources/undocommand/changetitleblockcommand.h
   ${QET_DIR}/sources/undocommand/deleteqgraphicsitemcommand.cpp
@@ -720,6 +724,8 @@ set(QET_SRC_FILES
 
   ${QET_DIR}/sources/utils/conductorcreator.cpp
   ${QET_DIR}/sources/utils/conductorcreator.h
+  ${QET_DIR}/sources/utils/conductorinteraction.cpp
+  ${QET_DIR}/sources/utils/conductorinteraction.h
   ${QET_DIR}/sources/utils/macosxopenevent.cpp
   ${QET_DIR}/sources/utils/macosxopenevent.h
   ${QET_DIR}/sources/utils/qetsettings.cpp

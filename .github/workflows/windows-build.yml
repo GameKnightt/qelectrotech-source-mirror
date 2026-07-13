@@ -69,6 +69,7 @@ jobs:
             config_dialog_ux_test \
             project_save_status_test \
             elements_collection_search_test \
+            conductor_interaction_test \
             qelectrotech
           ctest --test-dir build-tests --output-on-failure
           QT_SCALE_FACTOR=1.5 ctest --test-dir build-tests \

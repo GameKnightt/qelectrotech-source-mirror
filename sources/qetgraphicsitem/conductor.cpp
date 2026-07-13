@@ -31,6 +31,7 @@
 #include "element.h"
 #include "../QetGraphicsItemModeler/qetgraphicshandleritem.h"
 #include "../utils/qetutils.h"
+#include "../utils/conductorinteraction.h"
 
 #include <QMultiHash>
 #include <QtDebug>
@@ -519,12 +520,10 @@ void Conductor::paint(QPainter *painter, const QStyleOptionGraphicsItem *options
 		}
 	}
 
-		//Draw the conductor bigger when is hovered
-	conductor_pen.setWidthF(m_mouse_over? (m_properties.cond_size) +4 : (m_properties.cond_size));
-
 		//Set the QPen and QBrush to the QPainter
 	painter -> setBrush(conductor_brush);
 	QPen final_conductor_pen = conductor_pen;
+	final_conductor_pen.setWidthF(m_properties.cond_size);
 
 		//Set the conductor style
 	final_conductor_pen.setColor(final_conductor_color);
@@ -537,9 +536,19 @@ void Conductor::paint(QPainter *painter, const QStyleOptionGraphicsItem *options
 		final_conductor_pen.setCosmetic(true);
 	}
 
-	painter -> setPen(final_conductor_pen);
+	if ((m_mouse_over || m_proximity_hovered) && !isSelected())
+	{
+		QPen hover_pen(QColor(69, 137, 255, 150));
+		hover_pen.setWidthF(7.0);
+		hover_pen.setCosmetic(true);
+		hover_pen.setJoinStyle(Qt::RoundJoin);
+		hover_pen.setCapStyle(Qt::RoundCap);
+		painter->setPen(hover_pen);
+		painter->drawPath(path());
+	}
 
 		//Draw the conductor
+	painter -> setPen(final_conductor_pen);
 	painter -> drawPath(path());
 		//Draw the second color
 	if(m_properties.m_bicolor)
@@ -684,8 +693,8 @@ void Conductor::hoverEnterEvent(QGraphicsSceneHoverEvent *event) {
 */
 void Conductor::hoverLeaveEvent(QGraphicsSceneHoverEvent *event) {
 	Q_UNUSED(event);
-	update();
 	m_mouse_over = false;
+	update();
 }
 
 /**
@@ -916,13 +925,10 @@ QRectF Conductor::boundingRect() const
 */
 QPainterPath Conductor::shape() const
 {
-	QPainterPathStroker pps;
-	pps.setWidth(m_mouse_over? 5 : 1);
-	pps.setJoinStyle(conductor_pen.joinStyle());
-
-	QPainterPath shape_(pps.createStroke(path()));
-
-	return shape_;
+	// Keep item geometry independent from hover and from any particular view.
+	// DiagramView adds the wider, zoom-independent interaction target.
+	return ConductorInteraction::selectionShape(
+			path(), 1.0, m_properties.cond_size, 5.0);
 }
 
 /**
@@ -1639,6 +1645,15 @@ Conductor::Highlight Conductor::highlight() const
 */
 void Conductor::setHighlighted(Conductor::Highlight hl) {
 	must_highlight_ = hl;
+	update();
+}
+
+void Conductor::setProximityHovered(bool hovered)
+{
+	if (m_proximity_hovered == hovered) {
+		return;
+	}
+	m_proximity_hovered = hovered;
 	update();
 }
 

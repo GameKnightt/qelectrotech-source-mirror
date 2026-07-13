@@ -114,6 +114,15 @@ target_include_directories(
   PRIVATE
   ${QET_DIR}/sources/ElementsCollection)
 
+add_executable(
+  conductor_interaction_test
+  tst_conductorinteraction.cpp
+  ${QET_DIR}/sources/utils/conductorinteraction.cpp
+  ${QET_DIR}/sources/utils/conductorinteraction.h)
+add_test(
+  NAME conductor_interaction_test
+  COMMAND conductor_interaction_test)
+
 target_link_libraries(
   ${PROJECT_NAME}
   PRIVATE
@@ -154,4 +163,10 @@ target_link_libraries(
   PRIVATE
   Qt::Test
   Qt::Widgets)
+
+target_link_libraries(
+  conductor_interaction_test
+  PRIVATE
+  Qt::Test
+  Qt::Gui)
 

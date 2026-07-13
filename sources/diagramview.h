@@ -23,6 +23,7 @@
 
 #include <QClipboard>
 #include <QGraphicsView>
+#include <QPointer>
 
 class Conductor;
 class Diagram;
@@ -61,6 +62,7 @@ class DiagramView : public QGraphicsView
 		QList<QAction *>  m_separators;
 		QPolygonF m_free_rubberband;
 		bool m_free_rubberbanding = false;
+		QPointer<Conductor> m_proximity_hovered_conductor;
 		
 		
 	public:
@@ -85,6 +87,7 @@ class DiagramView : public QGraphicsView
 		void mousePressEvent(QMouseEvent *) override;
 		void mouseMoveEvent(QMouseEvent *) override;
 		void mouseReleaseEvent(QMouseEvent *) override;
+		void leaveEvent(QEvent *) override;
 		void dragEnterEvent(QDragEnterEvent *) override;
 		void dragMoveEvent(QDragMoveEvent *) override;
 		void dropEvent(QDropEvent *) override;
@@ -105,6 +108,9 @@ class DiagramView : public QGraphicsView
 		QRectF viewedSceneRect() const;
 		bool mustIntegrateTitleBlockTemplate(const TitleBlockTemplateLocation &) const;
 		bool gestures() const;
+		Conductor *conductorNearViewportPoint(const QPoint &point) const;
+		void updateConductorProximityHover(const QPoint &point);
+		void clearConductorProximityHover();
 
 	signals:
 			/// Signal emitted after the selection mode changed

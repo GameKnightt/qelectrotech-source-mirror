@@ -93,6 +93,7 @@ class QETDiagramEditor : public QETMainWindow
 		void setUpActions       ();
 		void setUpToolBar       ();
 		void setUpMenu          ();
+		void openExportCenter   ();
 		void applyWorkspaceProfile(
 			WorkspaceProfileController::Profile profile,
 			bool reset_layout,
@@ -192,6 +193,7 @@ class QETDiagramEditor : public QETMainWindow
 		*m_windowed_view_mode,		///< Display projects as windows
 		*m_mode_selection,		///< Set edition mode
 		*m_mode_visualise,		///< Set visualisation mode
+		*m_export_center,		///< Open the unified export launcher
 		*m_export_to_images,		///< Export diagrams of the current project as imagess
 		*m_export_to_pdf = nullptr, ///< Export project to pdf.
 		*m_print,			///< Print diagrams of the current project

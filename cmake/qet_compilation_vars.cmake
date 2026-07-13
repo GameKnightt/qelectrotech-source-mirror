@@ -645,6 +645,8 @@ set(QET_SRC_FILES
   ${QET_DIR}/sources/ui/backupdialog.h
   ${QET_DIR}/sources/ui/dialogwaiting.cpp
   ${QET_DIR}/sources/ui/dialogwaiting.h
+  ${QET_DIR}/sources/ui/exportcenterdialog.cpp
+  ${QET_DIR}/sources/ui/exportcenterdialog.h
   ${QET_DIR}/sources/ui/folionavigatordialog.cpp
   ${QET_DIR}/sources/ui/folionavigatordialog.h
   ${QET_DIR}/sources/ui/folionavigatormodel.cpp

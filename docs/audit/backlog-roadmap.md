@@ -221,6 +221,12 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
 ### UI-02 — Centre d'export et de génération avec aperçu d'impact
 
 - **Preuve :** E08 à E11.
+- **État du fork :** premier incrément launcher-only réalisé. Le menu Fichier et
+  le profil Essentiel ouvrent un centre commun pour six sorties Documents et
+  Données. Les mêmes `QAction` et dialogues historiques restent utilisés ; les
+  chemins directs et le profil Classique sont conservés. Compilation Qt 5,
+  tests Windows/DPI et inspection visuelle sont documentés dans
+  `docs/audit/implementation/ui-02-export-center.md`.
 - **Utilisateurs touchés :** tous ceux produisant des livrables.
 - **Fréquence :** fin de révision et diffusion.
 - **Impact :** prévention d'actions inattendues et reproductibilité.
@@ -228,7 +234,11 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
 - **Risque :** moyen.
 - **Dépendances :** export PDF/image/CSV, nomenclature, impression, CLI.
 - **Compatibilité amont :** façade commune autour des commandes existantes.
-- **Critères d'acceptation :** préréglages, résumé fichiers/folios créés, avertissements, annulation avant mutation, équivalence interface/CLI.
+- **Critères d'acceptation du premier incrément :** six sorties regroupées,
+  disponibilité synchronisée, navigation clavier, déclenchement différé sûr,
+  aucun changement de format ni suppression des commandes existantes.
+- **Cible restante :** préréglages, résumé fichiers/folios créés, avertissements,
+  annulation globale, composition multi-livrables et équivalence interface/CLI.
 
 ### A11Y-01 — Socle d'accessibilité et navigation clavier
 

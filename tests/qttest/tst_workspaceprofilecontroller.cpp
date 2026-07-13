@@ -47,6 +47,7 @@ class WorkspaceHarness
 			new_action(QStringLiteral("New"), &window),
 			open_action(QStringLiteral("Open"), &window),
 			save_action(QStringLiteral("Save"), &window),
+			export_center_action(QStringLiteral("Export center"), &window),
 			print_action(QStringLiteral("Print"), &window),
 			view_action(QStringLiteral("View action"), &window),
 			diagram_action(QStringLiteral("Diagram action"), &window),
@@ -64,6 +65,7 @@ class WorkspaceHarness
 			undo_dock.setObjectName(QStringLiteral("diagram_undo"));
 			properties.setObjectName(QStringLiteral("diagram_properties_editor_dock_widget"));
 			auto_numbering.setObjectName(QStringLiteral("auto_numbering"));
+			export_center_action.setObjectName(QStringLiteral("exportCenterAction"));
 
 			for (QToolBar *toolbar : toolbars()) {
 				window.addToolBar(Qt::TopToolBarArea, toolbar);
@@ -83,7 +85,8 @@ class WorkspaceHarness
 			actions.classic_diagram = {&diagram_action};
 			actions.classic_add = {&add_action};
 			actions.classic_depth = {&depth_action};
-			actions.essential_main = {&new_action, &open_action, &save_action};
+			actions.essential_main = {
+				&new_action, &open_action, &save_action, &export_center_action};
 			actions.essential_diagram = {&folio_action};
 
 			controller = std::make_unique<WorkspaceProfileController>(
@@ -130,6 +133,7 @@ class WorkspaceHarness
 		QAction new_action;
 		QAction open_action;
 		QAction save_action;
+		QAction export_center_action;
 		QAction print_action;
 		QAction view_action;
 		QAction diagram_action;
@@ -209,7 +213,8 @@ void WorkspaceProfileControllerTest::essentialProfileContainsExpectedActionsInOr
 		QList<QAction *>({
 			&harness.new_action,
 			&harness.open_action,
-			&harness.save_action}));
+			&harness.save_action,
+			&harness.export_center_action}));
 	QCOMPARE(
 		actionsWithoutSeparators(&harness.diagram_toolbar),
 		QList<QAction *>({&harness.folio_action}));
@@ -284,6 +289,7 @@ void WorkspaceProfileControllerTest::switchingProfilesDoesNotDuplicateActions()
 		&harness.new_action,
 		&harness.open_action,
 		&harness.save_action,
+		&harness.export_center_action,
 		&harness.print_action,
 		&harness.view_action,
 		harness.handler_size_action,

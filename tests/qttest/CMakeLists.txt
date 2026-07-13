@@ -123,6 +123,18 @@ set_tests_properties(
   PROPERTIES LABELS "export;integrity;export-01")
 
 add_executable(
+  export_center_test
+  tst_exportcenterdialog.cpp
+  ${QET_DIR}/sources/ui/exportcenterdialog.cpp
+  ${QET_DIR}/sources/ui/exportcenterdialog.h)
+add_test(
+  NAME export_center_test
+  COMMAND export_center_test)
+set_tests_properties(
+  export_center_test
+  PROPERTIES LABELS "export-center;ui-02;accessibility;deterministic-scale")
+
+add_executable(
   elements_collection_search_test
   tst_elementscollectionsearchmodel.cpp
   ${QET_DIR}/sources/ElementsCollection/elementscollectionsearchmodel.cpp
@@ -235,6 +247,17 @@ target_link_libraries(
   PRIVATE
   Qt::Test
   Qt::Core
+  Qt::Widgets)
+
+target_include_directories(
+  export_center_test
+  PRIVATE
+  ${QET_DIR}/sources)
+
+target_link_libraries(
+  export_center_test
+  PRIVATE
+  Qt::Test
   Qt::Widgets)
 
 target_link_libraries(

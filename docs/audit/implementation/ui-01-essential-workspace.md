@@ -12,8 +12,8 @@ l'interface historique à tout moment.
 Le profil **Essentiel** est utilisé lors d'une nouvelle installation. Il affiche
 deux barres d'outils :
 
-- projet et édition : Nouveau, Ouvrir, Enregistrer, Annuler, Rétablir,
-  Couper, Copier et Coller ;
+- projet et édition : Nouveau, Ouvrir, Enregistrer, Centre d'export, Annuler,
+  Rétablir, Couper, Copier et Coller ;
 - schéma : atteindre un folio, ajouter un folio, propriétés du folio et création
   automatique des conducteurs.
 

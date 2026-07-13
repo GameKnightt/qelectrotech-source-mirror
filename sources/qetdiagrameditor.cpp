@@ -34,8 +34,10 @@
 #include "qetgraphicsitem/dynamicelementtextitem.h"
 #include "qeticons.h"
 #include "qetmessagebox.h"
+#include "qetproject.h"
 #include "recentfiles.h"
 #include "ui/bomexportdialog.h"
+#include "ui/exportcenterdialog.h"
 #include "ui/diagrampropertieseditordockwidget.h"
 #include "ui/backupdialog.h"
 #include "ui/dialogwaiting.h"
@@ -286,6 +288,16 @@ void QETDiagramEditor::setUpAutonumberingWidget()
 */
 void QETDiagramEditor::setUpActions()
 {
+	m_export_center = new QAction(
+		QET::Icons::DocumentExport,
+		tr("Centre d'export…"),
+		this);
+	m_export_center->setObjectName(QStringLiteral("exportCenterAction"));
+	m_export_center->setStatusTip(tr(
+		"Regroupe les exports de documents et de données du projet courant"));
+	connect(m_export_center, &QAction::triggered,
+		this, &QETDiagramEditor::openExportCenter);
+
 		//Export to another file type (jpeg, dxf etc...)
 	m_export_to_images = new QAction(QET::Icons::DocumentExport,  tr("E&xporter"), this);
 	m_export_to_images->setShortcut(Qt::CTRL | Qt::SHIFT | Qt::Key_X);
@@ -812,6 +824,76 @@ void QETDiagramEditor::setUpActions()
 	});
 }
 
+void QETDiagramEditor::openExportCenter()
+{
+	QETProject *project = currentProject();
+	if (!project) return;
+
+	const ExportCenterDialog::ProjectSummary summary {
+		project->title(),
+		project->diagrams().count(),
+		project->currentDir()
+	};
+	const QList<ExportCenterDialog::Entry> entries {
+		{
+			ExportCenterDialog::Section::Documents,
+			tr("Images, SVG ou DXF"),
+			tr("Choisir les folios, les dimensions, le format et la destination."),
+			tr("Crée un fichier par folio sélectionné."),
+			tr("Ouvrez ou sélectionnez un folio à exporter."),
+			m_export_to_images
+		},
+		{
+			ExportCenterDialog::Section::Documents,
+			tr("Document PDF"),
+			tr("Choisir les folios et vérifier leur mise en page avant l'enregistrement."),
+			tr("Crée un document PDF à partir des folios sélectionnés."),
+			tr("Ouvrez ou sélectionnez un folio à exporter."),
+			m_export_to_pdf
+		},
+		{
+			ExportCenterDialog::Section::Documents,
+			tr("Impression"),
+			tr("Choisir les folios, l'imprimante et les options de mise en page."),
+			tr("Envoie les folios sélectionnés vers l'imprimante choisie."),
+			tr("Ouvrez ou sélectionnez un folio à imprimer."),
+			m_print
+		},
+		{
+			ExportCenterDialog::Section::Data,
+			tr("Nomenclature CSV"),
+			tr("Choisir les colonnes et les options de la nomenclature."),
+			tr("Crée un fichier CSV de nomenclature du projet."),
+			tr("Le projet doit être modifiable pour créer cette nomenclature."),
+			m_csv_export
+		},
+		{
+			ExportCenterDialog::Section::Data,
+			tr("Noms de conducteurs CSV"),
+			tr("Exporter la liste triée des noms de conducteurs utilisés."),
+			tr("Crée un fichier CSV pour la préparation du câblage."),
+			tr("Ouvrez un projet avant de lancer cet export."),
+			m_project_export_conductor_num
+		},
+		{
+			ExportCenterDialog::Section::Data,
+			tr("Plan de câblage CSV"),
+			tr("Exporter les connexions du projet sous forme tabulaire."),
+			tr("Crée un fichier CSV de plan de câblage."),
+			tr("Ouvrez un projet avant de lancer cet export."),
+			m_project_export_wiring_list
+		}
+	};
+
+	QPointer<QAction> selected_action;
+	{
+		ExportCenterDialog dialog(summary, entries, this);
+		if (dialog.exec() != QDialog::Accepted) return;
+		selected_action = dialog.selectedAction();
+	}
+	ExportCenterDialog::triggerActionDeferred(selected_action);
+}
+
 /**
 	@brief QETDiagramEditor::setUpToolBar
 */
@@ -884,6 +966,8 @@ void QETDiagramEditor::setUpToolBar()
 		m_open_file,
 		m_save_file,
 		nullptr,
+		m_export_center,
+		nullptr,
 		undo,
 		redo,
 		nullptr,
@@ -942,6 +1026,8 @@ void QETDiagramEditor::setUpMenu()
 	connect(QETApp::projectsRecentFiles(), SIGNAL(fileOpeningRequested(const QString &)),
 		this, SLOT(openRecentFile(const QString &)));
 	menu_fichier -> addActions(m_file_actions_group.actions());
+	menu_fichier -> addSeparator();
+	menu_fichier -> addAction(m_export_center);
 	menu_fichier -> addSeparator();
 	//menu_fichier -> addAction(import_diagram);
 	menu_fichier -> addAction(m_export_to_images);
@@ -1728,6 +1814,7 @@ void QETDiagramEditor::slot_updateActions()
 	m_close_file->                  setEnabled(opened_project);
 	m_save_file->                   setEnabled(opened_project);
 	m_save_file_as->                setEnabled(opened_project);
+	m_export_center->               setEnabled(opened_project);
 	m_rotate_texts->                setEnabled(editable_project);
 	m_export_to_images->            setEnabled(opened_diagram);
 	m_print->                       setEnabled(opened_diagram);

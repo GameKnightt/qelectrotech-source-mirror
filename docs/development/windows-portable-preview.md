@@ -1,0 +1,60 @@
+# Préversion portable Windows interne
+
+Le script `packaging/windows/deploy-portable.ps1` transforme une compilation
+Release Qt 5/UCRT64 en dossier candidat pour les essais internes. Il exécute le
+déploiement Qt, complète les dépendances transitives MSYS2 et ajoute les
+collections, cartouches et traductions QElectroTech.
+
+Le script doit être lancé depuis PowerShell 64 bits avec des entrées de
+confiance. Il refuse les builds non Release, vérifie les plugins Qt requis,
+exécute `qelectrotech.exe --version` sans MSYS2 dans le `PATH` et génère un
+manifeste SHA-256. Il déploie d’abord dans un dossier temporaire frère, puis
+renomme le résultat seulement après validation complète.
+
+## Préparer la compilation Release
+
+```powershell
+$env:PATH = "C:\msys64\ucrt64\bin;$env:PATH"
+
+C:\msys64\ucrt64\bin\cmake.exe -S . -B build-release -G Ninja `
+  -DCMAKE_BUILD_TYPE=Release `
+  -DCMAKE_PREFIX_PATH=C:/msys64/ucrt64 `
+  -DQt5_DIR=C:/msys64/ucrt64/lib/cmake/Qt5 `
+  -DQT_VERSION_MAJOR=5 `
+  -DCMAKE_DISABLE_FIND_PACKAGE_Qt6=ON `
+  -DBUILD_WITH_KF5=OFF `
+  -DBUILD_TESTING=OFF `
+  -DPACKAGE_TESTS=OFF `
+  '-DCMAKE_POLICY_VERSION_MINIMUM=3.5' `
+  -DSQLite3_INCLUDE_DIR=C:/msys64/ucrt64/include `
+  -DSQLite3_LIBRARY=C:/msys64/ucrt64/lib/libsqlite3.dll.a
+
+C:\msys64\ucrt64\bin\cmake.exe --build build-release --target qelectrotech
+```
+
+Utiliser un dossier de build Release neuf. `cmake`, `ninja` et les compilateurs
+doivent provenir du même environnement MSYS2 UCRT64.
+
+## Générer le dossier portable
+
+Le dossier de sortie doit être absent et son dossier parent doit déjà exister.
+Pour éviter de polluer le dépôt, l’exemple écrit dans le dossier temporaire de
+l’utilisateur.
+
+```powershell
+$output = Join-Path $env:TEMP 'qelectrotech-portable-preview'
+
+.\packaging\windows\deploy-portable.ps1 `
+  -BuildDir .\build-release `
+  -SourceDir . `
+  -OutputDir $output
+```
+
+Le script conserve seulement le pilote SQL SQLite utilisé par QElectroTech,
+copie les licences du projet et de la collection, et échoue si une dépendance
+native requise ne peut pas être résolue depuis le même environnement UCRT64.
+
+Cette sortie reste une préversion interne. Une distribution publique exige en
+plus un inventaire de toutes les licences tierces, la mise à disposition des
+sources correspondantes et une validation sur une machine ou une Windows
+Sandbox sans MSYS2 installé.

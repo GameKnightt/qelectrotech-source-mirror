@@ -476,6 +476,18 @@ quintptr ConductorBulkEditModel::targetKeyForRow(int row) const
 		: 0;
 }
 
+bool ConductorBulkEditModel::cellState(
+	int row,
+	int column,
+	Cell *state) const
+{
+	if (!state) return false;
+	const Cell *source = cell(row, column);
+	if (!source) return false;
+	*state = *source;
+	return true;
+}
+
 ConductorProperties ConductorBulkEditModel::propertiesForTarget(
 	quintptr targetKey,
 	const ConductorProperties &before) const

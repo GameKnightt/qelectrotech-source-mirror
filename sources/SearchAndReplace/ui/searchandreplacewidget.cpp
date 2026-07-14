@@ -58,6 +58,8 @@ SearchAndReplaceWidget::SearchAndReplaceWidget(QWidget *parent) :
 	ui(new Ui::SearchAndReplaceWidget)
 {
 	ui->setupUi(this);
+	ui->gridLayout_2->setRowMinimumHeight(1, 32);
+	ui->m_advanced_widget->setMinimumHeight(150);
 
 	m_horizontal_animation = new QWidgetAnimation(
 				ui->m_advanced_button_widget,

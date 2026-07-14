@@ -121,6 +121,7 @@ class ConductorBulkEditModel final : public QAbstractTableModel
 		int changedSegmentCount() const;
 		QString firstValidationError() const;
 		quintptr targetKeyForRow(int row) const;
+		bool cellState(int row, int column, Cell *state) const;
 		ConductorProperties propertiesForTarget(
 			quintptr targetKey,
 			const ConductorProperties &before) const;

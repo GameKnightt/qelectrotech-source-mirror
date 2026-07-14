@@ -9,13 +9,18 @@
 */
 #include "conductorbulkeditdialog.h"
 
+#include "../conductorbulkeditcsvexport.h"
+
 #include <QAction>
 #include <QAbstractItemView>
 #include <QAccessible>
 #include <QApplication>
 #include <QClipboard>
 #include <QDialogButtonBox>
+#include <QDir>
 #include <QEventLoop>
+#include <QFileDialog>
+#include <QFileInfo>
 #include <QFont>
 #include <QHeaderView>
 #include <QHBoxLayout>
@@ -38,6 +43,8 @@ namespace {
 constexpr int ColumnLayoutVersion = 1;
 const auto ColumnLayoutPrefix = QStringLiteral(
 	"conductor-bulk-editor/column-layout/");
+const auto ReviewExportDirectoryKey = QStringLiteral(
+	"conductor-bulk-editor/review-export-directory");
 
 QString columnLayoutKey(const QString &name)
 {
@@ -189,6 +196,17 @@ ConductorBulkEditDialog::ConductorBulkEditDialog(
 	m_fill_down_button->setMinimumHeight(32);
 	m_fill_down_button->setAccessibleName(m_fill_down_action->text());
 	table_actions->addWidget(m_fill_down_button);
+	m_review_export_button = new QPushButton(tr("Exporter pour revue…"), this);
+	m_review_export_button->setObjectName(
+		QStringLiteral("exportConductorBulkReviewButton"));
+	m_review_export_button->setMinimumHeight(32);
+	m_review_export_button->setAccessibleName(
+		tr("Exporter le brouillon pour revue"));
+	m_review_export_button->setAccessibleDescription(tr(
+		"Enregistre en CSV les lignes et colonnes visibles dans leur ordre actuel. Le projet n’est pas modifié."));
+	m_review_export_button->setToolTip(tr(
+		"Exporter les lignes et colonnes visibles dans un fichier CSV, sans modifier le projet."));
+	table_actions->addWidget(m_review_export_button);
 	main_layout->addLayout(table_actions);
 	main_layout->addWidget(m_table, 1);
 
@@ -229,7 +247,8 @@ ConductorBulkEditDialog::ConductorBulkEditDialog(
 	main_layout->addWidget(m_buttons);
 
 	QWidget::setTabOrder(m_columns_button, m_fill_down_button);
-	QWidget::setTabOrder(m_fill_down_button, m_table);
+	QWidget::setTabOrder(m_fill_down_button, m_review_export_button);
+	QWidget::setTabOrder(m_review_export_button, m_table);
 	QWidget::setTabOrder(m_table, m_reset_button);
 	QWidget::setTabOrder(m_reset_button, m_verify_button);
 	QWidget::setTabOrder(m_verify_button, cancel_button);
@@ -259,6 +278,8 @@ ConductorBulkEditDialog::ConductorBulkEditDialog(
 		this, &ConductorBulkEditDialog::fillDownSelection);
 	connect(m_fill_down_button, &QPushButton::clicked,
 		m_fill_down_action, &QAction::trigger);
+	connect(m_review_export_button, &QPushButton::clicked,
+		this, &ConductorBulkEditDialog::exportReview);
 	connect(m_fill_down_action, &QAction::changed, this, [this]() {
 		m_fill_down_button->setEnabled(m_fill_down_action->isEnabled());
 		m_fill_down_button->setToolTip(m_fill_down_action->toolTip());
@@ -313,6 +334,11 @@ QPushButton *ConductorBulkEditDialog::columnsButton() const
 	return m_columns_button;
 }
 
+QPushButton *ConductorBulkEditDialog::reviewExportButton() const
+{
+	return m_review_export_button;
+}
+
 QAction *ConductorBulkEditDialog::columnAction(int logicalColumn) const
 {
 	return logicalColumn >= 0 && logicalColumn < m_column_actions.size()
@@ -333,6 +359,75 @@ QPushButton *ConductorBulkEditDialog::verifyButton() const
 QPushButton *ConductorBulkEditDialog::resetButton() const
 {
 	return m_reset_button;
+}
+
+bool ConductorBulkEditDialog::exportReviewToFile(const QString &filePath)
+{
+	QWidget *focus_widget = QApplication::focusWidget();
+	if (focus_widget && focus_widget != m_table
+		&& focus_widget != m_table->viewport()
+		&& m_table->isAncestorOf(focus_widget)) {
+		m_table->setFocus(Qt::ShortcutFocusReason);
+		QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+	}
+
+	const QVector<int> visible_columns = visibleColumnsInVisualOrder();
+	m_review_export_button->setEnabled(false);
+	const auto result = ConductorBulkEditCsvExporter::writeCsv(
+		*m_model, visible_columns, filePath);
+	m_review_export_button->setEnabled(m_model->rowCount() > 0);
+
+	const int total_changed = m_model->changedCellCount({
+		ConductorBulkEditModel::FunctionColumn,
+		ConductorBulkEditModel::TensionProtocolColumn,
+		ConductorBulkEditModel::WireColorColumn,
+		ConductorBulkEditModel::WireSectionColumn});
+	const int hidden_changed = qMax(0, total_changed - result.changedCellCount);
+	if (!result.success) {
+		setStatusMessage(
+			tr("Export impossible : %1 ligne(s) et %2 colonne(s) préparées. %3 "
+			   "Aucun fichier existant n’a été remplacé ; le projet reste inchangé.")
+				.arg(result.rowCount)
+				.arg(result.columnCount)
+				.arg(result.error),
+			true);
+		m_status->setToolTip(filePath);
+		m_status->setAccessibleDescription(filePath);
+		return false;
+	}
+
+	QStringList details;
+	if (result.changedCellCount > 0) {
+		details.append(tr("%1 modification(s) exportée(s)")
+			.arg(result.changedCellCount));
+	}
+	if (hidden_changed > 0) {
+		details.append(tr("%1 modification(s) masquée(s) non exportée(s)")
+			.arg(hidden_changed));
+	}
+	if (result.mixedCellCount > 0) {
+		details.append(tr("%1 valeur(s) multiple(s)")
+			.arg(result.mixedCellCount));
+	}
+	if (m_model->invalidCellCount() > 0) {
+		details.append(tr("%1 cellule(s) invalide(s)")
+			.arg(m_model->invalidCellCount()));
+	}
+	if (result.formulaNeutralizedCellCount > 0) {
+		details.append(tr("%1 valeur(s) protégée(s) pour le tableur")
+			.arg(result.formulaNeutralizedCellCount));
+	}
+
+	QString message = tr("Export terminé : %1 ligne(s), %2 colonne(s)")
+		.arg(result.rowCount)
+		.arg(result.columnCount);
+	if (!details.isEmpty()) message += QStringLiteral(", ") + details.join(QStringLiteral(", "));
+	message += tr(". Fichier : %1. Le projet reste inchangé.")
+		.arg(QFileInfo(filePath).fileName());
+	setStatusMessage(message);
+	m_status->setToolTip(filePath);
+	m_status->setAccessibleDescription(tr("Fichier exporté : %1").arg(filePath));
+	return true;
 }
 
 ConductorProperties ConductorBulkEditDialog::propertiesForTarget(
@@ -455,6 +550,20 @@ QVector<int> ConductorBulkEditDialog::visibleEditableColumns(
 	// A read-only or hidden current cell falls back to the first visible
 	// editable column, matching the historical paste behavior.
 	return visibleEditableColumns();
+}
+
+QVector<int> ConductorBulkEditDialog::visibleColumnsInVisualOrder() const
+{
+	QVector<int> columns;
+	auto header = m_table->horizontalHeader();
+	columns.reserve(header->count());
+	for (int visual = 0; visual < header->count(); ++visual) {
+		const int logical = header->logicalIndex(visual);
+		if (logical >= 0 && !m_table->isColumnHidden(logical)) {
+			columns.append(logical);
+		}
+	}
+	return columns;
 }
 
 void ConductorBulkEditDialog::loadColumnLayout()
@@ -664,6 +773,30 @@ void ConductorBulkEditDialog::fillDownSelection()
 	m_table->setFocus(Qt::ShortcutFocusReason);
 }
 
+void ConductorBulkEditDialog::exportReview()
+{
+	QSettings settings;
+	const QString directory = settings.value(
+		ReviewExportDirectoryKey, QDir::homePath()).toString();
+	QString file_path = QFileDialog::getSaveFileName(
+		this,
+		tr("Exporter les conducteurs pour revue"),
+		QDir(directory).filePath(QStringLiteral("conducteurs-revue.csv")),
+		tr("Fichiers CSV (*.csv)"));
+	if (file_path.isEmpty()) {
+		m_review_export_button->setFocus(Qt::OtherFocusReason);
+		return;
+	}
+	if (QFileInfo(file_path).suffix().isEmpty()) {
+		file_path += QStringLiteral(".csv");
+	}
+	settings.setValue(
+		ReviewExportDirectoryKey,
+		QFileInfo(file_path).absolutePath());
+	exportReviewToFile(file_path);
+	m_review_export_button->setFocus(Qt::OtherFocusReason);
+}
+
 void ConductorBulkEditDialog::pasteClipboard()
 {
 	QString error;
@@ -730,6 +863,11 @@ void ConductorBulkEditDialog::updateState()
 	const bool changes = m_model->hasChanges();
 	m_verify_button->setEnabled(valid && changes);
 	m_reset_button->setEnabled(changes);
+	m_review_export_button->setEnabled(m_model->rowCount() > 0);
+	m_review_export_button->setToolTip(
+		m_model->rowCount() > 0
+			? tr("Exporter les lignes et colonnes visibles dans un fichier CSV, sans modifier le projet.")
+			: tr("Aucun conducteur à exporter."));
 
 	QString text;
 	QPalette palette = m_status->palette();
@@ -767,5 +905,7 @@ void ConductorBulkEditDialog::updateState()
 	m_status->setPalette(palette);
 	m_status->setText(text);
 	m_status->setAccessibleName(text);
+	m_status->setToolTip(QString());
+	m_status->setAccessibleDescription(QString());
 	updateFillDownAction();
 }

@@ -10,6 +10,7 @@
 #ifndef EXPORT_UTILS_H
 #define EXPORT_UTILS_H
 
+#include <QByteArray>
 #include <QString>
 
 namespace ExportUtils {
@@ -21,6 +22,10 @@ namespace ExportUtils {
 	bool writeTextAtomically(
 		const QString &file_path,
 		const QString &contents,
+		QString *error_message = nullptr);
+	bool writeBytesAtomically(
+		const QString &file_path,
+		const QByteArray &contents,
 		QString *error_message = nullptr);
 
 }

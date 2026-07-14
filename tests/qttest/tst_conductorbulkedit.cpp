@@ -8,6 +8,7 @@
 	(at your option) any later version.
 */
 #include "../../sources/SearchAndReplace/conductorbulkeditmodel.h"
+#include "../../sources/SearchAndReplace/conductorbulkeditcsvexport.h"
 #include "../../sources/SearchAndReplace/ui/conductorbulkeditdialog.h"
 
 #include <QAction>
@@ -15,7 +16,10 @@
 #include <QClipboard>
 #include <QCoreApplication>
 #include <QDialogButtonBox>
+#include <QDir>
 #include <QFont>
+#include <QFile>
+#include <QFileInfo>
 #include <QHash>
 #include <QHeaderView>
 #include <QItemSelectionModel>
@@ -26,6 +30,7 @@
 #include <QScrollBar>
 #include <QSettings>
 #include <QTableView>
+#include <QTemporaryDir>
 #include <QtTest>
 
 namespace {
@@ -148,6 +153,12 @@ class ConductorBulkEditTest : public QObject
 		void mandatoryAndLastEditableColumnsRemainVisible();
 		void reorderedPasteFollowsVisibleColumns();
 		void hiddenDraftChangesAreAnnounced();
+		void reviewCsvFollowsVisibleVisualOrder();
+		void reviewCsvCommitsActiveEditor();
+		void reviewCsvUsesExactExcelSafeEncoding();
+		void reviewCsvDistinguishesMixedAndExplicitEmpty();
+		void reviewCsvWriteFailureIsAtomicAndReadOnly();
+		void reviewCsvHandlesThousandRowsDeterministically();
 };
 
 void ConductorBulkEditTest::initTestCase()
@@ -1033,6 +1044,183 @@ void ConductorBulkEditTest::hiddenDraftChangesAreAnnounced()
 	dialog.resetColumnLayoutAction()->trigger();
 	QVERIFY(!dialog.draftTable()->isColumnHidden(
 		ConductorBulkEditModel::TensionProtocolColumn));
+}
+
+void ConductorBulkEditTest::reviewCsvFollowsVisibleVisualOrder()
+{
+	ConductorBulkEditDialog dialog(rows(1));
+	for (int column : {
+		 ConductorBulkEditModel::FolioColumn,
+		 ConductorBulkEditModel::SegmentCountColumn,
+		 ConductorBulkEditModel::TensionProtocolColumn,
+		 ConductorBulkEditModel::WireColorColumn}) {
+		dialog.columnAction(column)->setChecked(false);
+	}
+	auto header = dialog.draftTable()->horizontalHeader();
+	header->moveSection(
+		header->visualIndex(ConductorBulkEditModel::WireSectionColumn), 0);
+	header->moveSection(
+		header->visualIndex(ConductorBulkEditModel::PotentialColumn), 1);
+	header->moveSection(
+		header->visualIndex(ConductorBulkEditModel::FunctionColumn), 2);
+
+	QTemporaryDir directory;
+	QVERIFY(directory.isValid());
+	const QString path = directory.filePath(QStringLiteral("review.csv"));
+	QVERIFY(dialog.exportReviewToFile(path));
+	QFile file(path);
+	QVERIFY(file.open(QIODevice::ReadOnly));
+	const QByteArray bytes = file.readAll();
+	QCOMPARE(bytes.left(3), QByteArray::fromHex("efbbbf"));
+	const QString decoded = QString::fromUtf8(bytes.mid(3));
+	QVERIFY(decoded.startsWith(QStringLiteral(
+		"Section;Potentiel / conducteur;Fonction\r\n")));
+	QVERIFY(!decoded.contains(QStringLiteral("Folio(s)")));
+	QVERIFY(!decoded.contains(QStringLiteral("Tension / protocole")));
+	QVERIFY(dialog.reviewExportButton()->isEnabled());
+	QCOMPARE(
+		dialog.reviewExportButton()->accessibleName(),
+		QStringLiteral("Exporter le brouillon pour revue"));
+	QVERIFY(statusLabel(dialog)->text().contains(QStringLiteral("Export terminé")));
+	QVERIFY(statusLabel(dialog)->text().contains(QStringLiteral("projet reste inchangé")));
+}
+
+void ConductorBulkEditTest::reviewCsvCommitsActiveEditor()
+{
+	ConductorBulkEditDialog dialog(rows(1));
+	dialog.show();
+	QVERIFY(QTest::qWaitForWindowExposed(&dialog));
+	const QModelIndex function = dialog.draftModel()->index(
+		0, ConductorBulkEditModel::FunctionColumn);
+	dialog.draftTable()->setCurrentIndex(function);
+	dialog.draftTable()->edit(function);
+	QTRY_VERIFY(dialog.findChild<QLineEdit *>());
+	QLineEdit *editor = dialog.findChild<QLineEdit *>();
+	editor->setFocus();
+	editor->selectAll();
+	QTest::keyClicks(editor, QStringLiteral("Source saisie"));
+
+	QTemporaryDir directory;
+	QVERIFY(directory.isValid());
+	const QString path = directory.filePath(QStringLiteral("active-editor.csv"));
+	QVERIFY(dialog.exportReviewToFile(path));
+	QCOMPARE(
+		dialog.draftModel()->data(function, Qt::EditRole).toString(),
+		QStringLiteral("Source saisie"));
+	QFile file(path);
+	QVERIFY(file.open(QIODevice::ReadOnly));
+	QVERIFY(QString::fromUtf8(file.readAll()).contains(
+		QStringLiteral("Source saisie")));
+}
+
+void ConductorBulkEditTest::reviewCsvUsesExactExcelSafeEncoding()
+{
+	QVector<ConductorBulkEditModel::Row> draft_rows;
+	auto first = row(0, {1});
+	first.folios = QStringLiteral("Étage été");
+	first.potential = QStringLiteral("+Départ éclairage");
+	first.function = commonCell(QStringLiteral("=HYPERLINK(\"x\")"));
+	first.tensionProtocol = commonCell(QStringLiteral("-10+20"));
+	first.wireColor = commonCell(QStringLiteral("@SUM(A1:A2)"));
+	first.wireSection = commonCell(QStringLiteral("1;5 mm²"));
+	draft_rows.append(first);
+	auto second = row(1, {2});
+	second.function = commonCell(QStringLiteral("Ligne A\nLigne B"));
+	draft_rows.append(second);
+	ConductorBulkEditModel model(draft_rows);
+
+	const auto result = ConductorBulkEditCsvExporter::toCsv(
+		model, ConductorBulkEditModel::defaultColumnOrder());
+	QVERIFY2(result.success, qPrintable(result.error));
+	QCOMPARE(result.formulaNeutralizedCellCount, 4);
+	const QByteArray bytes = result.contents.toUtf8();
+	QCOMPARE(bytes.left(3), QByteArray::fromHex("efbbbf"));
+	QCOMPARE(bytes.indexOf(QByteArray::fromHex("efbbbf"), 3), -1);
+	const QString decoded = QString::fromUtf8(bytes.mid(3));
+	QVERIFY(decoded.contains(QStringLiteral("Étage été")));
+	QVERIFY(decoded.contains(QStringLiteral("__QET_LITERAL__+Départ éclairage")));
+	QVERIFY(decoded.contains(QStringLiteral(
+		"\"__QET_LITERAL__=HYPERLINK(\"\"x\"\")\"")));
+	QVERIFY(decoded.contains(QStringLiteral("\"1;5 mm²\"")));
+	QVERIFY(decoded.contains(QStringLiteral("\"Ligne A\r\nLigne B\"")));
+	QVERIFY(decoded.endsWith(QStringLiteral("\r\n")));
+	for (int index = 0; index < decoded.size(); ++index) {
+		if (decoded.at(index) == QLatin1Char('\n')) {
+			QVERIFY(index > 0 && decoded.at(index - 1) == QLatin1Char('\r'));
+		}
+		if (decoded.at(index) == QLatin1Char('\r')) {
+			QVERIFY(index + 1 < decoded.size()
+				&& decoded.at(index + 1) == QLatin1Char('\n'));
+		}
+	}
+}
+
+void ConductorBulkEditTest::reviewCsvDistinguishesMixedAndExplicitEmpty()
+{
+	auto first = row(0, {1});
+	first.function = mixedCell();
+	auto second = row(1, {2});
+	second.function = mixedCell();
+	ConductorBulkEditModel model({first, second});
+	QVERIFY(model.setData(
+		model.index(0, ConductorBulkEditModel::WireSectionColumn), QString()));
+	QVERIFY(model.setData(
+		model.index(1, ConductorBulkEditModel::FunctionColumn), QString()));
+
+	const auto result = ConductorBulkEditCsvExporter::toCsv(
+		model,
+		{ConductorBulkEditModel::FunctionColumn,
+		 ConductorBulkEditModel::WireSectionColumn});
+	QVERIFY2(result.success, qPrintable(result.error));
+	QCOMPARE(result.mixedCellCount, 1);
+	QCOMPARE(result.explicitEmptyCellCount, 2);
+	QCOMPARE(
+		result.contents.mid(1),
+		QStringLiteral(
+			"Fonction;Section\r\n"
+			"__QET_MIXED_VALUE__;__QET_EXPLICIT_EMPTY__\r\n"
+			"__QET_EXPLICIT_EMPTY__;1,5\r\n"));
+}
+
+void ConductorBulkEditTest::reviewCsvWriteFailureIsAtomicAndReadOnly()
+{
+	ConductorBulkEditModel model(rows(2));
+	QSignalSpy data_changed(&model, &QAbstractItemModel::dataChanged);
+	QSignalSpy model_reset(&model, &QAbstractItemModel::modelReset);
+	const QString before = model.data(
+		model.index(0, ConductorBulkEditModel::FunctionColumn),
+		Qt::EditRole).toString();
+	QTemporaryDir directory;
+	QVERIFY(directory.isValid());
+	const QString path = QDir(directory.path()).filePath(
+		QStringLiteral("missing/review.csv"));
+	const auto result = ConductorBulkEditCsvExporter::writeCsv(
+		model, ConductorBulkEditModel::defaultColumnOrder(), path);
+	QVERIFY(!result.success);
+	QVERIFY(!result.error.isEmpty());
+	QVERIFY(!QFileInfo::exists(path));
+	QCOMPARE(model.data(
+		model.index(0, ConductorBulkEditModel::FunctionColumn),
+		Qt::EditRole).toString(), before);
+	QCOMPARE(data_changed.count(), 0);
+	QCOMPARE(model_reset.count(), 0);
+	QVERIFY(!model.hasChanges());
+}
+
+void ConductorBulkEditTest::reviewCsvHandlesThousandRowsDeterministically()
+{
+	ConductorBulkEditModel model(rows(1000));
+	QSignalSpy data_changed(&model, &QAbstractItemModel::dataChanged);
+	const auto first = ConductorBulkEditCsvExporter::toCsv(
+		model, ConductorBulkEditModel::defaultColumnOrder());
+	const auto second = ConductorBulkEditCsvExporter::toCsv(
+		model, ConductorBulkEditModel::defaultColumnOrder());
+	QVERIFY(first.success);
+	QVERIFY(second.success);
+	QCOMPARE(first.rowCount, 1000);
+	QCOMPARE(first.contents, second.contents);
+	QCOMPARE(first.contents.count(QStringLiteral("\r\n")), 1001);
+	QCOMPARE(data_changed.count(), 0);
 }
 
 QTEST_MAIN(ConductorBulkEditTest)

@@ -76,3 +76,31 @@ bool ExportUtils::writeTextAtomically(
 	}
 	return true;
 }
+
+bool ExportUtils::writeBytesAtomically(
+	const QString &file_path,
+	const QByteArray &contents,
+	QString *error_message)
+{
+	if (error_message) error_message->clear();
+
+	QSaveFile file(file_path);
+	file.setDirectWriteFallback(false);
+	if (!file.open(QIODevice::WriteOnly)) {
+		if (error_message) *error_message = file.errorString();
+		return false;
+	}
+
+	const qint64 written = file.write(contents);
+	if (written != contents.size() || file.error() != QFileDevice::NoError) {
+		if (error_message) *error_message = file.errorString();
+		file.cancelWriting();
+		return false;
+	}
+
+	if (!file.commit()) {
+		if (error_message) *error_message = file.errorString();
+		return false;
+	}
+	return true;
+}

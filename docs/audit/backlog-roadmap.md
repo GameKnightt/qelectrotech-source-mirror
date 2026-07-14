@@ -189,10 +189,14 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
   modifient jamais une colonne masquée. Son point d’entrée récupère aussi les
   conducteurs depuis le projet et les bornes lorsque l’index de recherche d’un
   ancien fichier est vide ou périmé ; le parcours complet est validé sur
-  `examples/industrial.qet`. Voir `docs/audit/implementation/ux-05a-conductor-change-preview.md`,
+  `examples/industrial.qet`. UX-05E exporte désormais le brouillon pour revue
+  en CSV UTF-8 atomique, dans l’ordre des colonnes visibles, avec neutralisation
+  des formules de tableur et sans mutation du projet. Voir
+  `docs/audit/implementation/ux-05a-conductor-change-preview.md`,
   `docs/audit/implementation/ux-05b-conductor-bulk-editor.md` et
   `docs/audit/implementation/ux-05c-table-fill.md` ainsi que
-  `docs/audit/implementation/ux-05d-column-layout.md`.
+  `docs/audit/implementation/ux-05d-column-layout.md` et
+  `docs/audit/implementation/ux-05e-conductor-review-export.md`.
 - **Utilisateurs touchés :** projets répétitifs et contrôle qualité.
 - **Fréquence :** régulière.
 - **Impact :** gain de temps élevé.
@@ -201,9 +205,9 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
 - **Dépendances :** modèle commun de propriétés, sélection, filtres, Undo.
 - **Compatibilité amont :** vue additive sans modifier le stockage.
 - **Critères d'acceptation :** colonnes configurables, édition multi-cellules, validation avant application, prévisualisation du nombre d'objets, transaction Undo unique.
-- **Incrément suivant UX-05E :** export CSV de revue atomique et protégé pour
-  Excel ; identités persistantes et import robuste seulement dans un lot
-  ultérieur, puis extension progressive aux éléments, borniers et câbles.
+- **Incrément suivant :** définir des identités persistantes avant tout import
+  robuste, puis étendre progressivement le modèle aux éléments, borniers et
+  câbles.
 
 ### IND-01 — Unifier le parcours borniers et câbles
 

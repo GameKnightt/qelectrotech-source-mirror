@@ -35,10 +35,12 @@ class ConductorBulkEditDialog final : public QDialog
 		QAction *fillDownAction() const;
 		QPushButton *fillDownButton() const;
 		QPushButton *columnsButton() const;
+		QPushButton *reviewExportButton() const;
 		QAction *columnAction(int logicalColumn) const;
 		QAction *resetColumnLayoutAction() const;
 		QPushButton *verifyButton() const;
 		QPushButton *resetButton() const;
+		bool exportReviewToFile(const QString &filePath);
 		ConductorProperties propertiesForTarget(
 			quintptr targetKey,
 			const ConductorProperties &before) const;
@@ -53,6 +55,7 @@ class ConductorBulkEditDialog final : public QDialog
 			QVector<int> *logicalColumns,
 			QString *errorMessage = nullptr) const;
 		QVector<int> visibleEditableColumns(int startLogicalColumn = -1) const;
+		QVector<int> visibleColumnsInVisualOrder() const;
 		void loadColumnLayout();
 		void applyColumnLayout(
 			const QVector<int> &logicalOrder,
@@ -62,6 +65,7 @@ class ConductorBulkEditDialog final : public QDialog
 		void resetColumnLayout();
 		void setColumnVisibility(int logicalColumn, bool visible);
 		void fillDownSelection();
+		void exportReview();
 		void pasteClipboard();
 		void setStatusMessage(const QString &message, bool error = false);
 		void updateFillDownAction();
@@ -72,6 +76,7 @@ class ConductorBulkEditDialog final : public QDialog
 		QAction *m_fill_down_action = nullptr;
 		QPushButton *m_fill_down_button = nullptr;
 		QPushButton *m_columns_button = nullptr;
+		QPushButton *m_review_export_button = nullptr;
 		QMenu *m_columns_menu = nullptr;
 		QVector<QAction *> m_column_actions;
 		QAction *m_reset_column_layout_action = nullptr;

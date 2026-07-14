@@ -502,6 +502,8 @@ set(QET_SRC_FILES
 
   ${QET_DIR}/sources/SearchAndReplace/conductorbulkeditadapter.cpp
   ${QET_DIR}/sources/SearchAndReplace/conductorbulkeditadapter.h
+  ${QET_DIR}/sources/SearchAndReplace/conductorbulkeditcsvexport.cpp
+  ${QET_DIR}/sources/SearchAndReplace/conductorbulkeditcsvexport.h
   ${QET_DIR}/sources/SearchAndReplace/conductorbulkeditmodel.cpp
   ${QET_DIR}/sources/SearchAndReplace/conductorbulkeditmodel.h
   ${QET_DIR}/sources/SearchAndReplace/conductorchangeplan.cpp

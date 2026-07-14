@@ -255,10 +255,14 @@ add_executable(
   tst_conductorbulkedit.cpp
   ${QET_DIR}/sources/conductorproperties.cpp
   ${QET_DIR}/sources/conductorproperties.h
+  ${QET_DIR}/sources/SearchAndReplace/conductorbulkeditcsvexport.cpp
+  ${QET_DIR}/sources/SearchAndReplace/conductorbulkeditcsvexport.h
   ${QET_DIR}/sources/SearchAndReplace/conductorbulkeditmodel.cpp
   ${QET_DIR}/sources/SearchAndReplace/conductorbulkeditmodel.h
   ${QET_DIR}/sources/SearchAndReplace/ui/conductorbulkeditdialog.cpp
-  ${QET_DIR}/sources/SearchAndReplace/ui/conductorbulkeditdialog.h)
+  ${QET_DIR}/sources/SearchAndReplace/ui/conductorbulkeditdialog.h
+  ${QET_DIR}/sources/utils/exportutils.cpp
+  ${QET_DIR}/sources/utils/exportutils.h)
 add_test(
   NAME conductor_bulk_edit_test
   COMMAND conductor_bulk_edit_test)
@@ -271,12 +275,22 @@ add_test(
 add_test(
   NAME conductor_bulk_edit_large_text_150_test
   COMMAND conductor_bulk_edit_test fitsScreenAt150Percent)
+add_test(
+  NAME conductor_bulk_edit_csv_test
+  COMMAND conductor_bulk_edit_test
+    reviewCsvFollowsVisibleVisualOrder
+    reviewCsvCommitsActiveEditor
+    reviewCsvUsesExactExcelSafeEncoding
+    reviewCsvDistinguishesMixedAndExplicitEmpty
+    reviewCsvWriteFailureIsAtomicAndReadOnly
+    reviewCsvHandlesThousandRowsDeterministically)
 set_tests_properties(
   conductor_bulk_edit_test
   conductor_bulk_edit_keyboard_test
   conductor_bulk_edit_active_editor_test
   conductor_bulk_edit_large_text_150_test
-  PROPERTIES LABELS "conductor-properties;ux-05b;ux-05c;ux-05d;fill-down;column-layout;accessibility;clipboard;deterministic-scale")
+  conductor_bulk_edit_csv_test
+  PROPERTIES LABELS "conductor-properties;ux-05b;ux-05c;ux-05d;ux-05e;fill-down;column-layout;csv;excel;atomic;accessibility;clipboard;deterministic-scale")
 
 add_executable(
   ordered_index_cache_test

@@ -281,6 +281,38 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
 - **Cible restante UI-03B :** exemples curatés et modèles ouverts comme copies
   non enregistrées après mise en place de leur packaging Windows sûr.
 
+### UI-04 — Shell contextuel et profil Essentiel lisible
+
+- **Preuve :** E01 ; l'accueil UI-03 restait encadré par des barres et panneaux
+  sans utilité avant l'ouverture d'un projet, tandis que les commandes
+  principales du profil Essentiel restaient difficiles à identifier par leurs
+  seules icônes.
+- **État du fork :** premier incrément implémenté. Sans projet, l'accueil occupe
+  tout l'espace utile et masque temporairement les cinq barres d'outils et les
+  cinq panneaux. À l'ouverture du premier projet, leur état exact est restauré.
+  Le profil Essentiel affiche un libellé pour Nouveau, Ouvrir, Enregistrer et
+  Centre d'export, conserve les commandes secondaires compactes et regroupe les
+  panneaux et barres dans le menu Affichage. La conception et les validations
+  sont documentées dans `docs/audit/implementation/ui-04-modern-shell.md`.
+- **Utilisateurs touchés :** tous, avec un gain particulier pour les nouveaux
+  utilisateurs et les écrans 1920 × 1080.
+- **Fréquence :** à chaque démarrage, fermeture du dernier projet et utilisation
+  des commandes principales.
+- **Impact :** hiérarchie visuelle plus nette, meilleure découvrabilité et
+  continuité entre accueil et édition.
+- **Effort :** M.
+- **Risque :** faible à moyen ; la persistance de `QMainWindow` exige des tests
+  de non-régression précis.
+- **Dépendances :** UI-01, UI-03 et `WorkspaceProfileController`.
+- **Compatibilité amont :** additive ; noms d'objet, actions, raccourcis, thèmes
+  et formats existants conservés.
+- **Critères d'acceptation :** aucun flash de chrome au démarrage, aucun état
+  temporaire enregistré, restauration exacte, focus conservé, profil Classique
+  inchangé, navigation clavier, grande police 150 % et absence de débordement à
+  1280 × 680.
+- **Cible restante UI-04B :** isoler la persistance dans un contrôleur dédié et
+  mettre en quarantaine un état de fenêtre corrompu avant repli sûr.
+
 ### A11Y-01 — Socle d'accessibilité et navigation clavier
 
 - **Preuve :** inspection des arbres accessibles, E03/E07/E08.

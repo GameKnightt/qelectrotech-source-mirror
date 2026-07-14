@@ -13,10 +13,12 @@
 #include <QList>
 
 class QAction;
+class QByteArray;
 class QDockWidget;
 class QMainWindow;
 class QString;
 class QToolBar;
+class QWidget;
 
 class WorkspaceProfileController
 {
@@ -66,9 +68,14 @@ class WorkspaceProfileController
 
 		void apply(Profile profile, bool reset_layout);
 		Profile profile() const;
+		void setHomeMode(bool enabled);
+		bool homeMode() const;
+		QByteArray persistentWindowState();
+		bool restorePersistentWindowState(const QByteArray &state);
 
 		static QString settingsValue(Profile profile);
 		static QString stateSettingsKey(Profile profile);
+		static QString shellStyleSheet();
 		static Profile profileFromSettings(
 			const QString &value,
 			Profile fallback = Profile::Essential);
@@ -83,12 +90,26 @@ class WorkspaceProfileController
 		void resetEssentialLayout();
 		void resetClassicLayout();
 		void setDefaultVisibility(Profile profile);
+		void setProfilePresentation(Profile profile);
+		void configureChrome();
+		void enterHomeMode();
+		void leaveHomeMode();
+
+		struct ContextualItem
+		{
+			QWidget *widget = nullptr;
+			QAction *toggle_action = nullptr;
+			bool hidden_before_home = false;
+			bool toggle_enabled_before_home = true;
+		};
 
 		QMainWindow *m_window = nullptr;
 		Toolbars m_toolbars;
 		Docks m_docks;
 		Actions m_actions;
+		QList<ContextualItem> m_contextual_items;
 		Profile m_profile = Profile::Essential;
+		bool m_home_mode = false;
 };
 
 #endif

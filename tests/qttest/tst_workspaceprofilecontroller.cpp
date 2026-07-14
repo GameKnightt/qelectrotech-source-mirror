@@ -11,15 +11,45 @@
 
 #include <QAction>
 #include <QDockWidget>
+#include <QFont>
+#include <QHash>
 #include <QMainWindow>
 #include <QMenu>
 #include <QSignalSpy>
+#include <QStyle>
 #include <QToolBar>
+#include <QWidget>
 #include <QtTest>
 
 #include <memory>
 
 namespace {
+
+class ApplicationFontGuard
+{
+	public:
+		explicit ApplicationFontGuard(qreal scale) :
+			m_original_font(QApplication::font())
+		{
+			QFont font = m_original_font;
+			if (font.pointSizeF() > 0.0) {
+				font.setPointSizeF(font.pointSizeF() * scale);
+			} else if (font.pixelSize() > 0) {
+				font.setPixelSize(qRound(font.pixelSize() * scale));
+			} else {
+				font.setPixelSize(qRound(16 * scale));
+			}
+			QApplication::setFont(font);
+		}
+
+		~ApplicationFontGuard()
+		{
+			QApplication::setFont(m_original_font);
+		}
+
+	private:
+		QFont m_original_font;
+};
 
 QList<QAction *> actionsWithoutSeparators(QToolBar *toolbar)
 {
@@ -55,6 +85,8 @@ class WorkspaceHarness
 			add_action(QStringLiteral("Add item"), &window),
 			depth_action(QStringLiteral("Depth action"), &window)
 		{
+			window.setCentralWidget(new QWidget(&window));
+			window.centralWidget()->setFocusPolicy(Qt::StrongFocus);
 			main_toolbar.setObjectName(QStringLiteral("toolbar"));
 			view_toolbar.setObjectName(QStringLiteral("display"));
 			diagram_toolbar.setObjectName(QStringLiteral("diagram"));
@@ -159,6 +191,13 @@ class WorkspaceProfileControllerTest : public QObject
 		void hiddenAdvancedActionsRemainReachable();
 		void classicCustomStateSurvivesEssentialRoundTrip();
 		void popupMenuKeepsEveryToolbarAndDockToggle();
+		void homeModeHidesChromeAndRestoresExactVisibility();
+		void profileSwitchWhileHomeRestoresTheNewProfile();
+		void persistentStateIgnoresTemporaryHomeMode();
+		void homeModeCyclesRemainStable();
+		void chromeUsesPaletteAndPlatformMetrics();
+		void focusSurvivesProfileChanges();
+		void fitsLogicalDesktopWithLargeText();
 };
 
 void WorkspaceProfileControllerTest::settingsValuesAreStable()
@@ -361,6 +400,212 @@ void WorkspaceProfileControllerTest::popupMenuKeepsEveryToolbarAndDockToggle()
 			&harness.properties,
 			&harness.auto_numbering}) {
 		QCOMPARE(popup->actions().count(dock->toggleViewAction()), 1);
+	}
+}
+
+void WorkspaceProfileControllerTest::homeModeHidesChromeAndRestoresExactVisibility()
+{
+	WorkspaceHarness harness;
+	harness.controller->apply(WorkspaceProfileController::Profile::Essential, true);
+	QHash<QWidget *, bool> hidden_before_home;
+	QHash<QAction *, bool> toggle_enabled_before_home;
+	for (QToolBar *toolbar : harness.toolbars()) {
+		hidden_before_home.insert(toolbar, toolbar->isHidden());
+		toggle_enabled_before_home.insert(
+			toolbar->toggleViewAction(), toolbar->toggleViewAction()->isEnabled());
+	}
+	for (QDockWidget *dock : {
+		&harness.projects,
+		&harness.collections,
+		&harness.undo_dock,
+		&harness.properties,
+		&harness.auto_numbering}) {
+		hidden_before_home.insert(dock, dock->isHidden());
+		toggle_enabled_before_home.insert(
+			dock->toggleViewAction(), dock->toggleViewAction()->isEnabled());
+	}
+
+	harness.controller->setHomeMode(true);
+	QVERIFY(harness.controller->homeMode());
+	for (auto it = hidden_before_home.constBegin();
+		 it != hidden_before_home.constEnd(); ++it) {
+		QVERIFY(it.key()->isHidden());
+	}
+	for (auto it = toggle_enabled_before_home.constBegin();
+		 it != toggle_enabled_before_home.constEnd(); ++it) {
+		QVERIFY(!it.key()->isEnabled());
+	}
+
+	harness.controller->setHomeMode(false);
+	QVERIFY(!harness.controller->homeMode());
+	for (auto it = hidden_before_home.constBegin();
+		 it != hidden_before_home.constEnd(); ++it) {
+		QCOMPARE(it.key()->isHidden(), it.value());
+	}
+	for (auto it = toggle_enabled_before_home.constBegin();
+		 it != toggle_enabled_before_home.constEnd(); ++it) {
+		QCOMPARE(it.key()->isEnabled(), it.value());
+	}
+}
+
+void WorkspaceProfileControllerTest::profileSwitchWhileHomeRestoresTheNewProfile()
+{
+	WorkspaceHarness harness;
+	harness.controller->apply(WorkspaceProfileController::Profile::Essential, true);
+	harness.controller->setHomeMode(true);
+	harness.controller->apply(WorkspaceProfileController::Profile::Classic, true);
+
+	QVERIFY(harness.controller->homeMode());
+	for (QToolBar *toolbar : harness.toolbars()) {
+		QVERIFY(toolbar->isHidden());
+	}
+	for (QDockWidget *dock : {
+		&harness.projects,
+		&harness.collections,
+		&harness.undo_dock,
+		&harness.properties,
+		&harness.auto_numbering}) {
+		QVERIFY(dock->isHidden());
+	}
+
+	harness.controller->setHomeMode(false);
+	for (QToolBar *toolbar : harness.toolbars()) {
+		QVERIFY(!toolbar->isHidden());
+	}
+	QVERIFY(!harness.projects.isHidden());
+	QVERIFY(!harness.collections.isHidden());
+	QVERIFY(!harness.undo_dock.isHidden());
+	QVERIFY(!harness.properties.isHidden());
+	QVERIFY(!harness.auto_numbering.isHidden());
+}
+
+void WorkspaceProfileControllerTest::persistentStateIgnoresTemporaryHomeMode()
+{
+	WorkspaceHarness harness;
+	harness.controller->apply(WorkspaceProfileController::Profile::Classic, true);
+	harness.window.addToolBar(Qt::BottomToolBarArea, &harness.view_toolbar);
+	harness.window.addDockWidget(Qt::BottomDockWidgetArea, &harness.undo_dock);
+	harness.depth_toolbar.hide();
+	const QByteArray expected = harness.window.saveState();
+
+	harness.controller->setHomeMode(true);
+	const QByteArray persisted = harness.controller->persistentWindowState();
+	QCOMPARE(persisted, expected);
+	QVERIFY(harness.controller->homeMode());
+	for (QToolBar *toolbar : harness.toolbars()) {
+		QVERIFY(toolbar->isHidden());
+	}
+
+	QVERIFY(harness.controller->restorePersistentWindowState(expected));
+	QVERIFY(harness.controller->homeMode());
+	harness.controller->setHomeMode(false);
+	QCOMPARE(harness.window.saveState(), expected);
+}
+
+void WorkspaceProfileControllerTest::homeModeCyclesRemainStable()
+{
+	WorkspaceHarness harness;
+	harness.controller->apply(WorkspaceProfileController::Profile::Essential, true);
+	const QByteArray expected = harness.window.saveState();
+	const int action_count = harness.window.findChildren<QAction *>().size();
+
+	for (int cycle = 0; cycle < 100; ++cycle) {
+		harness.controller->setHomeMode(true);
+		harness.controller->setHomeMode(false);
+	}
+
+	QCOMPARE(harness.window.saveState(), expected);
+	QCOMPARE(harness.window.findChildren<QAction *>().size(), action_count);
+}
+
+void WorkspaceProfileControllerTest::chromeUsesPaletteAndPlatformMetrics()
+{
+	WorkspaceHarness harness;
+	harness.controller->apply(WorkspaceProfileController::Profile::Essential, true);
+	const QString style_sheet = WorkspaceProfileController::shellStyleSheet();
+	QVERIFY(style_sheet.contains(QStringLiteral("QToolBar QToolButton")));
+	QVERIFY(!style_sheet.contains(QStringLiteral("rgb(")));
+	QVERIFY(!style_sheet.contains(QStringLiteral("background")));
+	QVERIFY(!style_sheet.contains(QStringLiteral("color:")));
+	QVERIFY(harness.window.property("qetModernChromeApplied").toBool());
+	QCOMPARE(harness.window.objectName(), QStringLiteral("qetDiagramEditor"));
+	const int platform_icon_size = harness.window.style()->pixelMetric(
+		QStyle::PM_ToolBarIconSize, nullptr, &harness.window);
+
+	for (QToolBar *toolbar : harness.toolbars()) {
+		QCOMPARE(toolbar->iconSize().width(), platform_icon_size);
+		QCOMPARE(toolbar->iconSize().width(), toolbar->iconSize().height());
+		QVERIFY(!toolbar->accessibleName().isEmpty());
+	}
+	QCOMPARE(
+		harness.main_toolbar.toolButtonStyle(),
+		Qt::ToolButtonTextBesideIcon);
+	for (QToolBar *toolbar : {
+		&harness.view_toolbar,
+		&harness.diagram_toolbar,
+		&harness.add_toolbar,
+		&harness.depth_toolbar}) {
+		QCOMPARE(toolbar->toolButtonStyle(), Qt::ToolButtonIconOnly);
+	}
+}
+
+void WorkspaceProfileControllerTest::focusSurvivesProfileChanges()
+{
+	WorkspaceHarness harness;
+	harness.window.show();
+	harness.window.centralWidget()->setFocus();
+	QTRY_COMPARE(QApplication::focusWidget(), harness.window.centralWidget());
+
+	harness.controller->apply(WorkspaceProfileController::Profile::Essential, true);
+	QCOMPARE(QApplication::focusWidget(), harness.window.centralWidget());
+	harness.controller->apply(WorkspaceProfileController::Profile::Classic, true);
+	QCOMPARE(QApplication::focusWidget(), harness.window.centralWidget());
+}
+
+void WorkspaceProfileControllerTest::fitsLogicalDesktopWithLargeText()
+{
+	ApplicationFontGuard font_guard(1.5);
+
+	WorkspaceHarness harness;
+	harness.controller->apply(
+		WorkspaceProfileController::Profile::Essential, true);
+	for (int index = 0; index < 5; ++index) {
+		QAction *action = new QAction(
+			QStringLiteral("Secondary %1").arg(index), &harness.main_toolbar);
+		action->setIcon(harness.window.style()->standardIcon(QStyle::SP_FileIcon));
+		action->setPriority(QAction::LowPriority);
+		harness.main_toolbar.addAction(action);
+	}
+	for (int index = 0; index < 3; ++index) {
+		QAction *action = new QAction(
+			QStringLiteral("Diagram %1").arg(index),
+			&harness.diagram_toolbar);
+		action->setIcon(harness.window.style()->standardIcon(QStyle::SP_FileIcon));
+		harness.diagram_toolbar.addAction(action);
+	}
+	harness.window.resize(1280, 680);
+	harness.window.show();
+	QApplication::processEvents();
+
+	QVERIFY(harness.window.centralWidget()->width() >= 640);
+	QVERIFY(harness.window.centralWidget()->height() >= 420);
+	for (QToolBar *toolbar : {
+		&harness.main_toolbar,
+		&harness.diagram_toolbar}) {
+		QVERIFY(!toolbar->isHidden());
+		QVERIFY(toolbar->height() <= 64);
+		for (QAction *action : toolbar->actions()) {
+			if (action->isSeparator()) continue;
+			QWidget *widget = toolbar->widgetForAction(action);
+			QVERIFY(widget);
+			QVERIFY2(
+				widget->isVisibleTo(toolbar),
+				qPrintable(QStringLiteral("%1 / %2 (toolbar %3 px, action %4 px)")
+					.arg(toolbar->windowTitle(), action->text())
+					.arg(toolbar->width())
+					.arg(widget->width())));
+			QVERIFY(toolbar->rect().contains(widget->geometry()));
+		}
 	}
 }
 

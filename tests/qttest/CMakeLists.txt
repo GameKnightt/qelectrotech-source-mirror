@@ -104,9 +104,21 @@ add_executable(
 add_test(
   NAME workspace_profile_test
   COMMAND workspace_profile_test)
+add_test(
+  NAME workspace_shell_home_test
+  COMMAND workspace_profile_test homeModeHidesChromeAndRestoresExactVisibility)
+add_test(
+  NAME workspace_shell_focus_test
+  COMMAND workspace_profile_test focusSurvivesProfileChanges)
+add_test(
+  NAME workspace_shell_large_text_150_test
+  COMMAND workspace_profile_test fitsLogicalDesktopWithLargeText)
 set_tests_properties(
   workspace_profile_test
-  PROPERTIES LABELS "workspace;ui-01")
+  workspace_shell_home_test
+  workspace_shell_focus_test
+  workspace_shell_large_text_150_test
+  PROPERTIES LABELS "workspace;ui-01;ui-04;accessibility;deterministic-scale")
 
 add_executable(
   start_center_test

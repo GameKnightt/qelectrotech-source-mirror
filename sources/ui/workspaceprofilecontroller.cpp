@@ -10,10 +10,15 @@
 #include "workspaceprofilecontroller.h"
 
 #include <QAction>
+#include <QByteArray>
 #include <QDockWidget>
 #include <QMainWindow>
+#include <QStyle>
 #include <QString>
+#include <QTabWidget>
 #include <QToolBar>
+#include <QWidget>
+#include <QtGlobal>
 
 WorkspaceProfileController::WorkspaceProfileController(
 	QMainWindow *window,
@@ -25,13 +30,42 @@ WorkspaceProfileController::WorkspaceProfileController(
 	m_docks(docks),
 	m_actions(actions)
 {
+	for (QToolBar *toolbar : {
+		m_toolbars.main,
+		m_toolbars.view,
+		m_toolbars.diagram,
+		m_toolbars.add,
+		m_toolbars.depth}) {
+		if (toolbar) {
+			m_contextual_items.append(ContextualItem {
+				toolbar, toolbar->toggleViewAction(), false, true});
+		}
+	}
+	for (QDockWidget *dock : {
+		m_docks.projects,
+		m_docks.collections,
+		m_docks.undo,
+		m_docks.properties,
+		m_docks.auto_numbering}) {
+		if (dock) {
+			m_contextual_items.append(ContextualItem {
+				dock, dock->toggleViewAction(), false, true});
+		}
+	}
+	configureChrome();
 }
 
 void WorkspaceProfileController::apply(Profile profile, bool reset_layout)
 {
+	const bool restore_home_mode = m_home_mode;
+	if (restore_home_mode) {
+		leaveHomeMode();
+	}
+
 	m_profile = profile;
 	populate(profile);
 	setDefaultVisibility(profile);
+	setProfilePresentation(profile);
 
 	if (reset_layout) {
 		if (profile == Profile::Essential) {
@@ -40,11 +74,67 @@ void WorkspaceProfileController::apply(Profile profile, bool reset_layout)
 			resetClassicLayout();
 		}
 	}
+
+	if (restore_home_mode) {
+		enterHomeMode();
+	}
 }
 
 WorkspaceProfileController::Profile WorkspaceProfileController::profile() const
 {
 	return m_profile;
+}
+
+void WorkspaceProfileController::setHomeMode(bool enabled)
+{
+	if (enabled == m_home_mode) {
+		return;
+	}
+	if (enabled) {
+		enterHomeMode();
+	} else {
+		leaveHomeMode();
+	}
+}
+
+bool WorkspaceProfileController::homeMode() const
+{
+	return m_home_mode;
+}
+
+QByteArray WorkspaceProfileController::persistentWindowState()
+{
+	if (!m_window) {
+		return QByteArray();
+	}
+
+	const bool restore_home_mode = m_home_mode;
+	if (restore_home_mode) {
+		leaveHomeMode();
+	}
+	const QByteArray state = m_window->saveState();
+	if (restore_home_mode) {
+		enterHomeMode();
+	}
+	return state;
+}
+
+bool WorkspaceProfileController::restorePersistentWindowState(
+	const QByteArray &state)
+{
+	if (!m_window) {
+		return false;
+	}
+
+	const bool restore_home_mode = m_home_mode;
+	if (restore_home_mode) {
+		leaveHomeMode();
+	}
+	const bool restored = m_window->restoreState(state);
+	if (restore_home_mode) {
+		enterHomeMode();
+	}
+	return restored;
 }
 
 QString WorkspaceProfileController::settingsValue(Profile profile)
@@ -59,6 +149,21 @@ QString WorkspaceProfileController::stateSettingsKey(Profile profile)
 	return profile == Profile::Essential
 		? QStringLiteral("diagrameditor/essential_state")
 		: QStringLiteral("diagrameditor/state");
+}
+
+QString WorkspaceProfileController::shellStyleSheet()
+{
+	return QStringLiteral(
+		"QMainWindow#qetDiagramEditor QToolBar {"
+		" spacing: 3px; padding: 4px 5px; }"
+		"QMainWindow#qetDiagramEditor QToolBar QToolButton {"
+		" min-width: 28px; min-height: 28px; margin: 1px; padding: 3px; }"
+		"QMainWindow#qetDiagramEditor QToolBar::separator {"
+		" width: 1px; margin: 5px 6px; }"
+		"QMainWindow#qetDiagramEditor QDockWidget::title {"
+		" padding: 6px 8px; }"
+		"QMainWindow#qetDiagramEditor QMdiArea#mdiarea QTabBar::tab {"
+		" min-height: 26px; min-width: 72px; padding: 4px 10px; }");
 }
 
 WorkspaceProfileController::Profile WorkspaceProfileController::profileFromSettings(
@@ -149,6 +254,99 @@ void WorkspaceProfileController::setDefaultVisibility(Profile profile)
 	if (m_docks.auto_numbering) m_docks.auto_numbering->setVisible(!essential);
 }
 
+void WorkspaceProfileController::setProfilePresentation(Profile profile)
+{
+	const bool essential = profile == Profile::Essential;
+	if (m_toolbars.main) {
+		m_toolbars.main->setToolButtonStyle(
+			essential
+				? Qt::ToolButtonTextBesideIcon
+				: Qt::ToolButtonIconOnly);
+	}
+	for (QToolBar *toolbar : {
+		m_toolbars.view,
+		m_toolbars.diagram,
+		m_toolbars.add,
+		m_toolbars.depth}) {
+		if (toolbar) {
+			toolbar->setToolButtonStyle(Qt::ToolButtonIconOnly);
+		}
+	}
+	if (m_window) {
+		m_window->setTabPosition(
+			Qt::AllDockWidgetAreas,
+			essential ? QTabWidget::North : QTabWidget::South);
+	}
+}
+
+void WorkspaceProfileController::configureChrome()
+{
+	if (!m_window) {
+		return;
+	}
+	if (m_window->objectName().isEmpty()) {
+		m_window->setObjectName(QStringLiteral("qetDiagramEditor"));
+	}
+	const int icon_size = m_window->style()->pixelMetric(
+		QStyle::PM_ToolBarIconSize, nullptr, m_window);
+	for (QToolBar *toolbar : {
+		m_toolbars.main,
+		m_toolbars.view,
+		m_toolbars.diagram,
+		m_toolbars.add,
+		m_toolbars.depth}) {
+		if (!toolbar) {
+			continue;
+		}
+		toolbar->setIconSize(QSize(icon_size, icon_size));
+		toolbar->setAccessibleName(toolbar->windowTitle());
+	}
+
+	if (!m_window->property("qetModernChromeApplied").toBool()) {
+		m_window->setStyleSheet(
+			m_window->styleSheet() + shellStyleSheet());
+		m_window->setProperty("qetModernChromeApplied", true);
+	}
+}
+
+void WorkspaceProfileController::enterHomeMode()
+{
+	if (m_home_mode) {
+		return;
+	}
+	for (ContextualItem &item : m_contextual_items) {
+		if (!item.widget) {
+			continue;
+		}
+		item.hidden_before_home = item.widget->isHidden();
+		if (item.toggle_action) {
+			item.toggle_enabled_before_home = item.toggle_action->isEnabled();
+		}
+		item.widget->hide();
+		if (item.toggle_action) {
+			item.toggle_action->setEnabled(false);
+		}
+	}
+	m_home_mode = true;
+}
+
+void WorkspaceProfileController::leaveHomeMode()
+{
+	if (!m_home_mode) {
+		return;
+	}
+	for (ContextualItem &item : m_contextual_items) {
+		if (!item.widget) {
+			continue;
+		}
+		if (item.toggle_action) {
+			item.toggle_action->setEnabled(item.toggle_enabled_before_home);
+		}
+		item.widget->setVisible(!item.hidden_before_home);
+	}
+	m_home_mode = false;
+}
+
 void WorkspaceProfileController::resetEssentialLayout()
 {
 	if (!m_window) {
@@ -198,6 +396,18 @@ void WorkspaceProfileController::resetEssentialLayout()
 	if (m_docks.collections && m_docks.properties) {
 		m_window->tabifyDockWidget(m_docks.collections, m_docks.properties);
 		m_docks.collections->raise();
+	}
+	if (m_docks.projects) {
+		m_window->resizeDocks(
+			QList<QDockWidget *>({m_docks.projects}),
+			QList<int>({220}),
+			Qt::Horizontal);
+	}
+	if (m_docks.collections) {
+		m_window->resizeDocks(
+			QList<QDockWidget *>({m_docks.collections}),
+			QList<int>({300}),
+			Qt::Horizontal);
 	}
 	if (m_docks.undo) {
 		m_window->addDockWidget(Qt::LeftDockWidgetArea, m_docks.undo);

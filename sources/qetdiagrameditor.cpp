@@ -84,6 +84,7 @@ QETDiagramEditor::QETDiagramEditor(const QStringList &files, QWidget *parent) :
 {
 		//Trivial property use to set the graphics handler size
 	setProperty("graphics_handler_size", 10);
+	setObjectName(QStringLiteral("qetDiagramEditor"));
 
 	activeSubWindowIndex = 0;
 
@@ -147,7 +148,11 @@ QETDiagramEditor::QETDiagramEditor(const QStringList &files, QWidget *parent) :
 		 SLOT(slot_updatePasteAction()));
 
 	readSettings();
-	m_start_center_page_controller->setHasOpenProjects(!files.isEmpty());
+	const bool expects_project = !files.isEmpty();
+	m_start_center_page_controller->setHasOpenProjects(expects_project);
+	if (m_workspace_profile_controller) {
+		m_workspace_profile_controller->setHomeMode(!expects_project);
+	}
 	show();
 
 		//If valid file path is given as arguments
@@ -178,7 +183,7 @@ QETDiagramEditor::~QETDiagramEditor()
 void QETDiagramEditor::setUpElementsPanel()
 {
 	//Add the element panel as a QDockWidget
-	qdw_pa = new QDockWidget(tr("Projets", "dock title"), this);
+	qdw_pa = new QDockWidget(tr("Projets et folios", "dock title"), this);
 
 	qdw_pa -> setObjectName   ("projects panel");
 	qdw_pa -> setAllowedAreas (Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
@@ -186,7 +191,7 @@ void QETDiagramEditor::setUpElementsPanel()
 				QDockWidget::DockWidgetClosable
 				|QDockWidget::DockWidgetMovable
 				|QDockWidget::DockWidgetFloatable);
-	qdw_pa -> setMinimumWidth (160);
+	qdw_pa -> setMinimumWidth (180);
 	qdw_pa -> setWidget       (pa = new ElementsPanelWidget(qdw_pa));
 
 	addDockWidget(Qt::LeftDockWidgetArea, qdw_pa);
@@ -235,10 +240,10 @@ void QETDiagramEditor::setUpStartCenter()
 */
 void QETDiagramEditor::setUpElementsCollectionWidget()
 {
-	m_qdw_elmt_collection = new QDockWidget(tr("Collections"), this);
+	m_qdw_elmt_collection = new QDockWidget(tr("Composants"), this);
 	m_qdw_elmt_collection->setObjectName("elements_collection_widget");
 	m_qdw_elmt_collection->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
-	m_qdw_elmt_collection->setMinimumWidth(280);
+	m_qdw_elmt_collection->setMinimumWidth(260);
 	m_qdw_elmt_collection->setFeatures(
 				QDockWidget::DockWidgetClosable
 				|QDockWidget::DockWidgetMovable
@@ -276,7 +281,7 @@ void QETDiagramEditor::setUpUndoStack()
 	undo_view -> setStatusTip  (tr("Cliquez sur une action pour revenir en arrière dans l'édition de votre schéma", "Status tip"));
 	undo_view -> setWhatsThis  (tr("Ce panneau liste les différentes actions effectuées sur le folio courant. Cliquer sur une action permet de revenir à l'état du schéma juste après son application.", "\"What's this\" tip"));
 
-	qdw_undo  = new QDockWidget(tr("Annulations", "dock title"), this);
+	qdw_undo  = new QDockWidget(tr("Historique", "dock title"), this);
 	qdw_undo -> setObjectName("diagram_undo");
 
 	qdw_undo -> setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
@@ -298,6 +303,8 @@ void QETDiagramEditor::setUpSelectionPropertiesEditor()
 {
 	m_selection_properties_editor = new DiagramPropertiesEditorDockWidget(this);
 	m_selection_properties_editor -> setObjectName("diagram_properties_editor_dock_widget");
+	m_selection_properties_editor->setWindowTitle(tr("Propriétés"));
+	m_selection_properties_editor->setMinimumWidth(260);
 	addDockWidget(Qt::RightDockWidgetArea, m_selection_properties_editor);
 }
 
@@ -309,6 +316,7 @@ void QETDiagramEditor::setUpAutonumberingWidget()
 {
 	m_autonumbering_dock = new AutoNumberingDockWidget(this);
 	m_autonumbering_dock->setObjectName("auto_numbering");
+	m_autonumbering_dock->setWindowTitle(tr("Numérotation automatique"));
 	m_autonumbering_dock -> setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
 	m_autonumbering_dock -> setFeatures(
 				QDockWidget::DockWidgetClosable
@@ -844,7 +852,7 @@ void QETDiagramEditor::setUpActions()
 			WorkspaceProfileController::Profile::Classic, false, true);
 	});
 
-	m_workspace_reset_action = new QAction(tr("Réinitialiser le profil courant"), this);
+	m_workspace_reset_action = new QAction(tr("Réinitialiser la disposition"), this);
 	m_workspace_reset_action->setStatusTip(tr(
 		"Rétablit la disposition par défaut du profil sans déplacer la fenêtre"));
 	connect(m_workspace_reset_action, &QAction::triggered, this, [this]() {
@@ -934,13 +942,13 @@ void QETDiagramEditor::openExportCenter()
 */
 void QETDiagramEditor::setUpToolBar()
 {
-	main_tool_bar = new QToolBar(tr("Outils"), this);
+	main_tool_bar = new QToolBar(tr("Projet et édition"), this);
 	main_tool_bar -> setObjectName("toolbar");
 
 	view_tool_bar = new QToolBar(tr("Affichage"), this);
 	view_tool_bar -> setObjectName("display");
 
-	diagram_tool_bar = new QToolBar(tr("Schéma"), this);
+	diagram_tool_bar = new QToolBar(tr("Folio et câblage"), this);
 	diagram_tool_bar -> setObjectName("diagram");
 
 	m_add_item_tool_bar = new QToolBar(tr("Ajouter"), this);
@@ -1016,6 +1024,21 @@ void QETDiagramEditor::setUpToolBar()
 		m_edit_diagram_properties,
 		m_auto_conductor
 	};
+	for (QAction *action : {
+		m_new_file,
+		m_open_file,
+		m_save_file,
+		m_export_center}) {
+		action->setPriority(QAction::HighPriority);
+	}
+	for (QAction *action : {
+		undo,
+		redo,
+		m_cut,
+		m_copy,
+		m_paste}) {
+		action->setPriority(QAction::LowPriority);
+	}
 
 	m_workspace_profile_controller = std::make_unique<WorkspaceProfileController>(
 		this,
@@ -1144,6 +1167,23 @@ void QETDiagramEditor::setUpMenu()
 	workspace_profile_menu->addAction(m_workspace_classic_action);
 	workspace_profile_menu->addSeparator();
 	workspace_profile_menu->addAction(m_workspace_reset_action);
+
+	QMenu *panels_menu = menu_affichage->addMenu(tr("Panneaux"));
+	panels_menu->setAccessibleName(tr("Afficher les panneaux"));
+	panels_menu->addAction(qdw_pa->toggleViewAction());
+	panels_menu->addAction(m_qdw_elmt_collection->toggleViewAction());
+	panels_menu->addAction(m_selection_properties_editor->toggleViewAction());
+	panels_menu->addAction(qdw_undo->toggleViewAction());
+	panels_menu->addAction(m_autonumbering_dock->toggleViewAction());
+
+	QMenu *toolbars_menu = menu_affichage->addMenu(tr("Barres d'outils"));
+	toolbars_menu->setAccessibleName(tr("Afficher les barres d'outils"));
+	toolbars_menu->addAction(main_tool_bar->toggleViewAction());
+	toolbars_menu->addAction(diagram_tool_bar->toggleViewAction());
+	toolbars_menu->addAction(view_tool_bar->toggleViewAction());
+	toolbars_menu->addAction(m_add_item_tool_bar->toggleViewAction());
+	toolbars_menu->addAction(m_depth_tool_bar->toggleViewAction());
+	menu_affichage->addAction(m_workspace_reset_action);
 
 	menu_affichage->addSeparator();
 	QMenu *projects_view_mode = menu_affichage -> addMenu(QET::Icons::ConfigureToolbars, tr("Afficher les projets"));
@@ -1310,9 +1350,13 @@ void QETDiagramEditor::openStartCenterRecentFile(const QString &filepath)
 */
 void QETDiagramEditor::updateCentralPage()
 {
+	const bool has_open_projects = !openedProjects().isEmpty();
 	if (m_start_center_page_controller) {
 		m_start_center_page_controller->setHasOpenProjects(
-			!openedProjects().isEmpty());
+			has_open_projects);
+	}
+	if (m_workspace_profile_controller) {
+		m_workspace_profile_controller->setHomeMode(!has_open_projects);
 	}
 }
 
@@ -2475,7 +2519,9 @@ void QETDiagramEditor::readSettings()
 
 	if (m_workspace_profile_controller) {
 		m_workspace_profile_controller->apply(profile, !has_profile_state);
-		if (has_profile_state && !restoreState(profile_state.toByteArray())) {
+		if (has_profile_state
+			&& !m_workspace_profile_controller->restorePersistentWindowState(
+				profile_state.toByteArray())) {
 			m_workspace_profile_controller->apply(profile, true);
 		}
 		updateWorkspaceProfileActions();
@@ -2508,7 +2554,8 @@ void QETDiagramEditor::writeSettings()
 		QStringLiteral("diagrameditor/workspace_profile"),
 		WorkspaceProfileController::settingsValue(profile));
 	settings.setValue(
-		WorkspaceProfileController::stateSettingsKey(profile), saveState());
+		WorkspaceProfileController::stateSettingsKey(profile),
+		m_workspace_profile_controller->persistentWindowState());
 }
 
 void QETDiagramEditor::applyWorkspaceProfile(
@@ -2525,7 +2572,9 @@ void QETDiagramEditor::applyWorkspaceProfile(
 		const auto current_profile = m_workspace_profile_controller->profile();
 		const QString current_state_key =
 			WorkspaceProfileController::stateSettingsKey(current_profile);
-		settings.setValue(current_state_key, saveState());
+		settings.setValue(
+			current_state_key,
+			m_workspace_profile_controller->persistentWindowState());
 		settings.setValue(
 			QStringLiteral("diagrameditor/workspace_profile"),
 			WorkspaceProfileController::settingsValue(profile));
@@ -2537,7 +2586,9 @@ void QETDiagramEditor::applyWorkspaceProfile(
 	const bool should_restore = !reset_layout && settings.contains(target_state_key);
 
 	m_workspace_profile_controller->apply(profile, !should_restore);
-	if (should_restore && !restoreState(target_state.toByteArray())) {
+	if (should_restore
+		&& !m_workspace_profile_controller->restorePersistentWindowState(
+			target_state.toByteArray())) {
 		m_workspace_profile_controller->apply(profile, true);
 	}
 	updateWorkspaceProfileActions();

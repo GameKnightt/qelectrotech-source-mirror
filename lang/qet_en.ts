@@ -7087,6 +7087,63 @@ Unbridge and/or remove the levels from the affected terminals so that they can b
         <source>Oublier de la liste</source>
         <translation>Remove from list</translation>
     </message>
+    <message>
+        <location filename="../sources/qetdiagrameditor.cpp" line="186"/>
+        <source>Projets et folios</source>
+        <comment>dock title</comment>
+        <translation>Projects and folios</translation>
+    </message>
+    <message>
+        <location filename="../sources/qetdiagrameditor.cpp" line="243"/>
+        <source>Composants</source>
+        <translation>Components</translation>
+    </message>
+    <message>
+        <location filename="../sources/qetdiagrameditor.cpp" line="284"/>
+        <source>Historique</source>
+        <comment>dock title</comment>
+        <translation>History</translation>
+    </message>
+    <message>
+        <location filename="../sources/qetdiagrameditor.cpp" line="319"/>
+        <source>Numérotation automatique</source>
+        <translation>Automatic numbering</translation>
+    </message>
+    <message>
+        <location filename="../sources/qetdiagrameditor.cpp" line="855"/>
+        <source>Réinitialiser la disposition</source>
+        <translation>Reset layout</translation>
+    </message>
+    <message>
+        <location filename="../sources/qetdiagrameditor.cpp" line="945"/>
+        <source>Projet et édition</source>
+        <translation>Project and editing</translation>
+    </message>
+    <message>
+        <location filename="../sources/qetdiagrameditor.cpp" line="951"/>
+        <source>Folio et câblage</source>
+        <translation>Folio and wiring</translation>
+    </message>
+    <message>
+        <location filename="../sources/qetdiagrameditor.cpp" line="1171"/>
+        <source>Panneaux</source>
+        <translation>Panels</translation>
+    </message>
+    <message>
+        <location filename="../sources/qetdiagrameditor.cpp" line="1172"/>
+        <source>Afficher les panneaux</source>
+        <translation>Show panels</translation>
+    </message>
+    <message>
+        <location filename="../sources/qetdiagrameditor.cpp" line="1179"/>
+        <source>Barres d&apos;outils</source>
+        <translation>Toolbars</translation>
+    </message>
+    <message>
+        <location filename="../sources/qetdiagrameditor.cpp" line="1180"/>
+        <source>Afficher les barres d&apos;outils</source>
+        <translation>Show toolbars</translation>
+    </message>
 </context>
 <context>
     <name>QETElementEditor</name>

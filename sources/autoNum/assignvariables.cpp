@@ -192,13 +192,15 @@ namespace autonum
 						sequentialNumbers &seqStruct,
 						Diagram *diagram,
 						const Element *elmt,
-						const Conductor *cndr)
+						const Conductor *cndr,
+						const ConductorProperties *cndrProperties)
 	{
 		AssignVariables av(std::move(formula),
 				   seqStruct,
 				   diagram,
 				   elmt,
-				   cndr);
+				   cndr,
+				   cndrProperties);
 		seqStruct = av.m_seq_struct;
 		return av.m_assigned_label;
 	}
@@ -307,17 +309,19 @@ namespace autonum
 	}
 	
 	
-	AssignVariables::AssignVariables(const QString& formula,
-					 const sequentialNumbers& seqStruct,
+	AssignVariables::AssignVariables(const QString &formula,
+					 const sequentialNumbers &seqStruct,
 					 Diagram *diagram,
 					 const Element *elmt,
-					 const Conductor *cndr):
+					 const Conductor *cndr,
+					 const ConductorProperties *cndrProperties):
 	m_diagram(diagram),
 	m_arg_formula(formula),
 	m_assigned_label(formula),
 	m_seq_struct(seqStruct),
 	m_element(elmt),
-	m_conductor(cndr)
+	m_conductor(cndr),
+	m_conductor_properties(cndrProperties)
 	{
 		if (m_diagram)
 		{
@@ -361,10 +365,13 @@ namespace autonum
 
 			if (m_conductor)
 			{
-				m_assigned_label.replace("%wf", cndr->properties().m_function);
-				m_assigned_label.replace("%wv", cndr->properties().m_tension_protocol);
-				m_assigned_label.replace("%wc", cndr->properties().m_wire_color);
-				m_assigned_label.replace("%ws", cndr->properties().m_wire_section);
+				const ConductorProperties properties = m_conductor_properties
+					? *m_conductor_properties
+					: cndr->properties();
+				m_assigned_label.replace("%wf", properties.m_function);
+				m_assigned_label.replace("%wv", properties.m_tension_protocol);
+				m_assigned_label.replace("%wc", properties.m_wire_color);
+				m_assigned_label.replace("%ws", properties.m_wire_section);
 			}
 
 			assignTitleBlockVar();

@@ -198,7 +198,7 @@ Les priorités de stabilité viennent des invariants plutôt que de mesures pré
 | IND-01 | P1 | Bornier/câbles fragmentés ou incomplets | E09, E14, #405, #409 | parcours unique avec validation et nomenclature câble |
 | DEV-01 | P1 | Clone/build Windows fragile | LFS, collision de casse, CI | clone reproductible et build documenté sur machine propre |
 | TECH-01 | P1 | Divergence Qt 5/Qt 6 | branches Qt 6, #402 | matrice CI commune et trajectoire de fusion mesurable |
-| UX-05 | P2 | Densité des barres et actions iconographiques | E01, E08 | profils de barres, libellés/infobulles cohérents et découverte améliorée |
+| UI-01 | P2 | Densité des barres et actions iconographiques | E01, E08 | profils de barres, libellés/infobulles cohérents et découverte améliorée |
 | A11Y-01 | P2 | Focus, noms accessibles, contraste et thèmes non systématiquement garantis | inspection UI, #467 | tests clavier et accessibilité automatisés sur écrans critiques |
 
 Le détail priorisé, les dépendances et critères d'acceptation sont dans [backlog-roadmap.md](backlog-roadmap.md).

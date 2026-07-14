@@ -20,6 +20,7 @@
 #include "../QPropertyUndoCommand/qpropertyundocommand.h"
 #include "../autoNum/numerotationcontextcommands.h"
 #include "../conductorautonumerotation.h"
+#include "../conductorpropertiesresolver.h"
 #include "../conductorsegment.h"
 #include "../conductorsegmentprofile.h"
 #include "../diagram.h"
@@ -1579,6 +1580,32 @@ void Conductor::setPropertyToPotential(const ConductorProperties &property,
 	}
 }
 
+ConductorProperties Conductor::resolvedProperties(
+	const ConductorProperties &property) const
+{
+	autonum::sequentialNumbers sequence = m_autoNum_seq;
+	return resolvedProperties(property, sequence);
+}
+
+ConductorProperties Conductor::resolvedProperties(
+	const ConductorProperties &property,
+	autonum::sequentialNumbers &sequence) const
+{
+	const ConductorFormulaResolver resolver = diagram()
+		? ConductorFormulaResolver(
+			[this, &sequence, &property](const QString &formula) {
+				return autonum::AssignVariables::formulaToLabel(
+					formula,
+					sequence,
+					diagram(),
+					nullptr,
+					this,
+					&property);
+			})
+		: ConductorFormulaResolver();
+	return resolveConductorProperties(property, resolver);
+}
+
 /**
 	@brief Conductor::setProperties
 	Set property as current property of conductor
@@ -1587,22 +1614,16 @@ void Conductor::setPropertyToPotential(const ConductorProperties &property,
 void Conductor::setProperties(const ConductorProperties &property)
 {
 	if (m_properties == property) return;
+	autonum::sequentialNumbers sequence = m_autoNum_seq;
+	const ConductorProperties resolved = resolvedProperties(property, sequence);
+	if (m_properties == resolved) return;
 
 	QString formula = m_properties.m_formula;
-	m_properties = property;
+	m_properties = resolved;
 
 	if (!m_properties.m_formula.isEmpty())
 	{
-		if (diagram())
-		{
-			QString text = autonum::AssignVariables::formulaToLabel(m_properties.m_formula, m_autoNum_seq, diagram(), nullptr, this);
-			m_properties.text = text;
-		}
-		else if (m_properties.text.isEmpty())
-		{
-			m_properties.text = m_properties.m_formula;
-		}
-
+		m_autoNum_seq = sequence;
 		setUpConnectionForFormula(formula, m_properties.m_formula);
 	}
 

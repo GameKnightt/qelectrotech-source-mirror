@@ -16,8 +16,8 @@
 	along with QElectroTech.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "searchandreplaceworker.h"
+#include "conductorpropertytransform.h"
 #include "../qetproject.h"
-#include "../QPropertyUndoCommand/qpropertyundocommand.h"
 #include "../diagram.h"
 #include "../diagramcommands.h"
 #include "../qetapp.h"
@@ -26,6 +26,8 @@
 #include "../qetinformation.h"
 #include "../undocommand/changeelementinformationcommand.h"
 #include "../undocommand/changetitleblockcommand.h"
+
+#include <QDebug>
 
 SearchAndReplaceWorker::SearchAndReplaceWorker()
 {
@@ -198,37 +200,11 @@ void SearchAndReplaceWorker::replaceIndiText(IndependentTextItem *text)
 */
 void SearchAndReplaceWorker::replaceConductor(QList<Conductor *> list)
 {
-	if (list.isEmpty() || !list.first()->diagram()) {
-		return;
+	const ConductorChangePlan plan = conductorChangePlan(list);
+	const ConductorChangePlan::Result result = applyConductorChangePlan(plan);
+	if (!result.canApply() && !result.isNoOp()) {
+		qWarning() << ConductorChangePlan::resultMessage(result);
 	}
-
-	QETProject *project_ = list.first()->diagram()->project();
-	for (Conductor *c : list) {
-		if (!c->diagram() ||
-			c->diagram()->project() != project_) {
-			return;
-		}
-	}
-
-	project_->undoStack()->beginMacro(QObject::tr("Chercher/remplacer les propriétés de conducteurs."));
-	for (Conductor *c : list)
-	{
-		ConductorProperties cp = applyChange(c->properties(), m_conductor_properties);
-
-		if (cp != c->properties())
-		{
-			QSet <Conductor *> conductors_list = c->relatedPotentialConductors(true);
-			conductors_list << c;
-			for (Conductor *cc : conductors_list)
-			{
-				QVariant old_value, new_value;
-				old_value.setValue(cc->properties());
-				new_value.setValue(cp);
-				project_->undoStack()->push(new QPropertyUndoCommand(cc, "properties", old_value, new_value));
-			}
-		}
-	}
-	project_->undoStack()->endMacro();
 }
 
 void SearchAndReplaceWorker::replaceConductor(Conductor *conductor)
@@ -236,6 +212,38 @@ void SearchAndReplaceWorker::replaceConductor(Conductor *conductor)
 	QList<Conductor *>list;
 	list.append(conductor);
 	replaceConductor(list);
+}
+
+ConductorChangePlan SearchAndReplaceWorker::conductorChangePlan(
+	const QList<Conductor *> &list,
+	bool includePropertyPatch,
+	bool includeAdvancedReplacement) const
+{
+	QETProject *project = nullptr;
+	if (!list.isEmpty() && list.first() && list.first()->diagram()) {
+		project = list.first()->diagram()->project();
+	}
+	const ConductorProperties patch = m_conductor_properties;
+	const advancedReplaceStruct advanced = m_advanced_struct;
+	return ConductorChangePlan::build(
+		project,
+		list,
+		[patch, advanced, includePropertyPatch, includeAdvancedReplacement](
+			const ConductorProperties &before) {
+			return transformConductorProperties(
+				before,
+				patch,
+				advanced,
+				includePropertyPatch,
+				includeAdvancedReplacement);
+		});
+}
+
+ConductorChangePlan::Result SearchAndReplaceWorker::applyConductorChangePlan(
+	const ConductorChangePlan &plan) const
+{
+	return plan.applyAtomically(
+		QObject::tr("Chercher/remplacer les propriétés de conducteurs"));
 }
 
 /**
@@ -258,35 +266,41 @@ void SearchAndReplaceWorker::replaceAdvanced(
 
 	//Some test to check if a least one list have one item
 	//and if all items belong to the same project
-	if (!diagrams.isEmpty()) {
+	if (!diagrams.isEmpty() && diagrams.first()) {
 		project_ = diagrams.first()->project();
-	} else if (!elements.isEmpty() && elements.first()->diagram()) {
+	} else if (!elements.isEmpty() && elements.first()
+			   && elements.first()->diagram()) {
 		project_ = elements.first()->diagram()->project();
-	} else if (!texts.isEmpty() && texts.first()->diagram()) {
+	} else if (!texts.isEmpty() && texts.first()
+			   && texts.first()->diagram()) {
 		project_ = texts.first()->diagram()->project();
-	} else if (!conductors.isEmpty() && conductors.first()->diagram()) {
+	} else if (!conductors.isEmpty() && conductors.first()
+			   && conductors.first()->diagram()) {
 		project_ = conductors.first()->diagram()->project();
 	} else {
 		return;
 	}
 
 	for (Diagram *dd : diagrams) {
-		if (dd->project() != project_) {
+		if (!dd || dd->project() != project_) {
 			return;
 		}
 	}
 	for (Element *elmt : elements) {
-		if (!elmt->diagram() || elmt->diagram()->project() != project_) {
+		if (!elmt || !elmt->diagram()
+			|| elmt->diagram()->project() != project_) {
 			return;
 		}
 	}
 	for (IndependentTextItem *text : texts) {
-		if (!text->diagram() || text->diagram()->project() != project_) {
+		if (!text || !text->diagram()
+			|| text->diagram()->project() != project_) {
 			return;
 		}
 	}
 	for (Conductor *cc : conductors) {
-		if (!cc->diagram() || cc->diagram()->project() != project_) {
+		if (!cc || !cc->diagram()
+			|| cc->diagram()->project() != project_) {
 			return;
 		}
 	}
@@ -294,6 +308,20 @@ void SearchAndReplaceWorker::replaceAdvanced(
 
 	int who = m_advanced_struct.who;
 	if (who == -1) {
+		return;
+	}
+	if (who == 2)
+	{
+		if (conductors.isEmpty()) return;
+		const ConductorChangePlan plan = conductorChangePlan(
+			conductors,
+			false,
+			true);
+		const ConductorChangePlan::Result result = plan.applyAtomically(
+			QObject::tr("Rechercher / remplacer avancé dans les conducteurs"));
+		if (!result.canApply() && !result.isNoOp()) {
+			qWarning() << ConductorChangePlan::resultMessage(result);
+		}
 		return;
 	}
 
@@ -317,27 +345,6 @@ void SearchAndReplaceWorker::replaceAdvanced(
 			DiagramContext new_context = replaceAdvanced(element);
 			if (old_context != new_context) {
 				project_->undoStack()->push(new ChangeElementInformationCommand(element, old_context, new_context));
-			}
-		}
-	}
-	else if (who == 2)
-	{
-		for (Conductor *conductor : conductors)
-		{
-			ConductorProperties old_properties = conductor->properties();
-			ConductorProperties new_properties = replaceAdvanced(conductor);
-			if (old_properties != new_properties)
-			{
-				QSet <Conductor *> potential_conductors = conductor->relatedPotentialConductors(true);
-				potential_conductors << conductor;
-
-				for (Conductor *c : potential_conductors)
-				{
-					QVariant old_value, new_value;
-					old_value.setValue(c->properties());
-					new_value.setValue(new_properties);
-					project_->undoStack()->push(new QPropertyUndoCommand(c, "properties", old_value, new_value));
-				}
 			}
 		}
 	}
@@ -415,31 +422,7 @@ ConductorProperties SearchAndReplaceWorker::applyChange(
 		const ConductorProperties &original,
 		const ConductorProperties &change)
 {
-	ConductorProperties new_properties = original;
-
-	if (change.text_size > 2) {new_properties.text_size = change.text_size;}
-	new_properties.m_formula = applyChange(new_properties.m_formula, change.m_formula);
-	new_properties.text = applyChange(new_properties.text, change.text);
-	new_properties.m_show_text = change.m_show_text;
-	new_properties.m_function = applyChange(new_properties.m_function, change.m_function);
-	new_properties.m_tension_protocol = applyChange(new_properties.m_tension_protocol, change.m_tension_protocol);
-	new_properties.m_wire_color = applyChange(new_properties.m_wire_color, change.m_wire_color);
-	new_properties.m_wire_section = applyChange(new_properties.m_wire_section, change.m_wire_section);
-	if(change.m_vertical_alignment == Qt::AlignLeft ||
-	   change.m_vertical_alignment == Qt::AlignRight) {new_properties.m_vertical_alignment = change.m_vertical_alignment;}
-	if(change.m_horizontal_alignment == Qt::AlignTop ||
-	   change.m_horizontal_alignment == Qt::AlignBottom) {new_properties.m_horizontal_alignment = change.m_horizontal_alignment;}
-	if (change.verti_rotate_text >= 0) {new_properties.verti_rotate_text = change.verti_rotate_text;}
-	if (change.horiz_rotate_text >= 0) {new_properties.horiz_rotate_text = change.horiz_rotate_text;}
-	if (change.color.isValid()) {new_properties.color = change.color;}
-	if (change.style != Qt::NoPen) {new_properties.style = change.style;}
-	if (change.cond_size >= 0.4) {new_properties.cond_size = change.cond_size;}
-	new_properties.m_bicolor = change.m_bicolor;
-	if (change.m_color_2.isValid()) {new_properties.m_color_2 = change.m_color_2;}
-	if (change.m_dash_size >= 2) {new_properties.m_dash_size = change.m_dash_size;}
-	new_properties.singleLineProperties = change.singleLineProperties;
-
-	return new_properties;
+	return applyConductorPropertyPatch(original, change);
 }
 
 /**
@@ -517,38 +500,4 @@ DiagramContext SearchAndReplaceWorker::replaceAdvanced(Element *element)
 	}
 
 	return context;
-}
-
-/**
-	@brief SearchAndReplaceWorker::replaceAdvanced
-	@param conductor
-	@return the conductor properties with the change applied,
-	according to the state of m_advanced_struct
-*/
-ConductorProperties SearchAndReplaceWorker::replaceAdvanced(
-		Conductor *conductor)
-{
-	ConductorProperties properties = conductor->properties();
-
-	if (m_advanced_struct.who == 2)
-	{
-		QRegularExpression rx(m_advanced_struct.search);
-		if (!rx.isValid())
-		{
-			qWarning() <<QObject::tr("this is an error in the code")
-				  << rx.errorString()
-				  << rx.patternErrorOffset();
-		}
-		QString what = m_advanced_struct.what;
-		QString replace = m_advanced_struct.replace;
-
-		if (what == "formula")               {properties.m_formula.replace(rx, replace);}
-		else if (what == "text")             {properties.text.replace(rx, replace);}
-		else if (what == "function")         {properties.m_function.replace(rx, replace);}
-		else if (what == "tension/protocol") {properties.m_tension_protocol.replace(rx, replace);}
-		else if (what == "conductor_color") {properties.m_wire_color.replace(rx, replace);}
-		else if (what == "conductor_section") {properties.m_wire_section.replace(rx, replace);}
-	}
-
-	return properties;
 }

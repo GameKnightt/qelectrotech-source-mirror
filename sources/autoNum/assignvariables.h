@@ -25,6 +25,7 @@
 #include <QStringList>
 
 class Conductor;
+class ConductorProperties;
 class Diagram;
 class Element;
 class ElementsLocation;
@@ -62,12 +63,24 @@ namespace autonum
 	class AssignVariables
 	{
 		public:
-			static QString formulaToLabel (QString formula, sequentialNumbers &seqStruct, Diagram *diagram, const Element *elmt = nullptr, const Conductor *cndr = nullptr);
+			static QString formulaToLabel(
+					QString formula,
+					sequentialNumbers &seqStruct,
+					Diagram *diagram,
+					const Element *elmt = nullptr,
+					const Conductor *cndr = nullptr,
+					const ConductorProperties *cndrProperties = nullptr);
 			static QString replaceVariable (const QString &formula, const DiagramContext &dc);
 			static QString genericXref (const Element *element);
 
 		private:
-			AssignVariables(const QString& formula, const sequentialNumbers& seqStruct , Diagram *diagram, const Element *elmt = nullptr, const Conductor *cndr = nullptr);
+			AssignVariables(
+					const QString &formula,
+					const sequentialNumbers &seqStruct,
+					Diagram *diagram,
+					const Element *elmt = nullptr,
+					const Conductor *cndr = nullptr,
+					const ConductorProperties *cndrProperties = nullptr);
 			void assignTitleBlockVar();
 			void assignSequence();
 
@@ -77,6 +90,7 @@ namespace autonum
 			sequentialNumbers m_seq_struct;
 			const Element *m_element = nullptr;
 			const Conductor *m_conductor = nullptr;
+			const ConductorProperties *m_conductor_properties = nullptr;
 	};
 
 	void setSequentialToList(QStringList &list, NumerotationContext &nc, const QString& type);

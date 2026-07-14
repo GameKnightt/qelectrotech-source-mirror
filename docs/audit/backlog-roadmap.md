@@ -176,6 +176,11 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
 ### UX-05 — Ajouter une édition tabulaire groupée
 
 - **Preuve :** formulaires longs E05 ; benchmark KiCad/EPLAN ; demandes de productivité.
+- **État du fork :** UX-05A fournit désormais le socle transactionnel pour les
+  conducteurs : aperçu avant/après, expansion et déduplication des potentiels,
+  revalidation anti-périmé et une seule commande Undo. Le remplacement avancé
+  des conducteurs emprunte la même transaction. Voir
+  `docs/audit/implementation/ux-05a-conductor-change-preview.md`.
 - **Utilisateurs touchés :** projets répétitifs et contrôle qualité.
 - **Fréquence :** régulière.
 - **Impact :** gain de temps élevé.
@@ -184,6 +189,9 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
 - **Dépendances :** modèle commun de propriétés, sélection, filtres, Undo.
 - **Compatibilité amont :** vue additive sans modifier le stockage.
 - **Critères d'acceptation :** colonnes configurables, édition multi-cellules, validation avant application, prévisualisation du nombre d'objets, transaction Undo unique.
+- **Incrément suivant UX-05B :** rendre éditables les champs fonction, tension,
+  couleur et section dans une grille de brouillon ; collage TSV, validation par
+  cellule et aucune mutation avant Appliquer.
 
 ### IND-01 — Unifier le parcours borniers et câbles
 

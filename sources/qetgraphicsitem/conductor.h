@@ -115,6 +115,8 @@ class Conductor : public QGraphicsObject
 		void setPropertyToPotential(
 				const ConductorProperties &property,
 				bool only_text = false);
+		ConductorProperties resolvedProperties(
+				const ConductorProperties &property) const;
 		void setProperties(const ConductorProperties &property);
 		ConductorProperties properties() const;
 
@@ -141,6 +143,9 @@ class Conductor : public QGraphicsObject
 		QList<QPointF> junctions() const;
 
 	private:
+		ConductorProperties resolvedProperties(
+				const ConductorProperties &property,
+				autonum::sequentialNumbers &sequence) const;
 		void setUpConnectionForFormula(
 				QString old_formula, QString new_formula);
 		autonum::sequentialNumbers m_autoNum_seq;

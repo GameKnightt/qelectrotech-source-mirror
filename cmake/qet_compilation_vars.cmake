@@ -107,6 +107,8 @@ set(QET_RES_FILES
   ${QET_DIR}/sources/ui/configpage/generalconfigurationpage.ui
   )
 set(QET_SRC_FILES
+	${QET_DIR}/sources/conductorpropertiesresolver.cpp
+	${QET_DIR}/sources/conductorpropertiesresolver.h
   ${QET_DIR}/sources/cli_export.cpp
   ${QET_DIR}/sources/cli_export.h
   ${QET_DIR}/sources/pdf_links.cpp
@@ -498,9 +500,21 @@ set(QET_SRC_FILES
   ${QET_DIR}/sources/richtext/richtexteditor_p.h
   ${QET_DIR}/sources/richtext/ui_addlinkdialog.h
 
+  ${QET_DIR}/sources/SearchAndReplace/conductorchangeplan.cpp
+  ${QET_DIR}/sources/SearchAndReplace/conductorchangeplan.h
+  ${QET_DIR}/sources/SearchAndReplace/conductorchangeexecution.cpp
+  ${QET_DIR}/sources/SearchAndReplace/conductorchangepreviewdata.h
+  ${QET_DIR}/sources/SearchAndReplace/advancedreplacestruct.h
+  ${QET_DIR}/sources/SearchAndReplace/conductorpropertydiff.cpp
+  ${QET_DIR}/sources/SearchAndReplace/conductorpropertydiff.h
+  ${QET_DIR}/sources/SearchAndReplace/conductorpropertytransform.cpp
+  ${QET_DIR}/sources/SearchAndReplace/conductorpropertytransform.h
+  ${QET_DIR}/sources/SearchAndReplace/conductorscopeutils.h
   ${QET_DIR}/sources/SearchAndReplace/searchandreplaceworker.cpp
   ${QET_DIR}/sources/SearchAndReplace/searchandreplaceworker.h
 
+  ${QET_DIR}/sources/SearchAndReplace/ui/conductorchangepreviewdialog.cpp
+  ${QET_DIR}/sources/SearchAndReplace/ui/conductorchangepreviewdialog.h
   ${QET_DIR}/sources/SearchAndReplace/ui/replaceadvanceddialog.cpp
   ${QET_DIR}/sources/SearchAndReplace/ui/replaceadvanceddialog.h
   ${QET_DIR}/sources/SearchAndReplace/ui/replaceconductordialog.cpp

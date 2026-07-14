@@ -178,6 +178,39 @@ add_test(
   COMMAND conductor_interaction_test)
 
 add_executable(
+  conductor_change_preview_test
+  tst_conductorchangepreview.cpp
+  ${QET_DIR}/sources/conductorproperties.cpp
+  ${QET_DIR}/sources/conductorproperties.h
+  ${QET_DIR}/sources/conductorpropertiesresolver.cpp
+  ${QET_DIR}/sources/conductorpropertiesresolver.h
+  ${QET_DIR}/sources/SearchAndReplace/conductorchangeexecution.cpp
+  ${QET_DIR}/sources/SearchAndReplace/conductorchangeplan.h
+  ${QET_DIR}/sources/SearchAndReplace/advancedreplacestruct.h
+  ${QET_DIR}/sources/SearchAndReplace/conductorchangepreviewdata.h
+  ${QET_DIR}/sources/SearchAndReplace/conductorpropertydiff.cpp
+  ${QET_DIR}/sources/SearchAndReplace/conductorpropertydiff.h
+  ${QET_DIR}/sources/SearchAndReplace/conductorpropertytransform.cpp
+  ${QET_DIR}/sources/SearchAndReplace/conductorpropertytransform.h
+  ${QET_DIR}/sources/SearchAndReplace/conductorscopeutils.h
+  ${QET_DIR}/sources/SearchAndReplace/ui/conductorchangepreviewdialog.cpp
+  ${QET_DIR}/sources/SearchAndReplace/ui/conductorchangepreviewdialog.h)
+add_test(
+  NAME conductor_change_preview_test
+  COMMAND conductor_change_preview_test)
+add_test(
+  NAME conductor_change_preview_keyboard_test
+  COMMAND conductor_change_preview_test keyboardContract)
+add_test(
+  NAME conductor_change_preview_large_text_150_test
+  COMMAND conductor_change_preview_test fitsScreenAt150Percent)
+set_tests_properties(
+  conductor_change_preview_test
+  conductor_change_preview_keyboard_test
+  conductor_change_preview_large_text_150_test
+  PROPERTIES LABELS "conductor-properties;ux-05a;accessibility;deterministic-scale")
+
+add_executable(
   ordered_index_cache_test
   tst_orderedindexcache.cpp)
 add_test(
@@ -331,6 +364,20 @@ target_link_libraries(
   PRIVATE
   Qt::Test
   Qt::Gui)
+
+target_include_directories(
+  conductor_change_preview_test
+  PRIVATE
+  ${QET_DIR}/sources
+  ${QET_DIR}/sources/SearchAndReplace
+  ${QET_DIR}/sources/SearchAndReplace/ui)
+
+target_link_libraries(
+  conductor_change_preview_test
+  PRIVATE
+  Qt::Test
+  Qt::Widgets
+  Qt::Xml)
 
 target_link_libraries(
   ordered_index_cache_test

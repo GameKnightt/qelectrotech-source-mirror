@@ -15,6 +15,7 @@
 #include <QHash>
 #include <QMainWindow>
 #include <QMenu>
+#include <QScreen>
 #include <QSignalSpy>
 #include <QStyle>
 #include <QToolBar>
@@ -24,6 +25,36 @@
 #include <memory>
 
 namespace {
+
+QByteArray insufficientNativeDesktopReason(const QSize &required_size)
+{
+	if (QGuiApplication::platformName().compare(
+			QStringLiteral("windows"), Qt::CaseInsensitive) != 0) {
+		return {};
+	}
+
+	QScreen *screen = QGuiApplication::primaryScreen();
+	if (!screen) {
+		return QByteArrayLiteral(
+			"Native Windows DPI check skipped: no primary screen is exposed.");
+	}
+
+	const QSize available_size = screen->availableGeometry().size();
+	if (available_size.width() >= required_size.width()
+		&& available_size.height() >= required_size.height()) {
+		return {};
+	}
+
+	return QStringLiteral(
+		"Native Windows DPI check requires %1x%2 logical pixels; "
+		"the runner exposes %3x%4. The same layout contract remains covered "
+		"by the offscreen 150% matrix.")
+		.arg(required_size.width())
+		.arg(required_size.height())
+		.arg(available_size.width())
+		.arg(available_size.height())
+		.toUtf8();
+}
 
 class ApplicationFontGuard
 {
@@ -564,6 +595,10 @@ void WorkspaceProfileControllerTest::focusSurvivesProfileChanges()
 
 void WorkspaceProfileControllerTest::fitsLogicalDesktopWithLargeText()
 {
+	const QSize target_size(1280, 680);
+	const QByteArray skip_reason = insufficientNativeDesktopReason(target_size);
+	if (!skip_reason.isEmpty()) QSKIP(skip_reason.constData());
+
 	ApplicationFontGuard font_guard(1.5);
 
 	WorkspaceHarness harness;
@@ -583,7 +618,7 @@ void WorkspaceProfileControllerTest::fitsLogicalDesktopWithLargeText()
 		action->setIcon(harness.window.style()->standardIcon(QStyle::SP_FileIcon));
 		harness.diagram_toolbar.addAction(action);
 	}
-	harness.window.resize(1280, 680);
+	harness.window.resize(target_size);
 	harness.window.show();
 	QApplication::processEvents();
 

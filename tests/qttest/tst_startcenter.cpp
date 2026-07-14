@@ -22,6 +22,7 @@
 #include <QPointer>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QScreen>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QStackedWidget>
@@ -36,6 +37,36 @@ namespace {
 QString nativePath(const QString &path)
 {
 	return QDir::toNativeSeparators(path);
+}
+
+QByteArray insufficientNativeDesktopReason(const QSize &required_size)
+{
+	if (QGuiApplication::platformName().compare(
+			QStringLiteral("windows"), Qt::CaseInsensitive) != 0) {
+		return {};
+	}
+
+	QScreen *screen = QGuiApplication::primaryScreen();
+	if (!screen) {
+		return QByteArrayLiteral(
+			"Native Windows DPI check skipped: no primary screen is exposed.");
+	}
+
+	const QSize available_size = screen->availableGeometry().size();
+	if (available_size.width() >= required_size.width()
+		&& available_size.height() >= required_size.height()) {
+		return {};
+	}
+
+	return QStringLiteral(
+		"Native Windows DPI check requires %1x%2 logical pixels; "
+		"the runner exposes %3x%4. The same layout contract remains covered "
+		"by the offscreen 150% matrix.")
+		.arg(required_size.width())
+		.arg(required_size.height())
+		.arg(available_size.width())
+		.arg(available_size.height())
+		.toUtf8();
 }
 
 QCommandLinkButton *newButton(StartCenterWidget &widget)
@@ -333,6 +364,10 @@ void StartCenterTest::accessibilityContract()
 
 void StartCenterTest::fitsScreenAt150Percent()
 {
+	const QSize target_size(1280, 680);
+	const QByteArray skip_reason = insufficientNativeDesktopReason(target_size);
+	if (!skip_reason.isEmpty()) QSKIP(skip_reason.constData());
+
 	ApplicationFontGuard font_guard(1.5);
 	QAction new_action(QStringLiteral("New"), this);
 	QAction open_action(QStringLiteral("Open"), this);
@@ -343,7 +378,7 @@ void StartCenterTest::fitsScreenAt150Percent()
 			.arg(index)));
 	}
 	StartCenterWidget widget(&new_action, &open_action, &recent);
-	widget.resize(1280, 720);
+	widget.resize(target_size);
 	widget.show();
 	// A headless Windows runner can keep a native window unexposed even though
 	// Qt has made the widget visible and completed its layout. The assertions
@@ -370,8 +405,8 @@ void StartCenterTest::fitsScreenAt150Percent()
 			control->size());
 		QVERIFY(viewport_rect.contains(control_rect));
 	}
-	QVERIFY(widget.minimumSizeHint().width() <= 1280);
-	QVERIFY(widget.minimumSizeHint().height() <= 720);
+	QVERIFY(widget.minimumSizeHint().width() <= target_size.width());
+	QVERIFY(widget.minimumSizeHint().height() <= target_size.height());
 }
 
 void StartCenterTest::projectHomeCyclesAreIdempotent()

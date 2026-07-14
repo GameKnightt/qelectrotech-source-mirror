@@ -64,14 +64,19 @@ La cible `start_center_test` et ses variantes couvrent :
 - persistance, déduplication, oubli et vidage des récents ;
 - état vide et chemin indisponible sans suppression automatique ;
 - noms accessibles, descriptions et ordre de focus ;
-- budget logique 1280×720 avec texte à 150 % ;
+- budget logique 1280×680 avec texte à 150 %, correspondant à l'espace utile
+  d'un écran Windows 1920×1080 après mise à l'échelle et barre des tâches ;
 - cent transitions du contrôleur accueil → éditeur → accueil sans page ni
   connexion dupliquée. La fermeture d'un vrai `ProjectView` reste un contrôle
   d'intégration Windows.
 
 La cible est ajoutée explicitement au workflow Windows ainsi qu'aux matrices
 clavier et DPI, afin que les alias CTest ne puissent pas rester enregistrés sans
-exécutable construit.
+exécutable construit. La matrice hors écran vérifie toujours le budget complet
+à 150 %. Le contrôle Windows natif est ignoré avec un diagnostic explicite si
+le bureau virtuel du runner expose moins de 1280×680 pixels logiques : Windows
+contraindrait alors la fenêtre et le résultat ne mesurerait plus le contrat
+1920×1080 visé.
 
 ## Validation Windows du 14 juillet 2026
 
@@ -85,7 +90,7 @@ installée et de la préversion UX précédente. Les contrôles réalisés confi
 - activation de **Nouveau projet** : création d'un projet avec premier folio et
   bascule immédiate vers l'espace d'édition historique ;
 - 24/24 tests CTest réussis, dont les quatre variantes UI-03 ;
-- budget 1280×720 avec texte à 150 % réussi sans défilement horizontal ou
+- budget 1280×680 avec texte à 150 % réussi sans défilement horizontal ou
   vertical dans le test déterministe ;
 - coexistence de la préversion et de l'installation stable confirmée en
   utilisant l'exécutable portable explicitement nommé.

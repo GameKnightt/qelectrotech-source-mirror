@@ -73,6 +73,12 @@ Validation locale sous Windows 11 avec Qt 5 :
 - inspection visuelle réelle du démarrage, de la création d'un projet, de la
   restauration du shell, du profil Essentiel et du menu Affichage.
 
+La matrice hors écran conserve le contrôle déterministe 1280 × 680 à 150 %.
+Sur Windows natif, le test signale et ignore uniquement ce contrôle si le
+bureau virtuel du runner est lui-même plus petit que ce budget logique ; une
+fenêtre contrainte par le système ne constituerait pas une mesure valide du
+scénario 1920 × 1080 ciblé.
+
 ## Limites et suite
 
 Les parcours visuels réels en mode sombre, contraste élevé Windows et mise à

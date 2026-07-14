@@ -43,7 +43,10 @@ $ucrtBin = Join-Path (Get-FullPath $Msys2Root) 'ucrt64\bin'
 $system32 = Join-Path $env:WINDIR 'System32'
 $sourceExecutable = Join-Path $buildPath 'qelectrotech.exe'
 $cmakeCache = Join-Path $buildPath 'CMakeCache.txt'
+$launcherSource = Join-Path $sourcePath 'packaging\windows\Launch-QElectroTech-Preview.bat'
 $windeployqt = Join-Path $ucrtBin 'windeployqt-qt5.exe'
+$qmakeQt5 = Join-Path $ucrtBin 'qmake-qt5.exe'
+$qtPluginRoot = Join-Path (Get-FullPath $Msys2Root) 'ucrt64\share\qt5\plugins'
 $objdump = Join-Path $ucrtBin 'objdump.exe'
 
 if ($outputPath -eq [System.IO.Path]::GetPathRoot($outputPath)) {
@@ -67,6 +70,9 @@ if (-not (Test-Path -LiteralPath $sourceExecutable -PathType Leaf)) {
 }
 if (-not (Test-Path -LiteralPath $cmakeCache -PathType Leaf)) {
     throw "Missing CMake cache: $cmakeCache"
+}
+if (-not (Test-Path -LiteralPath $launcherSource -PathType Leaf)) {
+    throw "Missing portable preview launcher: $launcherSource"
 }
 $buildType = Select-String -LiteralPath $cmakeCache -Pattern '^CMAKE_BUILD_TYPE:STRING=(.+)$' |
     Select-Object -First 1
@@ -107,6 +113,7 @@ $deployedExecutable = Join-Path $stagingPath 'qelectrotech.exe'
 try {
     New-Item -ItemType Directory -Path $stagingPath | Out-Null
     Copy-Item -LiteralPath $sourceExecutable -Destination $deployedExecutable
+    Copy-Item -LiteralPath $launcherSource -Destination $stagingPath
     Copy-Item -LiteralPath (Join-Path $sourcePath 'LICENSE') -Destination $stagingPath
     Copy-Item -LiteralPath (Join-Path $sourcePath 'ELEMENTS.LICENSE') -Destination $stagingPath
     Copy-Item -LiteralPath (Join-Path $sourcePath 'licenses') -Destination $stagingPath -Recurse
@@ -114,9 +121,59 @@ try {
     $previousPath = $env:PATH
     try {
         $env:PATH = "$ucrtBin;$previousPath"
-        & $windeployqt --release --compiler-runtime $deployedExecutable
-        if ($LASTEXITCODE -ne 0) {
-            throw "windeployqt-qt5 failed with exit code $LASTEXITCODE"
+        if (Test-Path -LiteralPath $qmakeQt5 -PathType Leaf) {
+            # The PE closure below copies the compiler runtime and every other
+            # non-system dependency deterministically.
+            & $windeployqt --release --no-compiler-runtime $deployedExecutable
+            if ($LASTEXITCODE -ne 0) {
+                throw "windeployqt-qt5 failed with exit code $LASTEXITCODE"
+            }
+        } else {
+            # A partially repaired local Qt 5 installation may be usable by
+            # CMake while lacking the qmake-qt5.exe name required by
+            # windeployqt-qt5. Copy the explicit runtime set used by
+            # QElectroTech; the PE closure below supplies its linked Qt and
+            # UCRT64 dependencies.
+            $requiredQtPlugins = @(
+                'bearer\qgenericbearer.dll',
+                'iconengines\qsvgicon.dll',
+                'imageformats\qgif.dll',
+                'imageformats\qico.dll',
+                'imageformats\qjpeg.dll',
+                'imageformats\qsvg.dll',
+                'platforms\qwindows.dll',
+                'printsupport\windowsprintersupport.dll',
+                'sqldrivers\qsqlite.dll',
+                'styles\qwindowsvistastyle.dll'
+            )
+            foreach ($relativePlugin in $requiredQtPlugins) {
+                $pluginSource = Join-Path $qtPluginRoot $relativePlugin
+                if (-not (Test-Path -LiteralPath $pluginSource -PathType Leaf)) {
+                    throw "Missing required Qt plugin: $pluginSource"
+                }
+                $pluginDestination = Join-Path $stagingPath $relativePlugin
+                $pluginDestinationDirectory = Split-Path -Parent $pluginDestination
+                if (-not (Test-Path -LiteralPath $pluginDestinationDirectory)) {
+                    New-Item -ItemType Directory -Path $pluginDestinationDirectory |
+                        Out-Null
+                }
+                Copy-Item -LiteralPath $pluginSource -Destination $pluginDestination
+            }
+
+            # Qt loads ANGLE dynamically, so objdump cannot discover these
+            # libraries through the PE import table. Match windeployqt's
+            # portable output explicitly, including its Direct3D compiler.
+            $requiredDynamicLibraries = @(
+                (Join-Path $ucrtBin 'libEGL.dll'),
+                (Join-Path $ucrtBin 'libGLESv2.dll'),
+                (Join-Path $system32 'D3DCompiler_47.dll')
+            )
+            foreach ($dynamicLibrary in $requiredDynamicLibraries) {
+                if (-not (Test-Path -LiteralPath $dynamicLibrary -PathType Leaf)) {
+                    throw "Missing required dynamically loaded library: $dynamicLibrary"
+                }
+                Copy-Item -LiteralPath $dynamicLibrary -Destination $stagingPath
+            }
         }
     } finally {
         $env:PATH = $previousPath
@@ -231,7 +288,11 @@ try {
 
     $requiredRuntimeFiles = @(
         'qelectrotech.exe',
+        'Launch-QElectroTech-Preview.bat',
         'Qt5Core.dll',
+        'libEGL.dll',
+        'libGLESv2.dll',
+        'D3DCompiler_47.dll',
         'platforms\qwindows.dll',
         'sqldrivers\qsqlite.dll',
         'LICENSE',
@@ -276,14 +337,16 @@ try {
     }
 
     $manifestPath = Join-Path $stagingPath 'manifest-sha256.txt'
-    Get-ChildItem -LiteralPath $stagingPath -Recurse -File |
+    $manifestLines = @(Get-ChildItem -LiteralPath $stagingPath -Recurse -File |
         Where-Object { $_.FullName -ne $manifestPath } |
         Sort-Object FullName |
         ForEach-Object {
             $relativePath = $_.FullName.Substring($stagingPrefix.Length)
             $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash
             "$hash *$relativePath"
-        } | Set-Content -LiteralPath $manifestPath -Encoding ASCII
+        })
+    $utf8WithoutBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllLines($manifestPath, $manifestLines, $utf8WithoutBom)
 
     Move-Item -LiteralPath $stagingPath -Destination $outputPath
     Write-Output "Portable QElectroTech preview deployed to: $outputPath"

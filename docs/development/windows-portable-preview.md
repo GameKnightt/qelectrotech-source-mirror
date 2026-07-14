@@ -11,6 +11,11 @@ exécute `qelectrotech.exe --version` sans MSYS2 dans le `PATH` et génère un
 manifeste SHA-256. Il déploie d’abord dans un dossier temporaire frère, puis
 renomme le résultat seulement après validation complète.
 
+Le dossier final contient `Launch-QElectroTech-Preview.bat`. Ce lanceur utilise
+les collections, cartouches et traductions du dossier portable ainsi qu’un
+répertoire `conf/` local. La préversion peut ainsi fonctionner à côté d’une
+installation stable sans partager ses préférences ni son verrou d’instance.
+
 ## Préparer la compilation Release
 
 ```powershell
@@ -53,6 +58,14 @@ $output = Join-Path $env:TEMP 'qelectrotech-portable-preview'
 Le script conserve seulement le pilote SQL SQLite utilisé par QElectroTech,
 copie les licences du projet et de la collection, et échoue si une dépendance
 native requise ne peut pas être résolue depuis le même environnement UCRT64.
+Si une installation Qt 5 locale partiellement réparée ne contient plus le nom
+`qmake-qt5.exe` attendu par `windeployqt-qt5`, le script copie explicitement le
+petit ensemble de plugins et de bibliothèques graphiques Qt requis, puis utilise
+la même fermeture PE pour résoudre leurs dépendances liées. Le résultat passe
+les mêmes validations dans les deux chemins.
+
+Le manifeste est écrit en UTF-8 sans BOM afin que les chemins de composants
+Unicode puissent être vérifiés sans altération.
 
 Cette sortie reste une préversion interne. Une distribution publique exige en
 plus un inventaire de toutes les licences tierces, la mise à disposition des

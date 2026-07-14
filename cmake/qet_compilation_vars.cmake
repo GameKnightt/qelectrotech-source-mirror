@@ -179,6 +179,8 @@ set(QET_SRC_FILES
   ${QET_DIR}/sources/newelementwizard.h
   ${QET_DIR}/sources/projectview.cpp
   ${QET_DIR}/sources/projectview.h
+  ${QET_DIR}/sources/ui/projectsavestatuscontroller.cpp
+  ${QET_DIR}/sources/ui/projectsavestatuscontroller.h
   ${QET_DIR}/sources/ui/projectsavestatuswidget.cpp
   ${QET_DIR}/sources/ui/projectsavestatuswidget.h
   ${QET_DIR}/sources/ui/workspaceprofilecontroller.cpp

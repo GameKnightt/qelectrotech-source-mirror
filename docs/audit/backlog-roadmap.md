@@ -343,15 +343,26 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
 
 ### SAVE-02 — Rendre l'état de sauvegarde explicite
 
-- **Preuve :** état peu saillant dans la stable ; récupération présente dans `master`.
+- **État :** implémenté et validé sur la branche `codex/save-02-save-state` ;
+  rapport détaillé dans `implementation/save-02-project-save-status.md`.
+- **Preuve :** état peu saillant dans la stable ; autosauvegarde et fermeture
+  contournaient le cycle visible ; résultat de récupération ignoré ; branche
+  Qt 6 sans écriture ; perte du contexte MDI reproduite sous Windows après les
+  dialogues de chargement.
 - **Utilisateurs touchés :** tous.
 - **Fréquence :** continue.
 - **Impact :** confiance et prévention des pertes.
-- **Effort :** S.
-- **Risque :** faible.
-- **Dépendances :** signaux de sauvegarde et d'erreur.
-- **Compatibilité amont :** UI uniquement.
-- **Critères d'acceptation :** états Modifié/Enregistrement/Sauvegardé/Erreur visibles et annoncés, chemin de récupération expliqué, aucune fausse confirmation.
+- **Effort :** M réalisé (cycle canonique, récupération asynchrone, contrôleur,
+  tests et validation Windows).
+- **Risque :** faible après validation ; aucun format modifié.
+- **Dépendances :** `QETProject`, `ProjectView`, fenêtre MDI, `KAutoSaveFile`,
+  `QtConcurrent`, barre d'état et accessibilité Qt.
+- **Compatibilité amont :** méthodes publiques d'écriture et formats conservés ;
+  ajout interne de signaux et d'un contrôleur de présentation.
+- **Critères d'acceptation :** atteints — états
+  Modifié/Enregistrement/Sauvegardé/Erreur visibles et annoncés, récupération
+  expliquée uniquement après résultat vérifié, aucune fausse confirmation,
+  historique Undo conservé, clavier et texte 150 % couverts.
 
 ### PERF-01 — Budget de performance grands projets
 

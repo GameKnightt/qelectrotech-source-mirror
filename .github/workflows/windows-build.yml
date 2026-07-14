@@ -83,11 +83,11 @@ jobs:
             qelectrotech
           ctest --test-dir build-tests --output-on-failure
           QT_SCALE_FACTOR=1.5 ctest --test-dir build-tests \
-            -R '^(config_dialog_ux_test|workspace_shell_large_text_150_test|start_center_large_text_150_test|export_center_test|properties_editor_dock_test|conductor_change_preview_large_text_150_test|conductor_bulk_edit_large_text_150_test|conductor_bulk_edit_csv_test)$' --output-on-failure --no-tests=error
+            -R '^(config_dialog_ux_test|project_save_status_large_text_150_test|workspace_shell_large_text_150_test|start_center_large_text_150_test|export_center_test|properties_editor_dock_test|conductor_change_preview_large_text_150_test|conductor_bulk_edit_large_text_150_test|conductor_bulk_edit_csv_test)$' --output-on-failure --no-tests=error
           QT_QPA_PLATFORM=windows ctest --test-dir build-tests \
-            -R '^(workspace_shell_home_test|workspace_shell_focus_test|start_center_keyboard_test|start_center_lifecycle_test|export_center_test|properties_editor_dock_test|conductor_change_preview_keyboard_test|conductor_bulk_edit_keyboard_test|conductor_bulk_edit_active_editor_test|conductor_bulk_edit_csv_test)$' --output-on-failure --no-tests=error
+            -R '^(project_save_status_keyboard_test|workspace_shell_home_test|workspace_shell_focus_test|start_center_keyboard_test|start_center_lifecycle_test|export_center_test|properties_editor_dock_test|conductor_change_preview_keyboard_test|conductor_bulk_edit_keyboard_test|conductor_bulk_edit_active_editor_test|conductor_bulk_edit_csv_test)$' --output-on-failure --no-tests=error
           QT_QPA_PLATFORM=windows QT_SCALE_FACTOR=1.5 ctest --test-dir build-tests \
-            -R '^(workspace_shell_home_test|workspace_shell_focus_test|workspace_shell_large_text_150_test|start_center_keyboard_test|start_center_large_text_150_test|start_center_lifecycle_test|export_center_test|properties_editor_dock_test|conductor_change_preview_keyboard_test|conductor_change_preview_large_text_150_test|conductor_bulk_edit_keyboard_test|conductor_bulk_edit_active_editor_test|conductor_bulk_edit_large_text_150_test|conductor_bulk_edit_csv_test)$' --output-on-failure --no-tests=error
+            -R '^(project_save_status_keyboard_test|project_save_status_large_text_150_test|workspace_shell_home_test|workspace_shell_focus_test|workspace_shell_large_text_150_test|start_center_keyboard_test|start_center_large_text_150_test|start_center_lifecycle_test|export_center_test|properties_editor_dock_test|conductor_change_preview_keyboard_test|conductor_change_preview_large_text_150_test|conductor_bulk_edit_keyboard_test|conductor_bulk_edit_active_editor_test|conductor_bulk_edit_large_text_150_test|conductor_bulk_edit_csv_test)$' --output-on-failure --no-tests=error
 
   build-windows:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

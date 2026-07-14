@@ -944,9 +944,6 @@ QETResult ProjectView::doSave(const QString &file_path)
 			? m_project -> write()
 			: m_project -> write(file_path);
 	updateWindowTitle();
-	if (result.isOk()) {
-		project()->undoStack()->clear();
-	}
 	emit saveFinished(m_project, result.isOk(), result.errorMessage());
 	return(result);
 }

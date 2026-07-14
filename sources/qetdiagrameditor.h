@@ -20,14 +20,13 @@
 
 #include "SearchAndReplace/ui/searchandreplacewidget.h"
 #include "qetmainwindow.h"
-#include "ui/projectsavestatuswidget.h"
 #include "ui/workspaceprofilecontroller.h"
 
 #include <QActionGroup>
 #include <QCloseEvent>
 #include <QDir>
-#include <QHash>
 #include <QMdiArea>
+#include <QPointer>
 #include <QSignalMapper>
 #include <QUndoGroup>
 
@@ -51,6 +50,8 @@ class AutoNumberingDockWidget;
 class TerminalNumberingDialog;
 class StartCenterWidget;
 class StartCenterPageController;
+class ProjectSaveStatusWidget;
+class ProjectSaveStatusController;
 
 class KAutoSaveFile;
 /**
@@ -254,10 +255,6 @@ class QETDiagramEditor : public QETMainWindow
 		QList <QAction *> m_zoom_action_toolBar; ///Only zoom action must displayed in the toolbar
 
 		void removeDiagramSilent(Diagram *diagram);
-		void setProjectSaveState(
-			QETProject *project,
-			ProjectSaveStatusWidget::State state,
-			const QString &detail = QString());
 		void refreshProjectSaveStatus();
 
 		QMdiArea m_workspace;
@@ -273,9 +270,9 @@ class QETDiagramEditor : public QETMainWindow
 		*qdw_undo; /// Dock for the undo list
 
 		ElementsCollectionWidget *m_element_collection_widget;
+		QPointer<ProjectView> m_last_active_project_view;
 		ProjectSaveStatusWidget *m_project_save_status = nullptr;
-		QHash<QETProject *, ProjectSaveStatusWidget::State> m_project_save_states;
-		QHash<QETProject *, QString> m_project_save_errors;
+		ProjectSaveStatusController *m_project_save_controller = nullptr;
 			
 		DiagramPropertiesEditorDockWidget *m_selection_properties_editor;
 			/// Elements panel

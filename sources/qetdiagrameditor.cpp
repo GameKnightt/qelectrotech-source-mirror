@@ -41,6 +41,8 @@
 #include "ui/diagrampropertieseditordockwidget.h"
 #include "ui/backupdialog.h"
 #include "ui/dialogwaiting.h"
+#include "ui/projectsavestatuscontroller.h"
+#include "ui/projectsavestatuswidget.h"
 #include "ui/startcenterpagecontroller.h"
 #include "ui/startcenterwidget.h"
 #include "undocommand/addelementtextcommand.h"
@@ -122,6 +124,22 @@ QETDiagramEditor::QETDiagramEditor(const QStringList &files, QWidget *parent) :
 	statusBar() -> showMessage(tr("QElectroTech", "status bar message"));
 	m_project_save_status = new ProjectSaveStatusWidget(statusBar());
 	statusBar()->addPermanentWidget(m_project_save_status);
+	m_project_save_controller = new ProjectSaveStatusController(this);
+	connect(
+		m_project_save_controller,
+		&ProjectSaveStatusController::activeSnapshotChanged,
+		this,
+		[this](const ProjectSaveStatusController::Snapshot &snapshot) {
+			m_project_save_status->setState(
+				snapshot.state,
+				snapshot.projectName,
+				snapshot.filePath,
+				snapshot.detail,
+				snapshot.recoveryPath,
+				snapshot.recoveryError);
+			if (snapshot.state == ProjectSaveStatusWidget::State::Saving)
+				m_project_save_status->repaint();
+		});
 
 	setUpElementsPanel();
 	setUpElementsCollectionWidget();
@@ -1607,7 +1625,13 @@ QList<ProjectView *> QETDiagramEditor::openedProjects() const
 ProjectView *QETDiagramEditor::currentProjectView() const
 {
 	QMdiSubWindow *current_window = m_workspace.activeSubWindow();
-	if (!current_window) return(nullptr);
+	// Modal progress and confirmation dialogs temporarily clear the active MDI
+	// sub-window on Windows.  The current sub-window still identifies the
+	// project the user is working on and keeps project actions deterministic.
+	if (!current_window)
+		current_window = m_workspace.currentSubWindow();
+	if (!current_window)
+		return m_last_active_project_view.data();
 
 	QWidget *current_widget = current_window -> widget();
 	if (!current_widget) return(nullptr);
@@ -1615,7 +1639,7 @@ ProjectView *QETDiagramEditor::currentProjectView() const
 	if (ProjectView *project_view = qobject_cast<ProjectView *>(current_widget)) {
 		return(project_view);
 	}
-	return(nullptr);
+	return m_last_active_project_view.data();
 }
 
 /**
@@ -2211,6 +2235,7 @@ void QETDiagramEditor::slot_updatePasteAction()
 void QETDiagramEditor::addProjectView(ProjectView *project_view)
 {
 	if (!project_view) return;
+	m_last_active_project_view = project_view;
 
 	foreach(DiagramView *dv, project_view -> diagram_views())
 		diagramWasAdded(dv);
@@ -2226,34 +2251,79 @@ void QETDiagramEditor::addProjectView(ProjectView *project_view)
 		connect(project, SIGNAL(readOnlyChanged(QETProject *, bool)),
 			this, SLOT(slot_updateActions()));
 
-		m_project_save_states.insert(
+		QString project_name = project->title();
+		if (project_name.isEmpty())
+			project_name = tr("Sans titre");
+		m_project_save_controller->registerProject(
 			project,
-			(project->filePath().isEmpty() || project->projectWasModified())
-				? ProjectSaveStatusWidget::State::Modified
-				: ProjectSaveStatusWidget::State::Saved);
+			project_name,
+			project->filePath(),
+			project->hasUnsavedChanges());
 
 		connect(project, &QETProject::projectModified, this,
 			[this](QETProject *modified_project, bool modified) {
-				if (m_project_save_states.value(modified_project) == ProjectSaveStatusWidget::State::Saving)
-					return;
-				setProjectSaveState(
-					modified_project,
-					modified ? ProjectSaveStatusWidget::State::Modified
-							 : ProjectSaveStatusWidget::State::Saved);
+				m_project_save_controller->setModified(modified_project, modified);
 			});
-
-		connect(project_view, &ProjectView::saveStarted, this,
-			[this](QETProject *saving_project) {
-				setProjectSaveState(saving_project, ProjectSaveStatusWidget::State::Saving);
-				QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+		connect(project, &QETProject::projectTitleChanged, this,
+			[this](QETProject *changed_project, const QString &title) {
+				m_project_save_controller->updateProjectIdentity(
+					changed_project,
+					title.isEmpty() ? tr("Sans titre") : title,
+					changed_project->filePath());
 			});
-		connect(project_view, &ProjectView::saveFinished, this,
-			[this](QETProject *saved_project, bool ok, const QString &error) {
-				setProjectSaveState(
+		connect(project, &QETProject::projectFilePathChanged, this,
+			[this](QETProject *changed_project, const QString &path) {
+				QString name = changed_project->title();
+				if (name.isEmpty()) name = tr("Sans titre");
+				m_project_save_controller->updateProjectIdentity(
+					changed_project, name, path);
+			});
+		connect(project, &QETProject::canonicalSaveStarted, this,
+			[this](QETProject *saving_project,
+				quint64 operation_id,
+				QETProject::SaveOrigin origin) {
+				Q_UNUSED(origin)
+				m_project_save_controller->beginCanonicalSave(
+					saving_project, operation_id);
+			});
+		connect(project, &QETProject::canonicalSaveFinished, this,
+			[this](QETProject *saved_project,
+				quint64 operation_id,
+				QETProject::SaveOrigin origin,
+				bool ok,
+				const QString &error,
+				const QString &committed_path,
+				bool has_unsaved_changes) {
+				Q_UNUSED(origin)
+				m_project_save_controller->finishCanonicalSave(
 					saved_project,
-					ok ? ProjectSaveStatusWidget::State::Saved
-					   : ProjectSaveStatusWidget::State::Error,
-					error);
+					operation_id,
+					ok,
+					error,
+					committed_path,
+					has_unsaved_changes);
+			});
+		connect(project, &QETProject::recoveryBackupStarted, this,
+			[this](QETProject *backup_project, quint64 operation_id) {
+				m_project_save_controller->beginRecoveryBackup(
+					backup_project, operation_id);
+			});
+		connect(project, &QETProject::recoveryBackupFinished, this,
+			[this](QETProject *backup_project,
+				quint64 operation_id,
+				bool ok,
+				const QString &error,
+				const QString &backup_path) {
+				m_project_save_controller->finishRecoveryBackup(
+					backup_project,
+					operation_id,
+					ok,
+					error,
+					backup_path);
+			});
+		connect(project, &QETProject::recoveryBackupInvalidated, this,
+			[this](QETProject *backup_project) {
+				m_project_save_controller->invalidateRecoveryBackup(backup_project);
 			});
 	}
 
@@ -2317,8 +2387,13 @@ void QETDiagramEditor::addProjectView(ProjectView *project_view)
 	//Display the new window
 	if (maximise) project_view -> showMaximized();
 	else          project_view -> show();
+	// A modal progress/backup dialog shown while loading can otherwise leave
+	// QMdiArea without an active sub-window.  Besides hiding the initial save
+	// state, that keeps Save/Save As disabled until another MDI activation.
+	m_workspace.setActiveSubWindow(sub_window);
 	updateCentralPage();
-	refreshProjectSaveStatus();
+	slot_updateActions();
+	m_project_save_controller->setActiveProject(project_view->project());
 }
 
 /**
@@ -2641,11 +2716,12 @@ void QETDiagramEditor::activateProject(ProjectView *project_view)
 */
 void QETDiagramEditor::projectWasClosed(ProjectView *project_view)
 {
+	if (m_last_active_project_view == project_view)
+		m_last_active_project_view.clear();
 	QETProject *project = project_view -> project();
 	if (project)
 	{
-		m_project_save_states.remove(project);
-		m_project_save_errors.remove(project);
+		m_project_save_controller->unregisterProject(project);
 		pa -> elementsPanel().projectWasClosed(project);
 		m_element_collection_widget->removeProject(project);
 		undo_group.removeStack(project -> undoStack());
@@ -2949,7 +3025,10 @@ void QETDiagramEditor::showError(const QString &error)
 */
 void QETDiagramEditor::subWindowActivated(QMdiSubWindow *subWindows)
 {
-	Q_UNUSED(subWindows)
+	if (subWindows) {
+		if (auto *project_view = qobject_cast<ProjectView *>(subWindows->widget()))
+			m_last_active_project_view = project_view;
+	}
 
 	updateCentralPage();
 	slot_updateActions();
@@ -2960,48 +3039,13 @@ void QETDiagramEditor::subWindowActivated(QMdiSubWindow *subWindows)
 }
 
 /**
-	Update the persistent save state associated with a project.
-*/
-void QETDiagramEditor::setProjectSaveState(
-	QETProject *project,
-	ProjectSaveStatusWidget::State state,
-	const QString &detail)
-{
-	if (!project) return;
-	m_project_save_states.insert(project, state);
-	if (state == ProjectSaveStatusWidget::State::Error)
-		m_project_save_errors.insert(project, detail);
-	else
-		m_project_save_errors.remove(project);
-	if (project == currentProject())
-		refreshProjectSaveStatus();
-}
-
-/**
 	Display the save state of the active project without replacing transient
 	status-bar messages.
 */
 void QETDiagramEditor::refreshProjectSaveStatus()
 {
-	if (!m_project_save_status) return;
-	QETProject *project = currentProject();
-	if (!project) {
-		m_project_save_status->setState(ProjectSaveStatusWidget::State::NoProject);
-		return;
-	}
-
-	QString project_name = project->title();
-	if (project_name.isEmpty())
-		project_name = tr("Sans titre");
-	m_project_save_status->setState(
-		m_project_save_states.value(
-			project,
-			(project->filePath().isEmpty() || project->projectWasModified())
-				? ProjectSaveStatusWidget::State::Modified
-				: ProjectSaveStatusWidget::State::Saved),
-		project_name,
-		project->filePath(),
-		m_project_save_errors.value(project));
+	if (!m_project_save_controller) return;
+	m_project_save_controller->setActiveProject(currentProject());
 }
 
 /**

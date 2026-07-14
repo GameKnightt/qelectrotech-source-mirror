@@ -29,7 +29,9 @@ class ProjectSaveStatusWidget : public QWidget
 			State state,
 			const QString &project_name = QString(),
 			const QString &file_path = QString(),
-			const QString &detail = QString());
+			const QString &detail = QString(),
+			const QString &recovery_path = QString(),
+			const QString &recovery_error = QString());
 
 	private:
 		State m_state = State::NoProject;

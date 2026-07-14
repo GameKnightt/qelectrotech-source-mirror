@@ -91,10 +91,35 @@ add_executable(
   project_save_status_test
   tst_projectsavestatus.cpp
   ${QET_DIR}/sources/qetresult.cpp
+  ${QET_DIR}/sources/ui/projectsavestatuscontroller.cpp
+  ${QET_DIR}/sources/ui/projectsavestatuscontroller.h
   ${QET_DIR}/sources/ui/projectsavestatuswidget.cpp)
 add_test(
   NAME project_save_status_test
   COMMAND project_save_status_test)
+add_test(
+  NAME project_save_status_state_machine_test
+  COMMAND project_save_status_test stateMachineRejectsFalseAndStaleSuccess)
+add_test(
+  NAME project_save_status_multi_project_test
+  COMMAND project_save_status_test keepsProjectStatesIndependent)
+add_test(
+  NAME project_save_status_recovery_test
+  COMMAND project_save_status_test recoveryEvidenceIsHonest)
+add_test(
+  NAME project_save_status_keyboard_test
+  COMMAND project_save_status_test staysOutsideKeyboardFocus)
+add_test(
+  NAME project_save_status_large_text_150_test
+  COMMAND project_save_status_test fitsStatusBarWithLargeText)
+set_tests_properties(
+  project_save_status_test
+  project_save_status_state_machine_test
+  project_save_status_multi_project_test
+  project_save_status_recovery_test
+  project_save_status_keyboard_test
+  project_save_status_large_text_150_test
+  PROPERTIES LABELS "save;save-02;state-machine;recovery;accessibility;deterministic-scale")
 
 add_executable(
   workspace_profile_test

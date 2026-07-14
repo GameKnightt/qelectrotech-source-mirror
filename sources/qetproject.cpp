@@ -209,7 +209,21 @@ void QETProject::init()
 	m_save_backup_timer.setInterval(BACKUP_INTERVAL);
 	connect(&m_save_backup_timer, &QTimer::timeout, this, &QETProject::writeBackup);
 	m_save_backup_timer.start();
-	writeBackup();
+	connect(&m_backup_watcher, &QFutureWatcher<BackupWriteResult>::finished,
+		this, [this]() {
+			const BackupWriteResult result = m_backup_watcher.result();
+			if (result.operationId != m_backup_operation_id)
+				return;
+			emit recoveryBackupFinished(
+				this,
+				result.operationId,
+				result.ok,
+				result.error,
+				result.backupPath);
+		});
+	// Let the editor register the project and connect the lifecycle signals
+	// before the first asynchronous recovery snapshot starts.
+	QTimer::singleShot(0, this, &QETProject::writeBackup);
 
 	QSettings settings;
 	int autosave_interval = settings.value(QStringLiteral("diagrameditor/autosave-interval"), 0).toInt();
@@ -219,8 +233,8 @@ void QETProject::init()
 		m_autosave_timer.setInterval(ms);
 		connect(&m_autosave_timer, &QTimer::timeout, this, [=]()
 		{
-			if(!this->m_file_path.isEmpty())
-				this->write();
+			if (!this->m_file_path.isEmpty() && this->hasUnsavedChanges())
+				this->write(this->m_file_path, SaveOrigin::Automatic);
 		});
 		m_autosave_timer.start();
 	}
@@ -367,6 +381,7 @@ void QETProject::setFilePath(const QString &filepath)
 	}
 	m_backup_file.setManagedFile(QUrl::fromLocalFile(filepath));
 	m_file_path = filepath;
+	emit recoveryBackupInvalidated(this);
 
 	QFileInfo fi(m_file_path);
 	if (fi.isWritable()) {
@@ -450,7 +465,7 @@ QString QETProject::pathNameTitle() const
 			)
 		).arg(final_title);
 	}
-	if (m_modified) {
+	if (hasUnsavedChanges()) {
 		final_title = QString(
 			tr(
 				"%1 [modifié]",
@@ -1048,7 +1063,7 @@ bool QETProject::close()
 */
 QETResult QETProject::write()
 {
-	return write(m_file_path);
+	return write(m_file_path, SaveOrigin::Manual);
 }
 
 /**
@@ -1060,9 +1075,29 @@ QETResult QETProject::write()
 */
 QETResult QETProject::write(const QString &file_path)
 {
+	return write(file_path, SaveOrigin::Manual);
+}
+
+QETResult QETProject::write(const QString &file_path, SaveOrigin origin)
+{
+	const quint64 operation_id = ++m_save_operation_id;
+	emit canonicalSaveStarted(this, operation_id, origin);
+	const auto finish = [this, operation_id, origin](QETResult result) {
+		emit canonicalSaveFinished(
+			this,
+			operation_id,
+			origin,
+			result.isOk(),
+			result.errorMessage(),
+			result.isOk() ? m_file_path : QString(),
+			hasUnsavedChanges());
+		return result;
+	};
+
 		// this operation requires a filepath
 	if (file_path.isEmpty())
-		return(QString("unable to save project to file: no filepath was specified"));
+		return finish(QETResult(
+			QStringLiteral("unable to save project to file: no filepath was specified")));
 
 		// If the project was opened read-only, only refuse when the target
 		// really can't be written: an existing file that is not writable, or a
@@ -1075,7 +1110,9 @@ QETResult QETProject::write(const QString &file_path)
 			? file_info.isWritable()
 			: QFileInfo(file_info.absolutePath()).isWritable();
 		if (!can_write)
-			return(QString("the file %1 was opened read-only and thus will not be written").arg(file_path));
+			return finish(QETResult(
+				QString("the file %1 was opened read-only and thus will not be written")
+					.arg(file_path)));
 	}
 
 	// These values are part of the file itself.  Stage them in memory for XML
@@ -1092,7 +1129,7 @@ QETResult QETProject::write(const QString &file_path)
 	QString error_message;
 	if (!QET::writeXmlFile(xml_project, file_path, &error_message)) {
 		m_project_properties = previous_project_properties;
-		return(error_message);
+		return finish(QETResult(error_message));
 	}
 
 	if (file_path != m_file_path) {
@@ -1107,8 +1144,10 @@ QETResult QETProject::write(const QString &file_path)
 	emit projectInformationsChanged(this);
 	updateDiagramsFolioData();
 
+	if (m_undo_stack)
+		m_undo_stack->setClean();
 	setModified(false);
-	return(QETResult());
+	return finish(QETResult());
 }
 
 /**
@@ -1898,21 +1937,27 @@ void QETProject::writeBackup()
 {
 	if (!m_backup_enabled)
 		return;
-#	if QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // ### Qt 6: remove
-		//Don't launch a new backup while the previous one is still writing:
-		//both would write through &m_backup_file on different threads.
+	// Don't launch a new backup while the previous one is still writing: both
+	// would write through &m_backup_file on different threads.
 	if (m_backup_future.isRunning())
 		return;
+
 	QDomDocument xml_project(toXml());
+	const quint64 operation_id = ++m_backup_operation_id;
+	emit recoveryBackupStarted(this, operation_id);
 	m_backup_future = QtConcurrent::run(
-				QET::writeToFile,xml_project,&m_backup_file,nullptr);
-#	else
-#		if TODO_LIST
-#			pragma message("@TODO remove code for QT 6 or later")
-#		endif
-	qDebug() << "Help code for QT 6 or later"
-			 << "QtConcurrent::run its backwards now...function, object, args";
-#	endif
+		[xml_project, backup_file = &m_backup_file, operation_id]() mutable {
+			BackupWriteResult result;
+			result.operationId = operation_id;
+			result.ok = QET::writeToFile(
+				xml_project,
+				backup_file,
+				&result.error);
+			if (result.ok)
+				result.backupPath = backup_file->fileName();
+			return result;
+		});
+	m_backup_watcher.setFuture(m_backup_future);
 }
 
 /**
@@ -1924,6 +1969,17 @@ bool QETProject::projectOptionsWereModified()
 	// unlike similar methods, this method does not compare the content against
 	// expected values; instead, we just check whether we have been set as modified.
 	return(m_modified);
+}
+
+/**
+	@return true when the in-memory project differs from the last successfully
+	committed project file. Embedded templates alone are project content, not
+	evidence of a modification after loading.
+*/
+bool QETProject::hasUnsavedChanges() const
+{
+	return m_modified
+		|| (m_undo_stack && !m_undo_stack->isClean());
 }
 
 /**
@@ -2013,8 +2069,7 @@ bool QETProject::removeTerminalStrip(TerminalStrip *strip) {
 bool QETProject::projectWasModified()
 {
 
-	if ( projectOptionsWereModified()    ||
-		 !m_undo_stack -> isClean()       ||
+	if ( hasUnsavedChanges()             ||
 		 m_titleblocks_collection.templates().count() )
 		return(true);
 

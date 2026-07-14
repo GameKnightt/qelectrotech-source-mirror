@@ -84,6 +84,25 @@ de l’adaptateur `Conductor`/`QETProject` et de la commande Undo réelle. Les
 tests purs couvrent le garde-fou transactionnel partagé ; ils ne remplacent
 pas un scénario fonctionnel avec projet métier représentatif.
 
+## Validation manuelle Windows 11
+
+Le 14 juillet 2026, la version issue du commit `db050e643` a été lancée sous
+Windows 11 et testée avec `examples/ArduinoLCD.qet`, projet public de trois
+folios :
+
+- le remplacement groupé d’une fonction de conducteur s’applique aux cibles
+  sélectionnées et crée une seule entrée dans l’historique Undo ;
+- Undo retire exactement la nouvelle valeur, ce qui a été contrôlé après
+  rechargement de l’index de recherche ;
+- Redo rétablit exactement cette valeur et les mêmes correspondances ;
+- le projet reste ouvrable et aucun format persistant n’est modifié tant qu’il
+  n’est pas enregistré.
+
+Le contrôleur d’interface Windows utilisé pour ce smoke test invoque et valide
+immédiatement certains dialogues modaux Qt. Le chemin Annuler n’a donc pas pu
+être observé manuellement avec cet outil ; il reste couvert par les tests Qt
+qui vérifient Annuler, Échap et l’absence de mutation avant confirmation.
+
 ## Suite UX-05
 
 Ce lot est la fondation transactionnelle de l’édition tabulaire future. Les

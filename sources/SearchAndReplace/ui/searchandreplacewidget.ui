@@ -281,7 +281,17 @@
         </property>
        </widget>
       </item>
-      <item row="1" column="0" colspan="9">
+      <item row="1" column="1" colspan="5">
+       <widget class="QPushButton" name="m_conductor_bulk_edit_pb">
+        <property name="toolTip">
+         <string>Modifier individuellement la fonction, la tension ou le protocole, la couleur et la section des conducteurs cochés</string>
+        </property>
+        <property name="text">
+         <string>Modifier les conducteurs en tableau…</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0" colspan="9">
        <widget class="QTreeWidget" name="m_tree_widget">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">

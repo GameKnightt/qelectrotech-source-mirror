@@ -211,6 +211,30 @@ set_tests_properties(
   PROPERTIES LABELS "conductor-properties;ux-05a;accessibility;deterministic-scale")
 
 add_executable(
+  conductor_bulk_edit_test
+  tst_conductorbulkedit.cpp
+  ${QET_DIR}/sources/conductorproperties.cpp
+  ${QET_DIR}/sources/conductorproperties.h
+  ${QET_DIR}/sources/SearchAndReplace/conductorbulkeditmodel.cpp
+  ${QET_DIR}/sources/SearchAndReplace/conductorbulkeditmodel.h
+  ${QET_DIR}/sources/SearchAndReplace/ui/conductorbulkeditdialog.cpp
+  ${QET_DIR}/sources/SearchAndReplace/ui/conductorbulkeditdialog.h)
+add_test(
+  NAME conductor_bulk_edit_test
+  COMMAND conductor_bulk_edit_test)
+add_test(
+  NAME conductor_bulk_edit_keyboard_test
+  COMMAND conductor_bulk_edit_test keyboardContract)
+add_test(
+  NAME conductor_bulk_edit_large_text_150_test
+  COMMAND conductor_bulk_edit_test fitsScreenAt150Percent)
+set_tests_properties(
+  conductor_bulk_edit_test
+  conductor_bulk_edit_keyboard_test
+  conductor_bulk_edit_large_text_150_test
+  PROPERTIES LABELS "conductor-properties;ux-05b;accessibility;clipboard;deterministic-scale")
+
+add_executable(
   ordered_index_cache_test
   tst_orderedindexcache.cpp)
 add_test(
@@ -372,8 +396,22 @@ target_include_directories(
   ${QET_DIR}/sources/SearchAndReplace
   ${QET_DIR}/sources/SearchAndReplace/ui)
 
+target_include_directories(
+  conductor_bulk_edit_test
+  PRIVATE
+  ${QET_DIR}/sources
+  ${QET_DIR}/sources/SearchAndReplace
+  ${QET_DIR}/sources/SearchAndReplace/ui)
+
 target_link_libraries(
   conductor_change_preview_test
+  PRIVATE
+  Qt::Test
+  Qt::Widgets
+  Qt::Xml)
+
+target_link_libraries(
+  conductor_bulk_edit_test
   PRIVATE
   Qt::Test
   Qt::Widgets

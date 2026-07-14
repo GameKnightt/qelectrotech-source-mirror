@@ -112,6 +112,21 @@ ConductorChangePlan ConductorChangePlan::build(
 	const QList<Conductor *> &roots,
 	const Transform &transform)
 {
+	TargetTransform targeted_transform;
+	if (transform) {
+		targeted_transform = [transform](
+			Conductor *, const ConductorProperties &before) {
+			return transform(before);
+		};
+	}
+	return build(project, roots, targeted_transform);
+}
+
+ConductorChangePlan ConductorChangePlan::build(
+	QETProject *project,
+	const QList<Conductor *> &roots,
+	const TargetTransform &transform)
+{
 	ConductorChangePlan plan;
 	plan.m_project = project;
 	if (!project) {
@@ -193,7 +208,7 @@ ConductorChangePlan ConductorChangePlan::build(
 		{
 
 			const ConductorProperties before = member->properties();
-			const ConductorProperties requested_after = transform(before);
+			const ConductorProperties requested_after = transform(member, before);
 			const ConductorProperties after =
 				member->resolvedProperties(requested_after);
 			plan.m_entries.append({

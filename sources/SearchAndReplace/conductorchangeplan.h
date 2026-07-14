@@ -73,6 +73,8 @@ class ConductorChangePlan final
 
 		using Transform = std::function<
 			ConductorProperties(const ConductorProperties &)>;
+		using TargetTransform = std::function<
+			ConductorProperties(Conductor *, const ConductorProperties &)>;
 		using Validation = std::function<Result()>;
 		using Application = std::function<bool()>;
 
@@ -82,6 +84,10 @@ class ConductorChangePlan final
 			QETProject *project,
 			const QList<Conductor *> &roots,
 			const Transform &transform);
+		static ConductorChangePlan build(
+			QETProject *project,
+			const QList<Conductor *> &roots,
+			const TargetTransform &transform);
 
 		Result buildResult() const;
 		Result revalidate() const;

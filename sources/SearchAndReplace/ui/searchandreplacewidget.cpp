@@ -30,6 +30,8 @@
 #include "../../qeticons.h"
 #include "../../qetinformation.h"
 #include "../../qetproject.h"
+#include "../conductorbulkeditadapter.h"
+#include "conductorbulkeditdialog.h"
 #include "conductorchangepreviewdialog.h"
 #include "replaceadvanceddialog.h"
 #include "replaceconductordialog.h"
@@ -1439,6 +1441,113 @@ void SearchAndReplaceWidget::on_m_conductor_pb_clicked()
 		m_worker.m_conductor_properties =
 				m_worker.invalidConductorProperties();
 	}
+}
+
+/**
+	@brief SearchAndReplaceWidget::on_m_conductor_bulk_edit_pb_clicked
+	Open a non-destructive spreadsheet-like draft for the checked conductors.
+	One row represents one complete electrical potential.
+*/
+void SearchAndReplaceWidget::on_m_conductor_bulk_edit_pb_clicked()
+{
+	const QList<Conductor *> conductors = selectedConductor();
+	if (conductors.isEmpty()) {
+		QMessageBox::information(
+			this,
+			tr("Aucun conducteur sélectionné"),
+			tr("Cochez au moins un conducteur visible avant d’ouvrir le tableau."));
+		return;
+	}
+
+	QETProject *project = conductors.first() && conductors.first()->diagram()
+		? conductors.first()->diagram()->project()
+		: nullptr;
+	const ConductorChangePlan scope_plan = ConductorChangePlan::build(
+		project,
+		conductors,
+		ConductorChangePlan::Transform([](const ConductorProperties &before) {
+			return before;
+		}));
+	const ConductorChangePlan::Result scope_result = scope_plan.buildResult();
+	if (!scope_result.canApply() && !scope_result.isNoOp()) {
+		QMessageBox::warning(
+			this,
+			tr("Tableau indisponible"),
+			ConductorChangePlan::resultMessage(scope_result));
+		return;
+	}
+
+	ConductorBulkEditDialog editor_dialog(
+		conductorBulkEditRows(scope_plan), this);
+	connect(
+		&editor_dialog,
+		&ConductorBulkEditDialog::targetActivated,
+		this,
+		[this, &scope_plan](quintptr target_key) {
+			Conductor *conductor = scope_plan.conductorForKey(target_key);
+			if (!conductor || !conductor->diagram()) return;
+			if (m_last_selected) m_last_selected->setSelected(false);
+			conductor->diagram()->showMe();
+			conductor->setSelected(true);
+			m_last_selected = conductor;
+		});
+	if (editor_dialog.exec() != QDialog::Accepted) return;
+
+	const ConductorChangePlan plan = ConductorChangePlan::build(
+		project,
+		conductors,
+		ConductorChangePlan::TargetTransform(
+			[&editor_dialog](
+				Conductor *conductor,
+				const ConductorProperties &before) {
+				return editor_dialog.propertiesForTarget(
+					reinterpret_cast<quintptr>(conductor), before);
+			}));
+	const ConductorChangePlan::Result build_result = plan.buildResult();
+	if (!build_result.canApply()) {
+		if (build_result.isNoOp()) {
+			QMessageBox::information(
+				this,
+				tr("Aucune modification de conducteur"),
+				ConductorChangePlan::resultMessage(build_result));
+		} else {
+			QMessageBox::warning(
+				this,
+				tr("Aperçu impossible"),
+				ConductorChangePlan::resultMessage(build_result));
+		}
+		return;
+	}
+
+	ConductorChangePreviewDialog preview_dialog(plan.previewData(), this);
+	connect(
+		&preview_dialog,
+		&ConductorChangePreviewDialog::targetActivated,
+		this,
+		[this, &plan](quintptr target_key) {
+			Conductor *conductor = plan.conductorForKey(target_key);
+			if (!conductor || !conductor->diagram()) return;
+			if (m_last_selected) m_last_selected->setSelected(false);
+			conductor->diagram()->showMe();
+			conductor->setSelected(true);
+			m_last_selected = conductor;
+		});
+	if (preview_dialog.exec() != QDialog::Accepted) return;
+
+	const ConductorChangePlan::Result apply_result =
+		m_worker.applyConductorChangePlan(plan);
+	if (!apply_result.canApply()) {
+		QMessageBox::warning(
+			this,
+			tr("Modifications non appliquées"),
+			ConductorChangePlan::resultMessage(apply_result));
+		return;
+	}
+
+	const QString search_text = ui->m_search_le->text();
+	on_m_reload_pb_clicked();
+	ui->m_search_le->setText(search_text);
+	search();
 }
 
 /**

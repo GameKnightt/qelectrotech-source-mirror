@@ -500,6 +500,10 @@ set(QET_SRC_FILES
   ${QET_DIR}/sources/richtext/richtexteditor_p.h
   ${QET_DIR}/sources/richtext/ui_addlinkdialog.h
 
+  ${QET_DIR}/sources/SearchAndReplace/conductorbulkeditadapter.cpp
+  ${QET_DIR}/sources/SearchAndReplace/conductorbulkeditadapter.h
+  ${QET_DIR}/sources/SearchAndReplace/conductorbulkeditmodel.cpp
+  ${QET_DIR}/sources/SearchAndReplace/conductorbulkeditmodel.h
   ${QET_DIR}/sources/SearchAndReplace/conductorchangeplan.cpp
   ${QET_DIR}/sources/SearchAndReplace/conductorchangeplan.h
   ${QET_DIR}/sources/SearchAndReplace/conductorchangeexecution.cpp
@@ -513,6 +517,8 @@ set(QET_SRC_FILES
   ${QET_DIR}/sources/SearchAndReplace/searchandreplaceworker.cpp
   ${QET_DIR}/sources/SearchAndReplace/searchandreplaceworker.h
 
+  ${QET_DIR}/sources/SearchAndReplace/ui/conductorbulkeditdialog.cpp
+  ${QET_DIR}/sources/SearchAndReplace/ui/conductorbulkeditdialog.h
   ${QET_DIR}/sources/SearchAndReplace/ui/conductorchangepreviewdialog.cpp
   ${QET_DIR}/sources/SearchAndReplace/ui/conductorchangepreviewdialog.h
   ${QET_DIR}/sources/SearchAndReplace/ui/replaceadvanceddialog.cpp

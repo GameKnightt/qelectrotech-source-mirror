@@ -135,6 +135,22 @@ set_tests_properties(
   PROPERTIES LABELS "export-center;ui-02;accessibility;deterministic-scale")
 
 add_executable(
+  properties_editor_dock_test
+  tst_propertieseditordockwidget.cpp
+  ${QET_DIR}/sources/PropertiesEditor/propertieseditordockwidget.cpp
+  ${QET_DIR}/sources/PropertiesEditor/propertieseditordockwidget.h
+  ${QET_DIR}/sources/PropertiesEditor/propertieseditorwidget.cpp
+  ${QET_DIR}/sources/PropertiesEditor/propertieseditorwidget.h
+  ${QET_DIR}/sources/ui/diagrampropertieseditordockwidget.cpp
+  ${QET_DIR}/sources/ui/diagrampropertieseditordockwidget.h)
+add_test(
+  NAME properties_editor_dock_test
+  COMMAND properties_editor_dock_test)
+set_tests_properties(
+  properties_editor_dock_test
+  PROPERTIES LABELS "properties-editor;props-01;accessibility;deterministic-scale")
+
+add_executable(
   elements_collection_search_test
   tst_elementscollectionsearchmodel.cpp
   ${QET_DIR}/sources/ElementsCollection/elementscollectionsearchmodel.cpp
@@ -259,6 +275,50 @@ target_link_libraries(
   PRIVATE
   Qt::Test
   Qt::Widgets)
+
+target_include_directories(
+  properties_editor_dock_test
+  PRIVATE
+  ${QET_DIR}
+  ${QET_DIR}/sources
+  ${QET_DIR}/sources/titleblock
+  ${QET_DIR}/sources/ui
+  ${QET_DIR}/sources/qetgraphicsitem
+  ${QET_DIR}/sources/qetgraphicsitem/ViewItem
+  ${QET_DIR}/sources/qetgraphicsitem/ViewItem/ui
+  ${QET_DIR}/sources/richtext
+  ${QET_DIR}/sources/factory
+  ${QET_DIR}/sources/properties
+  ${QET_DIR}/sources/dvevent
+  ${QET_DIR}/sources/editor
+  ${QET_DIR}/sources/editor/esevent
+  ${QET_DIR}/sources/editor/graphicspart
+  ${QET_DIR}/sources/editor/ui
+  ${QET_DIR}/sources/editor/UndoCommand
+  ${QET_DIR}/sources/undocommand
+  ${QET_DIR}/sources/diagramevent
+  ${QET_DIR}/sources/ElementsCollection
+  ${QET_DIR}/sources/ElementsCollection/ui
+  ${QET_DIR}/sources/autoNum
+  ${QET_DIR}/sources/autoNum/ui
+  ${QET_DIR}/sources/ui/configpage
+  ${QET_DIR}/sources/SearchAndReplace
+  ${QET_DIR}/sources/SearchAndReplace/ui
+  ${QET_DIR}/sources/NameList
+  ${QET_DIR}/sources/NameList/ui
+  ${QET_DIR}/sources/utils
+  ${QET_DIR}/sources/dataBase
+  ${QET_DIR}/sources/dataBase/ui
+  ${QET_DIR}/sources/factory/ui
+  ${QET_DIR}/sources/print
+  ${QET_DIR}/sources/svg)
+
+target_link_libraries(
+  properties_editor_dock_test
+  PRIVATE
+  Qt::Test
+  Qt::Widgets
+  Qt::Xml)
 
 target_link_libraries(
   elements_collection_search_test

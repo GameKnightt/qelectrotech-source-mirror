@@ -2134,7 +2134,11 @@ void QETDiagramEditor::addProjectView(ProjectView *project_view)
 		this, SLOT(showError(const QString &)));
 
 	//Highlight the current page
-	connect(project_view, &ProjectView::diagramActivated, this, [this](DiagramView *dv) {
+	connect(project_view, &ProjectView::diagramActivated, this, [this, project_view](DiagramView *dv) {
+		if (project_view == currentProjectView()) {
+			m_selection_properties_editor->setDiagram(
+				dv ? dv->diagram() : nullptr);
+		}
 		if (dv && dv->diagram() && pa) {
 			// 1. Find the item in the tree that corresponds to this diagram
 			QTreeWidgetItem *item = pa->elementsPanel().getItemForDiagram(dv->diagram());
@@ -2809,6 +2813,7 @@ void QETDiagramEditor::subWindowActivated(QMdiSubWindow *subWindows)
 	slot_updateActions();
 	slot_updateWindowsMenu();
 	refreshProjectSaveStatus();
+	syncSelectionPropertiesEditor();
 	emit syncElementsPanel();
 }
 
@@ -2864,10 +2869,15 @@ void QETDiagramEditor::refreshProjectSaveStatus()
 void QETDiagramEditor::selectionChanged()
 {
 	slot_updateComplexActions();
+	syncSelectionPropertiesEditor();
+}
 
+
+void QETDiagramEditor::syncSelectionPropertiesEditor()
+{
 	DiagramView *dv = currentDiagramView();
-	if (dv && dv->diagram())
-		m_selection_properties_editor->setDiagram(dv->diagram());
+	m_selection_properties_editor->setDiagram(
+		dv ? dv->diagram() : nullptr);
 }
 
 

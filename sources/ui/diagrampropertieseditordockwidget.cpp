@@ -21,16 +21,23 @@
 #include "../diagram.h"
 #include "../factory/propertieseditorfactory.h"
 
+#include <QGraphicsItem>
+#include <QGraphicsScene>
+
 /**
 	@brief DiagramPropertiesEditorDockWidget::DiagramPropertiesEditorDockWidget
 	Constructor
 	@param parent : parent widget
 */
 DiagramPropertiesEditorDockWidget::DiagramPropertiesEditorDockWidget(QWidget *parent) :
-	PropertiesEditorDockWidget(parent),
-	m_diagram(nullptr),
-	m_edited_qgi_type (-1)
-{}
+	PropertiesEditorDockWidget(parent)
+{
+	setFeatures(
+		QDockWidget::DockWidgetClosable
+		| QDockWidget::DockWidgetMovable
+		| QDockWidget::DockWidgetFloatable);
+	showNoDiagramState();
+}
 
 /**
 	@brief DiagramPropertiesEditorDockWidget::setDiagram
@@ -41,31 +48,54 @@ DiagramPropertiesEditorDockWidget::DiagramPropertiesEditorDockWidget(QWidget *pa
 */
 void DiagramPropertiesEditorDockWidget::setDiagram(Diagram *diagram)
 {
-	if (m_diagram == diagram) return;
+	setGraphicsScene(diagram);
+}
 
-	if (m_diagram)
+void DiagramPropertiesEditorDockWidget::setGraphicsScene(QGraphicsScene *scene)
+{
+	if (m_scene == scene) return;
+
+	if (m_scene)
 	{
-		disconnect(m_diagram, SIGNAL(selectionChanged()),
-			   this, SLOT(selectionChanged()));
-		disconnect(m_diagram, SIGNAL(destroyed()),
-			   this, SLOT(diagramWasDeleted()));
+		disconnect(
+			m_scene.data(),
+			&QGraphicsScene::selectionChanged,
+			this,
+			&DiagramPropertiesEditorDockWidget::selectionChanged);
+		disconnect(
+			m_scene.data(),
+			&QObject::destroyed,
+			this,
+			&DiagramPropertiesEditorDockWidget::diagramWasDeleted);
 	}
 
-	if (diagram)
+	clear();
+	m_scene = scene;
+	if (scene)
 	{
-		m_diagram = diagram;
-		connect(m_diagram, SIGNAL(selectionChanged()),
-			this, SLOT(selectionChanged()), Qt::QueuedConnection);
-		connect(m_diagram, SIGNAL(destroyed()),
-			this, SLOT(diagramWasDeleted()));
+		connect(
+			m_scene.data(),
+			&QGraphicsScene::selectionChanged,
+			this,
+			&DiagramPropertiesEditorDockWidget::selectionChanged,
+			Qt::QueuedConnection);
+		connect(
+			m_scene.data(),
+			&QObject::destroyed,
+			this,
+			&DiagramPropertiesEditorDockWidget::diagramWasDeleted);
 		selectionChanged();
 	}
 	else
 	{
-		m_diagram = nullptr;
-		m_edited_qgi_type = -1;
-		clear();
+		showNoDiagramState();
 	}
+}
+
+DiagramPropertiesEditorDockWidget::State
+DiagramPropertiesEditorDockWidget::state() const
+{
+	return m_state;
 }
 
 /**
@@ -75,16 +105,34 @@ void DiagramPropertiesEditorDockWidget::setDiagram(Diagram *diagram)
 */
 void DiagramPropertiesEditorDockWidget::selectionChanged()
 {
-	if (!m_diagram) {
+	if (!m_scene) {
+		clear();
+		showNoDiagramState();
+		return;
+	}
+
+	const QList<QGraphicsItem *> selected_items = m_scene->selectedItems();
+	if (selected_items.isEmpty()) {
+		clear();
+		showNoSelectionState();
 		return;
 	}
 
 	auto editor_ = PropertiesEditorFactory::propertiesEditor(
-				m_diagram->selectedItems(),
+				selected_items,
 				editors().count() ? editors().first() : nullptr,
 				this);
 	if (!editor_) {
+		bool mixed_types = false;
+		const int first_type = selected_items.first()->type();
+		for (QGraphicsItem *item : selected_items) {
+			if (item->type() != first_type) {
+				mixed_types = true;
+				break;
+			}
+		}
 		clear();
+		showUnsupportedSelectionState(selected_items.count(), mixed_types);
 		return;
 	}
 	if (editors().count() &&
@@ -96,6 +144,12 @@ void DiagramPropertiesEditorDockWidget::selectionChanged()
 	for (PropertiesEditorWidget *pew : editors()) {
 		pew->setLiveEdit(true);
 	}
+	const QString requested_title = editor_->title().trimmed();
+	const QString editor_title = requested_title.isEmpty()
+		? tr("Propriétés de la sélection")
+		: requested_title;
+	showEditorContext(editor_title, selectionSummary(selected_items.count()));
+	m_state = State::Editor;
 }
 
 /**
@@ -104,7 +158,50 @@ void DiagramPropertiesEditorDockWidget::selectionChanged()
 */
 void DiagramPropertiesEditorDockWidget::diagramWasDeleted()
 {
-	m_diagram = nullptr;
-	m_edited_qgi_type = -1;
+	m_scene = nullptr;
 	clear();
+	showNoDiagramState();
+}
+
+void DiagramPropertiesEditorDockWidget::showNoDiagramState()
+{
+	showMessage(
+		tr("Propriétés"),
+		tr("Aucun folio actif"),
+		tr("Ouvrez un folio"),
+		tr("Ouvrez ou créez un folio pour afficher ses propriétés de sélection."));
+	m_state = State::NoDiagram;
+}
+
+void DiagramPropertiesEditorDockWidget::showNoSelectionState()
+{
+	showMessage(
+		tr("Propriétés"),
+		tr("Aucune sélection"),
+		tr("Sélectionnez un objet"),
+		tr("Cliquez sur un élément, un conducteur, un texte ou une forme dans le folio."));
+	m_state = State::NoSelection;
+}
+
+void DiagramPropertiesEditorDockWidget::showUnsupportedSelectionState(
+	int count,
+	bool mixed_types)
+{
+	showMessage(
+		tr("Propriétés"),
+		selectionSummary(count),
+		mixed_types
+			? tr("Sélection mixte")
+			: tr("Propriétés non disponibles"),
+		mixed_types
+			? tr("Sélectionnez des objets du même type pour les modifier ensemble.")
+			: tr("Cet objet ne peut pas encore être modifié dans ce panneau."));
+	m_state = State::UnsupportedSelection;
+}
+
+QString DiagramPropertiesEditorDockWidget::selectionSummary(int count) const
+{
+	return count == 1
+		? tr("1 objet sélectionné")
+		: tr("%1 objets sélectionnés").arg(count);
 }

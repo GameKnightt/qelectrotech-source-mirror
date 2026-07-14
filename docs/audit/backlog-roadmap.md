@@ -159,6 +159,11 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
 ### UX-04 — Améliorer sélection et propriétés des conducteurs
 
 - **Preuve :** E15 partielle, GitHub #500.
+- **État du fork :** la sélection tolérante, le survol et l'édition groupée des
+  conducteurs sont complétés par PROPS-01 : le dock de propriétés suit le folio
+  actif, distingue les états vide/mixte/non pris en charge et place les
+  éditeurs existants dans un conteneur défilable. Le contrat est documenté dans
+  `docs/audit/implementation/props-01-contextual-properties.md`.
 - **Utilisateurs touchés :** électricité et automatisme en priorité.
 - **Fréquence :** continue.
 - **Impact :** friction majeure du dessin.

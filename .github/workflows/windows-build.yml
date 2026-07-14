@@ -71,6 +71,7 @@ jobs:
             workspace_profile_test \
             export_integrity_test \
             export_center_test \
+            properties_editor_dock_test \
             elements_collection_search_test \
             conductor_interaction_test \
             ordered_index_cache_test \
@@ -78,11 +79,11 @@ jobs:
             qelectrotech
           ctest --test-dir build-tests --output-on-failure
           QT_SCALE_FACTOR=1.5 ctest --test-dir build-tests \
-            -R '^(config_dialog_ux_test|workspace_profile_test|export_center_test)$' --output-on-failure
+            -R '^(config_dialog_ux_test|workspace_profile_test|export_center_test|properties_editor_dock_test)$' --output-on-failure --no-tests=error
           QT_QPA_PLATFORM=windows ctest --test-dir build-tests \
-            -R '^export_center_test$' --output-on-failure
+            -R '^(export_center_test|properties_editor_dock_test)$' --output-on-failure --no-tests=error
           QT_QPA_PLATFORM=windows QT_SCALE_FACTOR=1.5 ctest --test-dir build-tests \
-            -R '^export_center_test$' --output-on-failure
+            -R '^(export_center_test|properties_editor_dock_test)$' --output-on-failure --no-tests=error
 
   build-windows:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

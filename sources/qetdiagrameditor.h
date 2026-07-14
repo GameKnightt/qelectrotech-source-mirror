@@ -94,6 +94,7 @@ class QETDiagramEditor : public QETMainWindow
 		void setUpToolBar       ();
 		void setUpMenu          ();
 		void openExportCenter   ();
+		void syncSelectionPropertiesEditor();
 		void applyWorkspaceProfile(
 			WorkspaceProfileController::Profile profile,
 			bool reset_layout,

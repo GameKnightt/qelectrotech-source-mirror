@@ -19,6 +19,11 @@
 #include "ui_propertieseditordockwidget.h"
 #include "propertieseditorwidget.h"
 
+#include <QLabel>
+#include <QScrollArea>
+#include <QScrollBar>
+#include <QStackedWidget>
+
 /**
 	@brief PropertiesEditorDockWidget::PropertiesEditorDockWidget
 	Constructor
@@ -29,6 +34,14 @@ PropertiesEditorDockWidget::PropertiesEditorDockWidget(QWidget *parent) :
 	ui(new Ui::PropertiesEditorDockWidget)
 {
 	ui->setupUi(this);
+	setMinimumWidth(260);
+	setAccessibleName(tr("Propriétés de la sélection"));
+	ui->m_editor_scroll->setAccessibleName(tr("Champs de propriétés"));
+	showMessage(
+		tr("Propriétés"),
+		tr("Aucune sélection"),
+		tr("Sélectionnez un objet"),
+		tr("Les propriétés modifiables de la sélection apparaîtront ici."));
 }
 
 /**
@@ -48,14 +61,19 @@ PropertiesEditorDockWidget::~PropertiesEditorDockWidget()
 */
 void PropertiesEditorDockWidget::clear()
 {
-	foreach (PropertiesEditorWidget *editor, m_editor_list)
-	{
-		m_editor_list.removeOne(editor);
+	const QList<PropertiesEditorWidget *> editors_to_delete = m_editor_list;
+	m_editor_list.clear();
+	for (PropertiesEditorWidget *editor : editors_to_delete) {
 		ui->m_main_vlayout->removeWidget(editor);
 		delete editor;
 	}
-
-	m_editor_list.clear();
+	ui->m_editor_scroll->verticalScrollBar()->setValue(0);
+	ui->m_editor_scroll->horizontalScrollBar()->setValue(0);
+	showMessage(
+		tr("Propriétés"),
+		tr("Aucune sélection"),
+		tr("Sélectionnez un objet"),
+		tr("Les propriétés modifiables de la sélection apparaîtront ici."));
 }
 
 /**
@@ -78,6 +96,45 @@ void PropertiesEditorDockWidget::reset()
 		editor->reset();
 }
 
+void PropertiesEditorDockWidget::showMessage(
+	const QString &context_title,
+	const QString &context_summary,
+	const QString &message_title,
+	const QString &message_description)
+{
+	ui->m_context_title->setText(context_title);
+	ui->m_context_summary->setText(context_summary);
+	ui->m_message_title->setText(message_title);
+	ui->m_message_description->setText(message_description);
+	ui->m_context_title->setAccessibleName(context_title);
+	ui->m_context_summary->setAccessibleName(context_summary);
+	ui->m_message_title->setAccessibleName(message_title);
+	ui->m_message_description->setAccessibleName(message_description);
+	ui->m_state_stack->setCurrentWidget(ui->m_message_page);
+	setAccessibleDescription(
+		QStringLiteral("%1. %2").arg(context_summary, message_description));
+}
+
+void PropertiesEditorDockWidget::showEditorContext(
+	const QString &context_title,
+	const QString &context_summary)
+{
+	ui->m_context_title->setText(context_title);
+	ui->m_context_summary->setText(context_summary);
+	ui->m_context_title->setAccessibleName(context_title);
+	ui->m_context_summary->setAccessibleName(context_summary);
+	ui->m_state_stack->setCurrentWidget(ui->m_editor_page);
+	setAccessibleDescription(
+		QStringLiteral("%1. %2").arg(context_title, context_summary));
+}
+
+PropertiesEditorDockWidget::View PropertiesEditorDockWidget::view() const
+{
+	return ui->m_state_stack->currentWidget() == ui->m_editor_page
+		? View::Editor
+		: View::Message;
+}
+
 /**
 	@brief PropertiesEditorDockWidget::addEditor
 	Add an editor in this dock at index in the main vertical layout
@@ -96,6 +153,7 @@ bool PropertiesEditorDockWidget::addEditor(PropertiesEditorWidget *editor,
 
 	ui -> m_main_vlayout -> insertWidget(index, editor);
 	m_editor_list << editor;
+	ui->m_state_stack->setCurrentWidget(ui->m_editor_page);
 	return true;
 }
 
@@ -121,6 +179,13 @@ bool PropertiesEditorDockWidget::removeEditor(PropertiesEditorWidget *editor)
 	bool result = m_editor_list.removeOne(editor);
 	if (result)
 		ui -> m_main_vlayout -> removeWidget(editor);
+	if (result && m_editor_list.isEmpty()) {
+		showMessage(
+			tr("Propriétés"),
+			tr("Aucune sélection"),
+			tr("Sélectionnez un objet"),
+			tr("Les propriétés modifiables de la sélection apparaîtront ici."));
+	}
 
 	return result;
 }

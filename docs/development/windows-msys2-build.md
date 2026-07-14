@@ -137,15 +137,24 @@ cmake -S . -B build-ucrt64-tests -G Ninja \
   -DSQLite3_INCLUDE_DIR=/ucrt64/include \
   -DSQLite3_LIBRARY=/ucrt64/lib/libsqlite3.dll.a
 
-cmake --build build-ucrt64-tests --parallel "$(nproc)" --target \
-  C_unittests \
-  qt_unittests \
-  diagram_duplicate_uuid_remapper_test \
-  config_dialog_ux_test
+cmake --build build-ucrt64-tests --parallel "$(nproc)"
 ctest --test-dir build-ucrt64-tests --output-on-failure
-QT_SCALE_FACTOR=1.5 ctest --test-dir build-ucrt64-tests \
-  -R '^config_dialog_ux_test$' --output-on-failure
+
+# Contrats clavier sur la plateforme Windows native
+QT_QPA_PLATFORM=windows ctest --test-dir build-ucrt64-tests \
+  -R 'keyboard' --output-on-failure
+
+# Dialogues et composants sensibles à la grande police
+QT_QPA_PLATFORM=windows QT_SCALE_FACTOR=1.5 \
+  ctest --test-dir build-ucrt64-tests \
+  -R '(large_text_150|config_dialog_ux)' --output-on-failure
 ```
+
+La compilation sans liste de cibles est volontaire : elle suit automatiquement
+l’ajout de nouveaux contrats QtTest au lieu de maintenir une liste partielle.
+La branche d’intégration expose actuellement 36 entrées CTest, dont des alias
+dédiés à la sauvegarde, au clavier, au texte à 150 %, aux grands projets, aux
+exports, à la base projet et à l’édition tabulaire des conducteurs.
 
 ## Diagnostic rapide
 
@@ -171,7 +180,9 @@ La compilation locale et le job Windows partagent :
 - Qt 5 explicitement sélectionné ;
 - CMake avec le générateur Ninja ;
 - SQLite fourni par `/ucrt64` ;
-- les tests désactivés pour la construction de l'installateur.
+- les tests activés dans le job de validation Debug ;
+- les tests désactivés uniquement pour la construction Release de
+  l’installateur.
 
 Le workflow ajoute ensuite `ccache`, déploie les DLL avec `windeployqt-qt5`,
 assemble un paquet portable et produit l'installateur NSIS. Ces opérations ne

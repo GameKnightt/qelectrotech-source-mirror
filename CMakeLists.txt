@@ -164,6 +164,19 @@ if(NOT BUILD_WITH_KF5)
     )
 endif()
 
+if(BUILD_TESTING AND PACKAGE_TESTS)
+    add_test(
+        NAME cli_version_test
+        COMMAND $<TARGET_FILE:${PROJECT_NAME}> --version
+    )
+    set_tests_properties(
+        cli_version_test
+        PROPERTIES
+        PASS_REGULAR_EXPRESSION "QElectroTech 0\\.100\\.1-dev"
+        LABELS "cli;packaging;smoke"
+    )
+endif()
+
 install(TARGETS ${PROJECT_NAME})
 
 if (NOT MINGW)

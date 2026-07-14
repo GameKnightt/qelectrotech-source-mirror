@@ -39,14 +39,31 @@ if (-not [Environment]::Is64BitProcess) {
 $buildPath = Get-FullPath $BuildDir
 $sourcePath = Get-FullPath $SourceDir
 $outputPath = Get-FullPath $OutputDir
-$ucrtBin = Join-Path (Get-FullPath $Msys2Root) 'ucrt64\bin'
+$msys2Path = Get-FullPath $Msys2Root
+if (-not (Test-Path -LiteralPath $msys2Path -PathType Container)) {
+    $msys2Candidates = @()
+    if (-not [string]::IsNullOrWhiteSpace($env:MSYS2_ROOT)) {
+        $msys2Candidates += Get-FullPath $env:MSYS2_ROOT
+    }
+    if (-not [string]::IsNullOrWhiteSpace($env:RUNNER_TEMP)) {
+        $msys2Candidates += Get-FullPath (Join-Path $env:RUNNER_TEMP 'msys64')
+    }
+    $detectedMsys2Path = $msys2Candidates |
+        Where-Object { Test-Path -LiteralPath $_ -PathType Container } |
+        Select-Object -First 1
+    if ([string]::IsNullOrWhiteSpace($detectedMsys2Path)) {
+        throw "Missing MSYS2 root: $msys2Path"
+    }
+    $msys2Path = $detectedMsys2Path
+}
+$ucrtBin = Join-Path $msys2Path 'ucrt64\bin'
 $system32 = Join-Path $env:WINDIR 'System32'
 $sourceExecutable = Join-Path $buildPath 'qelectrotech.exe'
 $cmakeCache = Join-Path $buildPath 'CMakeCache.txt'
 $launcherSource = Join-Path $sourcePath 'packaging\windows\Launch-QElectroTech-Preview.bat'
 $windeployqt = Join-Path $ucrtBin 'windeployqt-qt5.exe'
 $qmakeQt5 = Join-Path $ucrtBin 'qmake-qt5.exe'
-$qtPluginRoot = Join-Path (Get-FullPath $Msys2Root) 'ucrt64\share\qt5\plugins'
+$qtPluginRoot = Join-Path $msys2Path 'ucrt64\share\qt5\plugins'
 $objdump = Join-Path $ucrtBin 'objdump.exe'
 
 if ($outputPath -eq [System.IO.Path]::GetPathRoot($outputPath)) {

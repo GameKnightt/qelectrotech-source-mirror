@@ -71,6 +71,7 @@ jobs:
             workspace_profile_test \
             start_center_test \
             export_integrity_test \
+            project_database_atomicity_test \
             export_center_test \
             properties_editor_dock_test \
             elements_collection_search_test \

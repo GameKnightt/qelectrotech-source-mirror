@@ -13,15 +13,18 @@
 #include <QAction>
 #include <QApplication>
 #include <QClipboard>
+#include <QCoreApplication>
 #include <QDialogButtonBox>
 #include <QFont>
 #include <QHash>
+#include <QHeaderView>
 #include <QItemSelectionModel>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMenu>
 #include <QPushButton>
 #include <QScrollBar>
+#include <QSettings>
 #include <QTableView>
 #include <QtTest>
 
@@ -115,6 +118,8 @@ class ConductorBulkEditTest : public QObject
 	Q_OBJECT
 
 	private slots:
+		void initTestCase();
+		void init();
 		void mixedValuesRemainUntouchedUntilEdited();
 		void tsvPasteMapsFourEditableFields();
 		void outOfBoundsPasteIsAtomic();
@@ -136,7 +141,27 @@ class ConductorBulkEditTest : public QObject
 		void fitsScreenAt150Percent();
 		void handlesThousandPotentialsDeterministically();
 		void fillDownHandlesThousandPotentialsDeterministically();
+		void explicitColumnsNeverModifyHiddenFields();
+		void hiddenColumnsAreExcludedFromFillSelection();
+		void columnLayoutPersistsByStableKeys();
+		void corruptedColumnLayoutFallsBackToDefault();
+		void mandatoryAndLastEditableColumnsRemainVisible();
+		void reorderedPasteFollowsVisibleColumns();
+		void hiddenDraftChangesAreAnnounced();
 };
+
+void ConductorBulkEditTest::initTestCase()
+{
+	QCoreApplication::setOrganizationName(QStringLiteral("QElectroTechTests"));
+	QCoreApplication::setApplicationName(QStringLiteral("ConductorBulkEditTest"));
+}
+
+void ConductorBulkEditTest::init()
+{
+	QSettings settings;
+	settings.clear();
+	settings.sync();
+}
 
 void ConductorBulkEditTest::mixedValuesRemainUntouchedUntilEdited()
 {
@@ -715,6 +740,9 @@ void ConductorBulkEditTest::fitsScreenAt150Percent()
 	QVERIFY(dialog.fillDownButton()->isVisible());
 	QVERIFY(dialog.fillDownButton()->height() >= 32);
 	QVERIFY(contained_in_dialog(dialog.fillDownButton()));
+	QVERIFY(dialog.columnsButton()->isVisible());
+	QVERIFY(dialog.columnsButton()->height() >= 32);
+	QVERIFY(contained_in_dialog(dialog.columnsButton()));
 	QVERIFY(dialog.verifyButton()->isVisible());
 	QVERIFY(contained_in_dialog(dialog.verifyButton()));
 	QVERIFY(dialog.resetButton()->isVisible());
@@ -769,6 +797,242 @@ void ConductorBulkEditTest::fillDownHandlesThousandPotentialsDeterministically()
 		model.data(model.index(999, ConductorBulkEditModel::WireSectionColumn), Qt::EditRole).toString(),
 		QStringLiteral("16"));
 	QCOMPARE(model.changedPotentialCount(), 999);
+}
+
+void ConductorBulkEditTest::explicitColumnsNeverModifyHiddenFields()
+{
+	QVector<ConductorBulkEditModel::Row> draft_rows = rows(3);
+	draft_rows[0].function = commonCell(QStringLiteral("Moteur"));
+	draft_rows[0].tensionProtocol = commonCell(QStringLiteral("690 VAC"));
+	draft_rows[0].wireColor = commonCell(QStringLiteral("BK"));
+	ConductorBulkEditModel model(draft_rows);
+	const QVector<int> visible_columns {
+		ConductorBulkEditModel::FunctionColumn,
+		ConductorBulkEditModel::WireColorColumn
+	};
+	QVERIFY(model.fillDown(0, 2, visible_columns));
+	QCOMPARE(
+		model.data(model.index(2, ConductorBulkEditModel::FunctionColumn), Qt::EditRole).toString(),
+		QStringLiteral("Moteur"));
+	QCOMPARE(
+		model.data(model.index(2, ConductorBulkEditModel::WireColorColumn), Qt::EditRole).toString(),
+		QStringLiteral("BK"));
+	QCOMPARE(
+		model.data(model.index(2, ConductorBulkEditModel::TensionProtocolColumn), Qt::EditRole).toString(),
+		QStringLiteral("24 VDC"));
+	QCOMPARE(
+		model.data(model.index(2, ConductorBulkEditModel::WireSectionColumn), Qt::EditRole).toString(),
+		QStringLiteral("1,5"));
+
+	ConductorBulkEditModel pasted(rows(1));
+	QVERIFY(pasted.pasteTsv(
+		0,
+		{ConductorBulkEditModel::WireSectionColumn,
+		 ConductorBulkEditModel::FunctionColumn},
+		QStringLiteral("6\tPuissance")));
+	QCOMPARE(
+		pasted.data(pasted.index(0, ConductorBulkEditModel::WireSectionColumn), Qt::EditRole).toString(),
+		QStringLiteral("6"));
+	QCOMPARE(
+		pasted.data(pasted.index(0, ConductorBulkEditModel::FunctionColumn), Qt::EditRole).toString(),
+		QStringLiteral("Puissance"));
+	QCOMPARE(
+		pasted.data(pasted.index(0, ConductorBulkEditModel::TensionProtocolColumn), Qt::EditRole).toString(),
+		QStringLiteral("24 VDC"));
+}
+
+void ConductorBulkEditTest::hiddenColumnsAreExcludedFromFillSelection()
+{
+	QVector<ConductorBulkEditModel::Row> draft_rows = rows(3);
+	draft_rows[0].function = commonCell(QStringLiteral("Moteur"));
+	draft_rows[0].tensionProtocol = commonCell(QStringLiteral("690 VAC"));
+	draft_rows[0].wireColor = commonCell(QStringLiteral("BK"));
+	ConductorBulkEditDialog dialog(draft_rows);
+	dialog.columnAction(
+		ConductorBulkEditModel::TensionProtocolColumn)->setChecked(false);
+	auto selection_model = dialog.draftTable()->selectionModel();
+	selection_model->clearSelection();
+	for (int row_index = 0; row_index < 3; ++row_index) {
+		for (int column : {
+			 ConductorBulkEditModel::FunctionColumn,
+			 ConductorBulkEditModel::WireColorColumn}) {
+			selection_model->select(
+				dialog.draftModel()->index(row_index, column),
+				QItemSelectionModel::Select);
+		}
+	}
+	selection_model->setCurrentIndex(
+		dialog.draftModel()->index(
+			2, ConductorBulkEditModel::WireColorColumn),
+		QItemSelectionModel::NoUpdate);
+	QVERIFY(dialog.fillDownAction()->isEnabled());
+	dialog.fillDownAction()->trigger();
+	QCOMPARE(
+		dialog.draftModel()->data(
+			dialog.draftModel()->index(2, ConductorBulkEditModel::FunctionColumn),
+			Qt::EditRole).toString(),
+		QStringLiteral("Moteur"));
+	QCOMPARE(
+		dialog.draftModel()->data(
+			dialog.draftModel()->index(2, ConductorBulkEditModel::WireColorColumn),
+			Qt::EditRole).toString(),
+		QStringLiteral("BK"));
+	QCOMPARE(
+		dialog.draftModel()->data(
+			dialog.draftModel()->index(
+				2, ConductorBulkEditModel::TensionProtocolColumn),
+			Qt::EditRole).toString(),
+		QStringLiteral("24 VDC"));
+}
+
+void ConductorBulkEditTest::columnLayoutPersistsByStableKeys()
+{
+	QVector<int> stored_order;
+	{
+		ConductorBulkEditDialog dialog(rows(2));
+		dialog.columnAction(ConductorBulkEditModel::FolioColumn)->setChecked(false);
+		dialog.columnAction(
+			ConductorBulkEditModel::TensionProtocolColumn)->setChecked(false);
+		auto header = dialog.draftTable()->horizontalHeader();
+		header->moveSection(
+			header->visualIndex(ConductorBulkEditModel::WireSectionColumn),
+			0);
+		for (int visual = 0; visual < header->count(); ++visual) {
+			stored_order.append(header->logicalIndex(visual));
+		}
+	}
+
+	ConductorBulkEditDialog restored(rows(2));
+	QVERIFY(restored.draftTable()->isColumnHidden(
+		ConductorBulkEditModel::FolioColumn));
+	QVERIFY(restored.draftTable()->isColumnHidden(
+		ConductorBulkEditModel::TensionProtocolColumn));
+	QVERIFY(!restored.draftTable()->isColumnHidden(
+		ConductorBulkEditModel::PotentialColumn));
+	auto restored_header = restored.draftTable()->horizontalHeader();
+	for (int visual = 0; visual < restored_header->count(); ++visual) {
+		QCOMPARE(restored_header->logicalIndex(visual), stored_order.at(visual));
+	}
+
+	QSettings settings;
+	QCOMPARE(
+		settings.value(QStringLiteral(
+			"conductor-bulk-editor/column-layout/version")).toInt(),
+		1);
+	const QStringList order_keys = settings.value(QStringLiteral(
+		"conductor-bulk-editor/column-layout/order")).toStringList();
+	QCOMPARE(order_keys.first(), QStringLiteral("wire_section"));
+	QVERIFY(!settings.value(QStringLiteral(
+		"conductor-bulk-editor/column-layout/visible"))
+		.toStringList().contains(QStringLiteral("folio")));
+}
+
+void ConductorBulkEditTest::corruptedColumnLayoutFallsBackToDefault()
+{
+	QSettings settings;
+	settings.setValue(
+		QStringLiteral("conductor-bulk-editor/column-layout/version"), 1);
+	settings.setValue(
+		QStringLiteral("conductor-bulk-editor/column-layout/order"),
+		QStringList({QStringLiteral("function"), QStringLiteral("function")}));
+	settings.setValue(
+		QStringLiteral("conductor-bulk-editor/column-layout/visible"),
+		QStringList({QStringLiteral("unknown")}));
+	settings.sync();
+
+	ConductorBulkEditDialog dialog(rows(1));
+	auto header = dialog.draftTable()->horizontalHeader();
+	for (int logical = 0;
+		 logical < ConductorBulkEditModel::ColumnCount;
+		 ++logical) {
+		QCOMPARE(header->logicalIndex(logical), logical);
+		QVERIFY(!dialog.draftTable()->isColumnHidden(logical));
+	}
+}
+
+void ConductorBulkEditTest::mandatoryAndLastEditableColumnsRemainVisible()
+{
+	ConductorBulkEditDialog dialog(rows(1));
+	QAction *potential = dialog.columnAction(
+		ConductorBulkEditModel::PotentialColumn);
+	QVERIFY(potential);
+	QVERIFY(potential->isChecked());
+	QVERIFY(!potential->isEnabled());
+
+	for (int column : {
+		 ConductorBulkEditModel::FunctionColumn,
+		 ConductorBulkEditModel::TensionProtocolColumn,
+		 ConductorBulkEditModel::WireColorColumn}) {
+		dialog.columnAction(column)->setChecked(false);
+		QVERIFY(dialog.draftTable()->isColumnHidden(column));
+	}
+	QAction *last = dialog.columnAction(
+		ConductorBulkEditModel::WireSectionColumn);
+	last->setChecked(false);
+	QVERIFY(last->isChecked());
+	QVERIFY(!dialog.draftTable()->isColumnHidden(
+		ConductorBulkEditModel::WireSectionColumn));
+	QVERIFY(statusLabel(dialog)->text().contains(
+		QStringLiteral("au moins une colonne")));
+}
+
+void ConductorBulkEditTest::reorderedPasteFollowsVisibleColumns()
+{
+	ConductorBulkEditDialog dialog(rows(2));
+	dialog.columnAction(
+		ConductorBulkEditModel::TensionProtocolColumn)->setChecked(false);
+	auto header = dialog.draftTable()->horizontalHeader();
+	header->moveSection(
+		header->visualIndex(ConductorBulkEditModel::WireSectionColumn),
+		header->visualIndex(ConductorBulkEditModel::FunctionColumn));
+	dialog.show();
+	QVERIFY(QTest::qWaitForWindowExposed(&dialog));
+	dialog.draftTable()->setCurrentIndex(dialog.draftModel()->index(
+		0, ConductorBulkEditModel::WireSectionColumn));
+	dialog.draftTable()->setFocus();
+	QApplication::clipboard()->setText(
+		QStringLiteral("6\tMoteur\tBK\n2,5\tCapteur\tBU"));
+	QTest::keyClick(dialog.draftTable(), Qt::Key_V, Qt::ControlModifier);
+	QTRY_COMPARE(
+		dialog.draftModel()->data(
+			dialog.draftModel()->index(1, ConductorBulkEditModel::FunctionColumn),
+			Qt::EditRole).toString(),
+		QStringLiteral("Capteur"));
+	QCOMPARE(
+		dialog.draftModel()->data(
+			dialog.draftModel()->index(1, ConductorBulkEditModel::WireSectionColumn),
+			Qt::EditRole).toString(),
+		QStringLiteral("2,5"));
+	QCOMPARE(
+		dialog.draftModel()->data(
+			dialog.draftModel()->index(1, ConductorBulkEditModel::WireColorColumn),
+			Qt::EditRole).toString(),
+		QStringLiteral("BU"));
+	QCOMPARE(
+		dialog.draftModel()->data(
+			dialog.draftModel()->index(1, ConductorBulkEditModel::TensionProtocolColumn),
+			Qt::EditRole).toString(),
+		QStringLiteral("24 VDC"));
+}
+
+void ConductorBulkEditTest::hiddenDraftChangesAreAnnounced()
+{
+	ConductorBulkEditDialog dialog(rows(2));
+	QVERIFY(dialog.draftModel()->setData(
+		dialog.draftModel()->index(
+			0, ConductorBulkEditModel::TensionProtocolColumn),
+		QStringLiteral("PROFINET")));
+	dialog.columnAction(
+		ConductorBulkEditModel::TensionProtocolColumn)->setChecked(false);
+	QVERIFY(statusLabel(dialog)->text().contains(
+		QStringLiteral("colonnes masquées")));
+	QVERIFY(!dialog.columnsButton()->accessibleName().isEmpty());
+	QVERIFY(dialog.columnsButton()->menu());
+	QVERIFY(!dialog.columnsButton()->menu()->accessibleName().isEmpty());
+	QVERIFY(dialog.resetColumnLayoutAction());
+	dialog.resetColumnLayoutAction()->trigger();
+	QVERIFY(!dialog.draftTable()->isColumnHidden(
+		ConductorBulkEditModel::TensionProtocolColumn));
 }
 
 QTEST_MAIN(ConductorBulkEditTest)

@@ -44,6 +44,14 @@ class ConductorBulkEditModel final : public QAbstractTableModel
 			}
 		};
 
+		struct ColumnDescriptor {
+			Column column;
+			QString key;
+			bool editable = false;
+			bool defaultVisible = true;
+			bool mandatory = false;
+		};
+
 		struct Row {
 			int groupIndex = -1;
 			QVector<quintptr> targetKeys;
@@ -76,11 +84,21 @@ class ConductorBulkEditModel final : public QAbstractTableModel
 			const QModelIndex &start,
 			const QString &text,
 			QString *errorMessage = nullptr);
+		bool pasteTsv(
+			int startRow,
+			const QVector<int> &logicalColumns,
+			const QString &text,
+			QString *errorMessage = nullptr);
 		bool canFillDown(
 			int topRow,
 			int bottomRow,
 			int leftColumn,
 			int rightColumn,
+			QString *errorMessage = nullptr) const;
+		bool canFillDown(
+			int topRow,
+			int bottomRow,
+			const QVector<int> &logicalColumns,
 			QString *errorMessage = nullptr) const;
 		bool fillDown(
 			int topRow,
@@ -88,11 +106,17 @@ class ConductorBulkEditModel final : public QAbstractTableModel
 			int leftColumn,
 			int rightColumn,
 			QString *errorMessage = nullptr);
+		bool fillDown(
+			int topRow,
+			int bottomRow,
+			const QVector<int> &logicalColumns,
+			QString *errorMessage = nullptr);
 		void resetDraft();
 
 		bool hasChanges() const;
 		bool isValid() const;
 		int invalidCellCount() const;
+		int changedCellCount(const QVector<int> &logicalColumns) const;
 		int changedPotentialCount() const;
 		int changedSegmentCount() const;
 		QString firstValidationError() const;
@@ -102,6 +126,10 @@ class ConductorBulkEditModel final : public QAbstractTableModel
 			const ConductorProperties &before) const;
 
 		static bool isEditableColumn(int column);
+		static QVector<ColumnDescriptor> columnDescriptors();
+		static QString columnKey(int column);
+		static int columnForKey(const QString &key);
+		static QVector<int> defaultColumnOrder();
 		static QString validationError(const QString &value);
 
 	private:

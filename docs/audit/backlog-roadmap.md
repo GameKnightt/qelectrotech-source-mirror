@@ -184,9 +184,12 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
   mixtes et aucune mutation avant la seconde confirmation. UX-05C ajoute la
   sélection rectangulaire et la recopie vers le bas par bouton, menu contextuel
   ou `Ctrl+D`, avec validation atomique des sources et conservation du contrat
-  de brouillon. Voir `docs/audit/implementation/ux-05a-conductor-change-preview.md`,
+  de brouillon. UX-05D rend les sept colonnes masquables et réordonnables,
+  persiste la vue par clés stables et garantit que collage et recopie ne
+  modifient jamais une colonne masquée. Voir `docs/audit/implementation/ux-05a-conductor-change-preview.md`,
   `docs/audit/implementation/ux-05b-conductor-bulk-editor.md` et
-  `docs/audit/implementation/ux-05c-table-fill.md`.
+  `docs/audit/implementation/ux-05c-table-fill.md` ainsi que
+  `docs/audit/implementation/ux-05d-column-layout.md`.
 - **Utilisateurs touchés :** projets répétitifs et contrôle qualité.
 - **Fréquence :** régulière.
 - **Impact :** gain de temps élevé.
@@ -195,9 +198,9 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
 - **Dépendances :** modèle commun de propriétés, sélection, filtres, Undo.
 - **Compatibilité amont :** vue additive sans modifier le stockage.
 - **Critères d'acceptation :** colonnes configurables, édition multi-cellules, validation avant application, prévisualisation du nombre d'objets, transaction Undo unique.
-- **Incrément suivant UX-05D :** colonnes configurables, import/export de
-  feuilles de calcul et commandes de remplissage complémentaires, puis
-  extension progressive aux éléments, borniers et câbles.
+- **Incrément suivant UX-05E :** export CSV de revue atomique et protégé pour
+  Excel ; identités persistantes et import robuste seulement dans un lot
+  ultérieur, puis extension progressive aux éléments, borniers et câbles.
 
 ### IND-01 — Unifier le parcours borniers et câbles
 

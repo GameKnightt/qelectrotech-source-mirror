@@ -17,6 +17,7 @@
 class QAction;
 class QDialogButtonBox;
 class QLabel;
+class QMenu;
 class QPushButton;
 class QTableView;
 
@@ -33,6 +34,9 @@ class ConductorBulkEditDialog final : public QDialog
 		QTableView *draftTable() const;
 		QAction *fillDownAction() const;
 		QPushButton *fillDownButton() const;
+		QPushButton *columnsButton() const;
+		QAction *columnAction(int logicalColumn) const;
+		QAction *resetColumnLayoutAction() const;
 		QPushButton *verifyButton() const;
 		QPushButton *resetButton() const;
 		ConductorProperties propertiesForTarget(
@@ -46,9 +50,17 @@ class ConductorBulkEditDialog final : public QDialog
 		bool selectedFillRange(
 			int *topRow,
 			int *bottomRow,
-			int *leftColumn,
-			int *rightColumn,
+			QVector<int> *logicalColumns,
 			QString *errorMessage = nullptr) const;
+		QVector<int> visibleEditableColumns(int startLogicalColumn = -1) const;
+		void loadColumnLayout();
+		void applyColumnLayout(
+			const QVector<int> &logicalOrder,
+			const QVector<int> &visibleColumns,
+			bool persist);
+		void persistColumnLayout() const;
+		void resetColumnLayout();
+		void setColumnVisibility(int logicalColumn, bool visible);
 		void fillDownSelection();
 		void pasteClipboard();
 		void setStatusMessage(const QString &message, bool error = false);
@@ -59,10 +71,15 @@ class ConductorBulkEditDialog final : public QDialog
 		QTableView *m_table = nullptr;
 		QAction *m_fill_down_action = nullptr;
 		QPushButton *m_fill_down_button = nullptr;
+		QPushButton *m_columns_button = nullptr;
+		QMenu *m_columns_menu = nullptr;
+		QVector<QAction *> m_column_actions;
+		QAction *m_reset_column_layout_action = nullptr;
 		QLabel *m_status = nullptr;
 		QDialogButtonBox *m_buttons = nullptr;
 		QPushButton *m_verify_button = nullptr;
 		QPushButton *m_reset_button = nullptr;
+		bool m_restoring_column_layout = false;
 };
 
 #endif // CONDUCTORBULKEDITDIALOG_H

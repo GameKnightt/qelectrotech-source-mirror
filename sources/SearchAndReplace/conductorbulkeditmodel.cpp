@@ -148,10 +148,6 @@ bool ConductorBulkEditModel::pasteTsv(
 	const QString &text,
 	QString *errorMessage)
 {
-	if (m_rows.isEmpty()) {
-		if (errorMessage) *errorMessage = tr("Aucune ligne disponible.");
-		return false;
-	}
 	int start_row = start.isValid() ? start.row() : 0;
 	int start_column = start.isValid() ? start.column() : FunctionColumn;
 	if (start_column < FunctionColumn) start_column = FunctionColumn;
@@ -162,17 +158,58 @@ bool ConductorBulkEditModel::pasteTsv(
 		}
 		return false;
 	}
+	QVector<int> logical_columns;
+	for (int column = start_column;
+		 column <= WireSectionColumn;
+		 ++column) {
+		logical_columns.append(column);
+	}
+	return pasteTsv(start_row, logical_columns, text, errorMessage);
+}
+
+bool ConductorBulkEditModel::pasteTsv(
+	int startRow,
+	const QVector<int> &logicalColumns,
+	const QString &text,
+	QString *errorMessage)
+{
+	if (m_rows.isEmpty()) {
+		if (errorMessage) *errorMessage = tr("Aucune ligne disponible.");
+		return false;
+	}
+	if (startRow < 0 || startRow >= m_rows.size()) {
+		if (errorMessage) *errorMessage = tr("La ligne de départ est indisponible.");
+		return false;
+	}
+	QVector<int> checked_columns;
+	checked_columns.reserve(logicalColumns.size());
+	for (int column : logicalColumns) {
+		if (!isEditableColumn(column) || checked_columns.contains(column)) {
+			if (errorMessage) {
+				*errorMessage = tr(
+					"Le collage doit utiliser des colonnes éditables visibles et distinctes.");
+			}
+			return false;
+		}
+		checked_columns.append(column);
+	}
+	if (checked_columns.isEmpty()) {
+		if (errorMessage) {
+			*errorMessage = tr("Affichez au moins une colonne éditable avant de coller.");
+		}
+		return false;
+	}
 
 	QString normalized = text;
 	normalized.replace(QStringLiteral("\r\n"), QStringLiteral("\n"));
 	normalized.replace(QLatin1Char('\r'), QLatin1Char('\n'));
 	if (normalized.endsWith(QLatin1Char('\n'))) normalized.chop(1);
 	const QStringList lines = normalized.split(QLatin1Char('\n'), Qt::KeepEmptyParts);
-	if (start_row + lines.size() > m_rows.size()) {
+	if (startRow + lines.size() > m_rows.size()) {
 		if (errorMessage) {
 			*errorMessage = tr("Le collage contient %1 ligne(s), mais seulement %2 ligne(s) sont disponibles à partir de la sélection.")
 				.arg(lines.size())
-				.arg(m_rows.size() - start_row);
+				.arg(m_rows.size() - startRow);
 		}
 		return false;
 	}
@@ -181,9 +218,10 @@ bool ConductorBulkEditModel::pasteTsv(
 	values.reserve(lines.size());
 	for (const QString &line : lines) {
 		const QStringList columns = line.split(QLatin1Char('\t'), Qt::KeepEmptyParts);
-		if (start_column + columns.size() > ColumnCount) {
+		if (columns.size() > checked_columns.size()) {
 			if (errorMessage) {
-				*errorMessage = tr("Le collage dépasse la dernière colonne éditable.");
+				*errorMessage = tr(
+					"Le collage contient plus de colonnes que la vue éditable actuelle.");
 			}
 			return false;
 		}
@@ -194,7 +232,9 @@ bool ConductorBulkEditModel::pasteTsv(
 		const QStringList &columns = values.at(row_offset);
 		for (int column_offset = 0; column_offset < columns.size(); ++column_offset) {
 			setData(
-				index(start_row + row_offset, start_column + column_offset),
+				index(
+					startRow + row_offset,
+					checked_columns.at(column_offset)),
 				columns.at(column_offset));
 		}
 	}
@@ -209,23 +249,49 @@ bool ConductorBulkEditModel::canFillDown(
 	int rightColumn,
 	QString *errorMessage) const
 {
+	QVector<int> logical_columns;
+	if (leftColumn <= rightColumn) {
+		logical_columns.reserve(rightColumn - leftColumn + 1);
+		for (int column = leftColumn; column <= rightColumn; ++column) {
+			logical_columns.append(column);
+		}
+	}
+	return canFillDown(
+		topRow, bottomRow, logical_columns, errorMessage);
+}
+
+bool ConductorBulkEditModel::canFillDown(
+	int topRow,
+	int bottomRow,
+	const QVector<int> &logicalColumns,
+	QString *errorMessage) const
+{
 	if (topRow < 0 || bottomRow >= m_rows.size() || topRow >= bottomRow) {
 		if (errorMessage) {
 			*errorMessage = tr("Sélectionnez une plage d’au moins deux lignes.");
 		}
 		return false;
 	}
-	if (leftColumn > rightColumn
-		|| !isEditableColumn(leftColumn)
-		|| !isEditableColumn(rightColumn)) {
+	if (logicalColumns.isEmpty()) {
 		if (errorMessage) {
 			*errorMessage = tr(
-				"La sélection doit rester dans les colonnes éditables.");
+				"La sélection doit contenir au moins une colonne éditable visible.");
 		}
 		return false;
 	}
 
-	for (int column = leftColumn; column <= rightColumn; ++column) {
+	QVector<int> checked_columns;
+	checked_columns.reserve(logicalColumns.size());
+	for (int column : logicalColumns) {
+		if (!isEditableColumn(column) || checked_columns.contains(column)) {
+			if (errorMessage) {
+				*errorMessage = tr(
+					"La sélection doit rester dans des colonnes éditables visibles et distinctes.");
+			}
+			return false;
+		}
+		checked_columns.append(column);
+
 		const Cell *source = cell(topRow, column);
 		if (!source) {
 			if (errorMessage) {
@@ -263,23 +329,37 @@ bool ConductorBulkEditModel::fillDown(
 	int rightColumn,
 	QString *errorMessage)
 {
-	if (!canFillDown(
-			topRow,
-			bottomRow,
-			leftColumn,
-			rightColumn,
-			errorMessage)) {
+	QVector<int> logical_columns;
+	if (leftColumn <= rightColumn) {
+		logical_columns.reserve(rightColumn - leftColumn + 1);
+		for (int column = leftColumn; column <= rightColumn; ++column) {
+			logical_columns.append(column);
+		}
+	}
+	return fillDown(topRow, bottomRow, logical_columns, errorMessage);
+}
+
+bool ConductorBulkEditModel::fillDown(
+	int topRow,
+	int bottomRow,
+	const QVector<int> &logicalColumns,
+	QString *errorMessage)
+{
+	if (!canFillDown(topRow, bottomRow, logicalColumns, errorMessage)) {
 		return false;
 	}
 
 	QVector<QString> source_values;
-	source_values.reserve(rightColumn - leftColumn + 1);
-	for (int column = leftColumn; column <= rightColumn; ++column) {
+	source_values.reserve(logicalColumns.size());
+	for (int column : logicalColumns) {
 		source_values.append(cell(topRow, column)->value);
 	}
 
-	for (int column = leftColumn; column <= rightColumn; ++column) {
-		const QString &source_value = source_values.at(column - leftColumn);
+	for (int column_index = 0;
+		 column_index < logicalColumns.size();
+		 ++column_index) {
+		const int column = logicalColumns.at(column_index);
+		const QString &source_value = source_values.at(column_index);
 		for (int row = topRow + 1; row <= bottomRow; ++row) {
 			Cell *target = cell(row, column);
 			target->value = source_value;
@@ -287,9 +367,11 @@ bool ConductorBulkEditModel::fillDown(
 		}
 	}
 
+	const auto boundaries = std::minmax_element(
+		logicalColumns.cbegin(), logicalColumns.cend());
 	emit dataChanged(
-		index(topRow + 1, leftColumn),
-		index(bottomRow, rightColumn),
+		index(topRow + 1, *boundaries.first),
+		index(bottomRow, *boundaries.second),
 		{Qt::DisplayRole,
 		 Qt::EditRole,
 		 Qt::ToolTipRole,
@@ -336,6 +418,19 @@ int ConductorBulkEditModel::invalidCellCount() const
 			const Cell *draft_cell = cell(row, column);
 			if (draft_cell && draft_cell->edited
 				&& !validationError(draft_cell->value).isEmpty()) ++count;
+		}
+	}
+	return count;
+}
+
+int ConductorBulkEditModel::changedCellCount(
+	const QVector<int> &logicalColumns) const
+{
+	int count = 0;
+	for (int row = 0; row < m_rows.size(); ++row) {
+		for (int column : logicalColumns) {
+			const Cell *draft_cell = cell(row, column);
+			if (draft_cell && draft_cell->changes()) ++count;
 		}
 	}
 	return count;
@@ -401,6 +496,46 @@ ConductorProperties ConductorBulkEditModel::propertiesForTarget(
 bool ConductorBulkEditModel::isEditableColumn(int column)
 {
 	return column >= FunctionColumn && column <= WireSectionColumn;
+}
+
+QVector<ConductorBulkEditModel::ColumnDescriptor>
+ConductorBulkEditModel::columnDescriptors()
+{
+	return {
+		{FolioColumn, QStringLiteral("folio"), false, true, false},
+		{PotentialColumn, QStringLiteral("potential"), false, true, true},
+		{SegmentCountColumn, QStringLiteral("segment_count"), false, true, false},
+		{FunctionColumn, QStringLiteral("function"), true, true, false},
+		{TensionProtocolColumn, QStringLiteral("tension_protocol"), true, true, false},
+		{WireColorColumn, QStringLiteral("wire_color"), true, true, false},
+		{WireSectionColumn, QStringLiteral("wire_section"), true, true, false}
+	};
+}
+
+QString ConductorBulkEditModel::columnKey(int column)
+{
+	for (const ColumnDescriptor &descriptor : columnDescriptors()) {
+		if (descriptor.column == column) return descriptor.key;
+	}
+	return {};
+}
+
+int ConductorBulkEditModel::columnForKey(const QString &key)
+{
+	for (const ColumnDescriptor &descriptor : columnDescriptors()) {
+		if (descriptor.key == key) return descriptor.column;
+	}
+	return -1;
+}
+
+QVector<int> ConductorBulkEditModel::defaultColumnOrder()
+{
+	QVector<int> order;
+	order.reserve(ColumnCount);
+	for (const ColumnDescriptor &descriptor : columnDescriptors()) {
+		order.append(descriptor.column);
+	}
+	return order;
 }
 
 QString ConductorBulkEditModel::validationError(const QString &value)

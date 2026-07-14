@@ -76,9 +76,9 @@ Le test `export_integrity_test` est ajouté à la CI Windows.
 
 ## Limites et suites
 
-- `projectDataBase::updateDB()` ne retourne encore aucun résultat global. Une
-  erreur interne de rafraîchissement peut donc précéder une requête BOM valide
-  sur des données antérieures ; DATA-03 suit cette dette.
+- DATA-03 résout désormais le résultat global et le rollback de
+  `projectDataBase::updateDB()`. Une erreur de rafraîchissement interrompt les
+  exports BOM GUI/CLI avant toute écriture et conserve l'ancienne base intacte.
 - Les pannes internes de `QImage`/`QPainter`/SVG après ouverture et le commit
   refusé dans ces parcours graphiques nécessitent encore des points d'injection
   dédiés. Le commit commun CSV est déjà couvert par un verrou Windows réel.

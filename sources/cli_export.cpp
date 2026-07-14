@@ -302,7 +302,12 @@ QString csvField(const QString &value)
 int exportBom(QETProject &project, const QString &output)
 {
 	// The project database is built lazily; force a (re)build before querying.
-	project.dataBase()->updateDB();
+	const auto update_result = project.dataBase()->updateDB();
+	if (!update_result.isOk()) {
+		err << "BOM database refresh failed: "
+			<< update_result.diagnostic() << "\n";
+		return 1;
+	}
 
 	static const QStringList columns {
 		"label", "designation", "manufacturer", "manufacturer_reference",

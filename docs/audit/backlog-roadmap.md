@@ -14,6 +14,7 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
 
 ### DATA-01 — Garantir l'unicité après duplication de folio
 
+- **État :** implémenté et validé dans le commit `1fdeb0c98`.
 - **Preuve :** GitHub #532 ; erreur de contrainte `UNIQUE` SQLite et composants manquants du sommaire signalés.
 - **Utilisateurs touchés :** tous les projeteurs dupliquant des folios modèles.
 - **Fréquence :** régulière dans les projets répétitifs.
@@ -31,6 +32,7 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
 
 ### DATA-02 — Définir la priorité des variables projet/folio
 
+- **État :** implémenté et validé dans le commit `1fdeb0c98`.
 - **Preuve :** GitHub #531 ; variables de folio vides créées automatiquement et masquant celles du projet.
 - **Utilisateurs touchés :** entreprises utilisant des cartouches personnalisés et variables globales.
 - **Fréquence :** fréquente dans les modèles standardisés.
@@ -110,6 +112,7 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
 
 ### DATA-03 — Rendre le rafraîchissement de la base projet vérifiable
 
+- **État :** implémenté et validé sur la branche `codex/data-03-project-db-integrity`.
 - **Preuve :** `projectDataBase::updateDB()` retourne `void`, abandonne après certains échecs et plusieurs insertions journalisent leurs erreurs sans les propager.
 - **Utilisateurs touchés :** utilisateurs de nomenclatures, sommaires et vues fondées sur la base interne.
 - **Fréquence :** à chaque génération ou rafraîchissement de rapport.
@@ -118,7 +121,7 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
 - **Risque :** élevé, transactions et synchronisation de plusieurs tables.
 - **Dépendances :** `projectDataBase`, requêtes BOM, modèle de projet et CLI.
 - **Compatibilité amont :** aucun format nouveau ; évolution du contrat interne de retour d'erreur.
-- **Critères d'acceptation :** résultat typé pour chaque rafraîchissement, rollback sur première erreur, export refusé avec diagnostic, tests injectant une erreur SQL dans chaque table et aucune donnée partielle observable.
+- **Critères d'acceptation :** résultat typé pour chaque rafraîchissement ; transaction unique sur les quatre tables ; suppressions enfant→parent et insertions parent→enfant ; rollback sur première erreur ou commit refusé ; signal de succès uniquement après commit ; exports GUI/CLI refusés avec diagnostic avant toute écriture ; tests injectant une erreur `DELETE` et `INSERT` dans chaque table ; ancienne base exactement conservée et tentative suivante possible.
 
 ### UX-01 — Rendre les dialogues adaptatifs à Windows/DPI
 

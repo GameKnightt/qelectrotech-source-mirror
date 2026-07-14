@@ -65,6 +65,17 @@ int BOMExportDialog::exec()
 		return result;
 	}
 
+	QString csv;
+	QString error_message;
+	if (!getBom(csv, error_message)) {
+		QMessageBox::critical(
+			this,
+			tr("Erreur"),
+			tr("Impossible de générer la nomenclature.\n\n%1")
+				.arg(error_message));
+		return QDialog::Rejected;
+	}
+
 	// Save in a CSV file in the same directory as the project by default.
 	QString dir = m_project->currentDir();
 	if (dir.isEmpty()) dir = QETApp::documentDir();
@@ -76,17 +87,6 @@ int BOMExportDialog::exec()
 		file_name,
 		tr("Fichiers csv (*.csv)"));
 	if (file_path.isEmpty()) {
-		return QDialog::Rejected;
-	}
-
-	QString csv;
-	QString error_message;
-	if (!getBom(csv, error_message)) {
-		QMessageBox::critical(
-			this,
-			tr("Erreur"),
-			tr("Impossible de générer la nomenclature.\n\n%1")
-				.arg(error_message));
 		return QDialog::Rejected;
 	}
 
@@ -107,7 +107,14 @@ bool BOMExportDialog::getBom(QString &csv, QString &error_message)
 {
 	csv.clear();
 	error_message.clear();
-	m_project->dataBase()->updateDB();
+	const auto update_result = m_project->dataBase()->updateDB();
+	if (!update_result.isOk()) {
+		error_message = tr(
+			"La base de données du projet n'a pas pu être actualisée. "
+			"Aucun fichier n'a été généré.\n%1")
+			.arg(update_result.diagnostic());
+		return false;
+	}
 	auto query_ = m_project->dataBase()->newQuery(m_query_widget->queryStr());
 
 	if (!query_.exec()) {

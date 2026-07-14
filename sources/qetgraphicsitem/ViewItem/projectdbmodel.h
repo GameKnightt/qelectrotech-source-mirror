@@ -63,6 +63,7 @@ class ProjectDBModel : public QAbstractTableModel
 		QVariant data(const QModelIndex &index,
 			      int role = Qt::DisplayRole) const override;
 		void setQuery(const QString &setQuery);
+		bool refresh(QString *errorMessage = nullptr);
 		QString queryString() const;
 		QETProject *project() const;
 
@@ -71,6 +72,9 @@ class ProjectDBModel : public QAbstractTableModel
 		void setIdentifier(const QString &identifier);
 		QString identifier() const {return m_identifier;}
 		static QString xmlTagName() {return QString("project_data_base_model");}
+
+	signals:
+		void databaseRefreshFailed(const QString &diagnostic);
 
 	private:
 		void dataBaseUpdated();

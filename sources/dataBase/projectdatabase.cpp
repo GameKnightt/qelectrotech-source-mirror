@@ -26,6 +26,7 @@
 #include "../qetproject.h"
 
 #include <QLocale>
+#include <QMessageBox>
 #include <QSqlError>
 
 #include <QSqlDriver>
@@ -99,18 +100,63 @@ projectDataBase::~projectDataBase()
 
 /**
 	@brief projectDataBase::updateDB
-	Up to date the content of the data base.
-	Emit the signal dataBaseUpdated
+	Atomically rebuild the derived project database.
+	Emit dataBaseUpdated only after a successful commit.
 */
-void projectDataBase::updateDB()
+QET::ProjectDatabaseUpdateResult projectDataBase::updateDB()
 {
-	if (!populateDiagramTable()) {
-		return;
+	if (!m_project)
+	{
+		QET::ProjectDatabaseUpdateResult result;
+		result.code = QET::ProjectDatabaseUpdateCode::ProjectUnavailable;
+		qWarning() << "projectDataBase::updateDB failed:" << result.diagnostic();
+		return result;
 	}
-	populateDiagramInfoTable();
-	populateElementTable();
-	populateElementInfoTable();
-	emit dataBaseUpdated();
+
+	QET::ProjectDatabaseSnapshot snapshot;
+	snapshot.diagramInformationKeys = QETInformation::diagramInfoKeys();
+	snapshot.elementInformationKeys = QETInformation::elementInfoKeys();
+
+	const QList<Diagram *> diagrams = m_project->diagrams();
+	for (int position = 0; position < diagrams.size(); ++position)
+	{
+		Diagram *diagram = diagrams.at(position);
+		QET::ProjectDatabaseDiagramRow diagram_row;
+		diagram_row.uuid = diagram->uuid().toString();
+		diagram_row.position = position + 1;
+		diagram_row.information = diagramInfoValues(diagram);
+		snapshot.diagrams.append(diagram_row);
+
+		const ElementProvider provider(diagram);
+		const auto elements = provider.find(
+			ElementData::Simple |
+			ElementData::Terminal |
+			ElementData::Master |
+			ElementData::Thumbnail);
+		for (const auto &element : elements)
+		{
+			const auto element_data = element->elementData();
+			QET::ProjectDatabaseElementRow element_row;
+			element_row.uuid = element->uuid().toString();
+			element_row.diagramUuid = diagram_row.uuid;
+			element_row.position = diagram->convertPosition(element->scenePos()).toString();
+			element_row.type = element_data.typeToString();
+			element_row.subType = element_data.masterTypeToString();
+			const auto information = elementInfoToString(element);
+			for (auto iterator = information.constBegin(); iterator != information.constEnd(); ++iterator) {
+				element_row.information.insert(iterator.key(), iterator.value());
+			}
+			snapshot.elements.append(element_row);
+		}
+	}
+
+	const auto result = QET::ProjectDatabaseWriter::replace(m_data_base, snapshot);
+	if (result.isOk()) {
+		emit dataBaseUpdated();
+	} else {
+		qWarning() << "projectDataBase::updateDB failed:" << result.diagnostic();
+	}
+	return result;
 }
 
 /**
@@ -344,8 +390,7 @@ bool projectDataBase::createDataBase()
 	createElementNomenclatureView();
 	createSummaryView();
 	prepareQuery();
-	updateDB();
-	return true;
+	return updateDB().isOk();
 }
 
 /**
@@ -454,121 +499,6 @@ void projectDataBase::createSummaryView()
 	}
 }
 
-bool projectDataBase::populateDiagramTable()
-{
-	if (!m_data_base.transaction())
-	{
-		qWarning() << "projectDataBase::populateDiagramTable transaction error:"
-				   << m_data_base.lastError();
-		return false;
-	}
-	bool success = true;
-	QSqlQuery query_(m_data_base);
-	success = query_.exec("DELETE FROM diagram");
-
-	const QList<Diagram *> diagrams = m_project->diagrams();
-	for (int position = 0; position < diagrams.size(); ++position)
-	{
-		Diagram *diagram = diagrams.at(position);
-		m_insert_diagram_query.bindValue(":uuid", diagram->uuid().toString());
-		m_insert_diagram_query.bindValue(":pos", position + 1);
-		if(!m_insert_diagram_query.exec()) {
-			qDebug() << "projectDataBase::populateDiagramTable insert error : " << m_insert_diagram_query.lastError();
-			success = false;
-		}
-	}
-	if (!success)
-	{
-		m_data_base.rollback();
-		return false;
-	}
-	if (!m_data_base.commit())
-	{
-		qWarning() << "projectDataBase::populateDiagramTable commit error:"
-				   << m_data_base.lastError();
-		m_data_base.rollback();
-		return false;
-	}
-	return true;
-}
-
-/**
-	@brief projectDataBase::populateElementTable
-	Populate the element table
-*/
-void projectDataBase::populateElementTable()
-{
-	QSqlQuery query_(m_data_base);
-	query_.exec("DELETE FROM element");
-
-	for (auto diagram : m_project->diagrams())
-	{
-		const ElementProvider ep(diagram);
-		const auto elmt_vector = ep.find(ElementData::Simple | ElementData::Terminal | ElementData::Master | ElementData::Thumbnail);
-			//Insert all values into the database
-		for (const auto &elmt : elmt_vector)
-		{
-			const auto elmt_data = elmt->elementData();
-			m_insert_elements_query.bindValue(":uuid", elmt->uuid().toString());
-			m_insert_elements_query.bindValue(":diagram_uuid", diagram->uuid().toString());
-			m_insert_elements_query.bindValue(":pos", diagram->convertPosition(elmt->scenePos()).toString());
-			m_insert_elements_query.bindValue(":type", elmt_data.typeToString());
-			m_insert_elements_query.bindValue(":sub_type", elmt_data.masterTypeToString());
-			if (!m_insert_elements_query.exec()) {
-				qDebug() << "projectDataBase::populateElementTable insert error : " << m_insert_elements_query.lastError();
-			}
-		}
-	}
-}
-
-/**
-	@brief projectDataBase::populateElementInfoTable
-	Populate the element info table
-*/
-void projectDataBase::populateElementInfoTable()
-{
-	QSqlQuery query(m_data_base);
-	query.exec(QStringLiteral("DELETE FROM element_info"));
-
-	for (const auto &diagram : m_project->diagrams())
-	{
-		const ElementProvider ep(diagram);
-		const auto elmt_vector = ep.find(ElementData::Simple | ElementData::Terminal | ElementData::Master | ElementData::Thumbnail);
-
-			//Insert all values into the database
-		for (const auto &elmt : elmt_vector)
-		{
-			m_insert_element_info_query.bindValue(QStringLiteral(":uuid"), elmt->uuid().toString());
-			const auto hash = elementInfoToString(elmt);
-			for (const auto &key : hash.keys())
-			{
-				QString value = hash.value(key);
-				QString bind = QStringLiteral(":") + key;
-				m_insert_element_info_query.bindValue(bind, value);
-			}
-
-			if (!m_insert_element_info_query.exec()) {
-				qDebug() << "projectDataBase::populateElementInfoTable insert error : " << m_insert_element_info_query.lastError();
-			}
-		}
-	}
-}
-
-void projectDataBase::populateDiagramInfoTable()
-{
-	QSqlQuery query(m_data_base);
-	query.exec("DELETE FROM diagram_info");
-
-	for (auto *diagram : m_project->diagrams())
-	{
-		bindDiagramInfoValues(m_insert_diagram_info_query, diagram);
-
-		if (!m_insert_diagram_info_query.exec()) {
-			qDebug() << "projectDataBase::populateDiagramInfoTable insert error : " << m_insert_diagram_info_query.lastError();
-		}
-	}
-}
-
 void projectDataBase::prepareQuery()
 {
 		//INSERT DIAGRAM
@@ -666,21 +596,30 @@ QHash<QString, QString> projectDataBase::elementInfoToString(Element *elmt)
 
 void projectDataBase::bindDiagramInfoValues(QSqlQuery &query, Diagram *diagram)
 {
-	query.bindValue(":uuid", diagram->uuid());
+	query.bindValue(":uuid", diagram->uuid().toString());
+	const auto values = diagramInfoValues(diagram);
+	for (const auto &key : QETInformation::diagramInfoKeys()) {
+		query.bindValue(QStringLiteral(":") + key, values.value(key));
+	}
+}
 
-	auto infos = diagram->border_and_titleblock.titleblockInformation();
-	for (auto key : QETInformation::diagramInfoKeys())
+QHash<QString, QVariant> projectDataBase::diagramInfoValues(Diagram *diagram)
+{
+	QHash<QString, QVariant> values;
+	const auto information = diagram->border_and_titleblock.titleblockInformation();
+	for (const auto &key : QETInformation::diagramInfoKeys())
 	{
-		if (key == "date") {
-			query.bindValue( ":date",
-							 QLocale::system().toDate(infos.value("date").toString(),
-													  QLocale::ShortFormat));
+		if (key == QStringLiteral("date")) {
+			values.insert(
+				key,
+				QLocale::system().toDate(
+					information.value(key).toString(),
+					QLocale::ShortFormat));
 		} else {
-			auto value = infos.value(key);
-			auto bind = key.prepend(":");
-			query.bindValue(bind, value);
+			values.insert(key, information.value(key));
 		}
 	}
+	return values;
 }
 
 #ifdef QET_EXPORT_PROJECT_DB
@@ -715,6 +654,17 @@ void projectDataBase::exportDb(projectDataBase *db,
 			       const QString &caption,
 			       const QString &dir)
 {
+	const auto update_result = db->updateDB();
+	if (!update_result.isOk()) {
+		QMessageBox::critical(
+			parent,
+			tr("Export impossible"),
+			tr("La base de données du projet n'a pas pu être actualisée. "
+			   "Aucun fichier n'a été généré.\n\n%1")
+				.arg(update_result.diagnostic()));
+		return;
+	}
+
 	auto caption_ = caption;
 	if (caption_.isEmpty()) {
 		caption_ = tr("Exporter la base de données interne du projet");

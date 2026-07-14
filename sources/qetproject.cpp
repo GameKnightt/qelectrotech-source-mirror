@@ -1517,7 +1517,11 @@ void QETProject::readProjectXml(QDomDocument &xml_project)
 
 
 	m_data_base.blockSignals(false);
-	m_data_base.updateDB();
+	const auto database_result = m_data_base.updateDB();
+	if (!database_result.isOk()) {
+		qWarning() << "QETProject: derived database refresh failed after loading:"
+				   << database_result.diagnostic();
+	}
 
 	m_state = Ok;
 }

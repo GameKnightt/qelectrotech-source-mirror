@@ -163,6 +163,18 @@ set_tests_properties(
   PROPERTIES LABELS "export;integrity;export-01")
 
 add_executable(
+  project_database_atomicity_test
+  tst_projectdatabasewriter.cpp
+  ${QET_DIR}/sources/dataBase/projectdatabasewriter.cpp
+  ${QET_DIR}/sources/dataBase/projectdatabasewriter.h)
+add_test(
+  NAME project_database_atomicity_test
+  COMMAND project_database_atomicity_test)
+set_tests_properties(
+  project_database_atomicity_test
+  PROPERTIES LABELS "database;data-03;atomic;rollback")
+
+add_executable(
   export_center_test
   tst_exportcenterdialog.cpp
   ${QET_DIR}/sources/ui/exportcenterdialog.cpp
@@ -391,6 +403,17 @@ target_link_libraries(
   Qt::Test
   Qt::Core
   Qt::Widgets)
+
+target_include_directories(
+  project_database_atomicity_test
+  PRIVATE
+  ${QET_DIR}/sources/dataBase)
+
+target_link_libraries(
+  project_database_atomicity_test
+  PRIVATE
+  Qt::Test
+  Qt::Sql)
 
 target_include_directories(
   export_center_test

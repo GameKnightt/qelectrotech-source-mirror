@@ -249,6 +249,8 @@ set(QET_SRC_FILES
 
   ${QET_DIR}/sources/dataBase/projectdatabase.cpp
   ${QET_DIR}/sources/dataBase/projectdatabase.h
+  ${QET_DIR}/sources/dataBase/projectdatabasewriter.cpp
+  ${QET_DIR}/sources/dataBase/projectdatabasewriter.h
 
   ${QET_DIR}/sources/dataBase/ui/elementquerywidget.cpp
   ${QET_DIR}/sources/dataBase/ui/elementquerywidget.h

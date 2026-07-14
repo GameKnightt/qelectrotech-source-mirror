@@ -18,6 +18,8 @@
 #ifndef PROJECTDATABASE_H
 #define PROJECTDATABASE_H
 
+#include "projectdatabasewriter.h"
+
 #include <QObject>
 #include <QSqlDatabase>
 #include <QSqlQuery>
@@ -44,7 +46,7 @@ class projectDataBase : public QObject
 		projectDataBase(QETProject *project, QObject *parent = nullptr);
 		virtual ~projectDataBase() override;
 
-		void updateDB();
+		QET::ProjectDatabaseUpdateResult updateDB();
 		QETProject *project() const;
 		QSqlQuery newQuery(const QString &query = QString());
 
@@ -65,13 +67,10 @@ class projectDataBase : public QObject
 		bool createDataBase();
 		void createElementNomenclatureView();
 		void createSummaryView();
-		bool populateDiagramTable();
-		void populateElementTable();
-		void populateElementInfoTable();
-		void populateDiagramInfoTable();
 		void prepareQuery();
 		static QHash<QString, QString> elementInfoToString(
 				Element *elmt);
+		static QHash<QString, QVariant> diagramInfoValues(Diagram *diagram);
 		void bindDiagramInfoValues(QSqlQuery &query, Diagram *diagram);
 
 	private:

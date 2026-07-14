@@ -708,7 +708,15 @@ void ElementsPanelWidget::duplicateDiagram()
 		}
 		new_diagram->refreshContents();
 	}
-	project->dataBase()->updateDB();
+	const auto update_result = project->dataBase()->updateDB();
+	if (!update_result.isOk()) {
+		QMessageBox::warning(
+			this,
+			tr("Folios dupliqués, actualisation incomplète"),
+			tr("Les folios ont bien été dupliqués, mais les sommaires et nomenclatures "
+			   "n'ont pas pu être actualisés. Les données précédentes ont été conservées.\n\n%1")
+				.arg(update_result.diagnostic()));
+	}
 
 	elements_panel->reload();
 }

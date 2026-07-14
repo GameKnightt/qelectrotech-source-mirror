@@ -24,6 +24,7 @@
 #include "ui_projectdbmodelpropertieswidget.h"
 
 #include <QDialogButtonBox>
+#include <QMessageBox>
 
 /**
 	@brief projectDBModelPropertiesWidget::projectDBModelPropertiesWidget
@@ -100,7 +101,14 @@ void ProjectDBModelPropertiesWidget::on_m_edit_query_pb_clicked()
 
 void ProjectDBModelPropertiesWidget::on_m_refresh_pb_clicked()
 {
-	if (m_model && m_model->project()) {
-		m_model->project()->dataBase()->updateDB();
+	if (m_model) {
+		QString error_message;
+		if (!m_model->refresh(&error_message)) {
+			QMessageBox::warning(
+				this,
+				tr("Actualisation impossible"),
+				tr("Le sommaire ou la nomenclature conserve ses données précédentes.\n\n%1")
+					.arg(error_message));
+		}
 	}
 }

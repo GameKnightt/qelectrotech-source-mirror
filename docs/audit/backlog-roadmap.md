@@ -181,9 +181,12 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
   anti-périmé et une seule commande Undo. UX-05B ajoute la grille de brouillon
   par potentiel pour la fonction, la tension ou le protocole, la couleur et la
   section, avec collage TSV, validation par cellule, conservation des valeurs
-  mixtes et aucune mutation avant la seconde confirmation. Voir
-  `docs/audit/implementation/ux-05a-conductor-change-preview.md` et
-  `docs/audit/implementation/ux-05b-conductor-bulk-editor.md`.
+  mixtes et aucune mutation avant la seconde confirmation. UX-05C ajoute la
+  sélection rectangulaire et la recopie vers le bas par bouton, menu contextuel
+  ou `Ctrl+D`, avec validation atomique des sources et conservation du contrat
+  de brouillon. Voir `docs/audit/implementation/ux-05a-conductor-change-preview.md`,
+  `docs/audit/implementation/ux-05b-conductor-bulk-editor.md` et
+  `docs/audit/implementation/ux-05c-table-fill.md`.
 - **Utilisateurs touchés :** projets répétitifs et contrôle qualité.
 - **Fréquence :** régulière.
 - **Impact :** gain de temps élevé.
@@ -192,8 +195,8 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
 - **Dépendances :** modèle commun de propriétés, sélection, filtres, Undo.
 - **Compatibilité amont :** vue additive sans modifier le stockage.
 - **Critères d'acceptation :** colonnes configurables, édition multi-cellules, validation avant application, prévisualisation du nombre d'objets, transaction Undo unique.
-- **Incrément suivant UX-05C :** sélection rectangulaire, remplissage vers le
-  bas, colonnes configurables et import/export de feuilles de calcul, puis
+- **Incrément suivant UX-05D :** colonnes configurables, import/export de
+  feuilles de calcul et commandes de remplissage complémentaires, puis
   extension progressive aux éléments, borniers et câbles.
 
 ### IND-01 — Unifier le parcours borniers et câbles

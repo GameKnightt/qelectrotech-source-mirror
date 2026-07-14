@@ -76,6 +76,18 @@ class ConductorBulkEditModel final : public QAbstractTableModel
 			const QModelIndex &start,
 			const QString &text,
 			QString *errorMessage = nullptr);
+		bool canFillDown(
+			int topRow,
+			int bottomRow,
+			int leftColumn,
+			int rightColumn,
+			QString *errorMessage = nullptr) const;
+		bool fillDown(
+			int topRow,
+			int bottomRow,
+			int leftColumn,
+			int rightColumn,
+			QString *errorMessage = nullptr);
 		void resetDraft();
 
 		bool hasChanges() const;

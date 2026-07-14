@@ -14,6 +14,7 @@
 
 #include <QDialog>
 
+class QAction;
 class QDialogButtonBox;
 class QLabel;
 class QPushButton;
@@ -30,6 +31,8 @@ class ConductorBulkEditDialog final : public QDialog
 
 		ConductorBulkEditModel *draftModel() const;
 		QTableView *draftTable() const;
+		QAction *fillDownAction() const;
+		QPushButton *fillDownButton() const;
 		QPushButton *verifyButton() const;
 		QPushButton *resetButton() const;
 		ConductorProperties propertiesForTarget(
@@ -40,11 +43,22 @@ class ConductorBulkEditDialog final : public QDialog
 		void targetActivated(quintptr targetKey);
 
 	private:
+		bool selectedFillRange(
+			int *topRow,
+			int *bottomRow,
+			int *leftColumn,
+			int *rightColumn,
+			QString *errorMessage = nullptr) const;
+		void fillDownSelection();
 		void pasteClipboard();
+		void setStatusMessage(const QString &message, bool error = false);
+		void updateFillDownAction();
 		void updateState();
 
 		ConductorBulkEditModel *m_model = nullptr;
 		QTableView *m_table = nullptr;
+		QAction *m_fill_down_action = nullptr;
+		QPushButton *m_fill_down_button = nullptr;
 		QLabel *m_status = nullptr;
 		QDialogButtonBox *m_buttons = nullptr;
 		QPushButton *m_verify_button = nullptr;

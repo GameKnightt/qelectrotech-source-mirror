@@ -202,6 +202,103 @@ bool ConductorBulkEditModel::pasteTsv(
 	return true;
 }
 
+bool ConductorBulkEditModel::canFillDown(
+	int topRow,
+	int bottomRow,
+	int leftColumn,
+	int rightColumn,
+	QString *errorMessage) const
+{
+	if (topRow < 0 || bottomRow >= m_rows.size() || topRow >= bottomRow) {
+		if (errorMessage) {
+			*errorMessage = tr("Sélectionnez une plage d’au moins deux lignes.");
+		}
+		return false;
+	}
+	if (leftColumn > rightColumn
+		|| !isEditableColumn(leftColumn)
+		|| !isEditableColumn(rightColumn)) {
+		if (errorMessage) {
+			*errorMessage = tr(
+				"La sélection doit rester dans les colonnes éditables.");
+		}
+		return false;
+	}
+
+	for (int column = leftColumn; column <= rightColumn; ++column) {
+		const Cell *source = cell(topRow, column);
+		if (!source) {
+			if (errorMessage) {
+				*errorMessage = tr("La sélection contient une cellule indisponible.");
+			}
+			return false;
+		}
+		if (source->mixed && !source->edited) {
+			if (errorMessage) {
+				*errorMessage = tr(
+					"La première ligne contient « Valeurs multiples » dans %1. "
+					"Saisissez une valeur de référence avant de recopier.")
+					.arg(fieldLabel(column));
+			}
+			return false;
+		}
+		const QString error = validationError(source->value);
+		if (!error.isEmpty()) {
+			if (errorMessage) {
+				*errorMessage = tr("La valeur de référence de %1 est invalide : %2.")
+					.arg(fieldLabel(column), error);
+			}
+			return false;
+		}
+	}
+
+	if (errorMessage) errorMessage->clear();
+	return true;
+}
+
+bool ConductorBulkEditModel::fillDown(
+	int topRow,
+	int bottomRow,
+	int leftColumn,
+	int rightColumn,
+	QString *errorMessage)
+{
+	if (!canFillDown(
+			topRow,
+			bottomRow,
+			leftColumn,
+			rightColumn,
+			errorMessage)) {
+		return false;
+	}
+
+	QVector<QString> source_values;
+	source_values.reserve(rightColumn - leftColumn + 1);
+	for (int column = leftColumn; column <= rightColumn; ++column) {
+		source_values.append(cell(topRow, column)->value);
+	}
+
+	for (int column = leftColumn; column <= rightColumn; ++column) {
+		const QString &source_value = source_values.at(column - leftColumn);
+		for (int row = topRow + 1; row <= bottomRow; ++row) {
+			Cell *target = cell(row, column);
+			target->value = source_value;
+			target->edited = true;
+		}
+	}
+
+	emit dataChanged(
+		index(topRow + 1, leftColumn),
+		index(bottomRow, rightColumn),
+		{Qt::DisplayRole,
+		 Qt::EditRole,
+		 Qt::ToolTipRole,
+		 Qt::BackgroundRole,
+		 Qt::FontRole});
+	if (errorMessage) errorMessage->clear();
+	return true;
+}
+
 void ConductorBulkEditModel::resetDraft()
 {
 	if (m_rows.isEmpty()) return;

@@ -266,13 +266,17 @@ add_test(
   NAME conductor_bulk_edit_keyboard_test
   COMMAND conductor_bulk_edit_test keyboardContract)
 add_test(
+  NAME conductor_bulk_edit_active_editor_test
+  COMMAND conductor_bulk_edit_test activeEditorCommitsBeforeFillDown)
+add_test(
   NAME conductor_bulk_edit_large_text_150_test
   COMMAND conductor_bulk_edit_test fitsScreenAt150Percent)
 set_tests_properties(
   conductor_bulk_edit_test
   conductor_bulk_edit_keyboard_test
+  conductor_bulk_edit_active_editor_test
   conductor_bulk_edit_large_text_150_test
-  PROPERTIES LABELS "conductor-properties;ux-05b;accessibility;clipboard;deterministic-scale")
+  PROPERTIES LABELS "conductor-properties;ux-05b;ux-05c;fill-down;accessibility;clipboard;deterministic-scale")
 
 add_executable(
   ordered_index_cache_test

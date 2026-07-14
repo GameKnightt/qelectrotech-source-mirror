@@ -38,3 +38,25 @@ Avant le démarrage de la phase de développement, les scénarios marqués **À 
 ## Couverture
 
 Les parcours démarrage, projet, folios, composants, recherche, propriétés, nomenclature, impression/export, préférences et affichage ont été observés au moins partiellement. Les parcours câbles, E/S d'automate, bornier complet, pneumatique, hydraulique et process restent **À rejouer** sur des projets représentatifs fournis par l'utilisateur.
+
+## Incrément UX-05D — 14 juillet 2026
+
+Le dossier [`ux-05d-column-layout`](ux-05d-column-layout/) contient les captures
+PNG exactes de la validation Windows 11 du dialogue de modification tabulaire :
+
+| ID | État observé | Santé | Fichier |
+|---|---|---|---|
+| UX05D-00 | Avant correction, l’exemple public `industrial.qet` n’expose aucun potentiel dans la catégorie Conducteurs de la recherche avancée | Défaut reproduit | `00-entry-limitation-industrial.png` |
+| UX05D-01 | Vue complète du composant compilé avec 36 potentiels | Sain | `01-default-columns.png` |
+| UX05D-02 | Menu **Colonnes…** et potentiel obligatoire | Sain | `02-columns-menu.png` |
+| UX05D-03 | Vue compacte et ordre déplacé | Sain | `03-compact-reordered.png` |
+| UX05D-04 | Brouillon présent dans une colonne masquée et annoncé | Sain | `04-hidden-change-announcement.png` |
+| UX05D-05 | Disposition restaurée après fermeture et réouverture | Sain | `05-persisted-layout.png` |
+| UX05D-06 | Retour aux sept colonnes par défaut | Sain | `06-reset-default.png` |
+| UX05D-07 | Après récupération de l’index vide, l’application complète ouvre le tableau avec les potentiels réels de `industrial.qet` | Sain, parcours de bout en bout | `07-end-to-end-recovered.png` |
+
+Les vues UX05D-01 à UX05D-06 proviennent d’un banc temporaire qui instancie le
+dialogue et le modèle réels de la préversion ; aucune réimplémentation visuelle
+n’est utilisée. UX05D-00 et UX05D-07 proviennent de l’application complète,
+respectivement avant et après correction. Le détail du protocole et ses limites se trouvent dans
+[`implementation/ux-05d-column-layout.md`](../implementation/ux-05d-column-layout.md).

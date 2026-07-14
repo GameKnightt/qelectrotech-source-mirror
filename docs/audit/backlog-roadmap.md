@@ -186,7 +186,10 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
   ou `Ctrl+D`, avec validation atomique des sources et conservation du contrat
   de brouillon. UX-05D rend les sept colonnes masquables et réordonnables,
   persiste la vue par clés stables et garantit que collage et recopie ne
-  modifient jamais une colonne masquée. Voir `docs/audit/implementation/ux-05a-conductor-change-preview.md`,
+  modifient jamais une colonne masquée. Son point d’entrée récupère aussi les
+  conducteurs depuis le projet et les bornes lorsque l’index de recherche d’un
+  ancien fichier est vide ou périmé ; le parcours complet est validé sur
+  `examples/industrial.qet`. Voir `docs/audit/implementation/ux-05a-conductor-change-preview.md`,
   `docs/audit/implementation/ux-05b-conductor-bulk-editor.md` et
   `docs/audit/implementation/ux-05c-table-fill.md` ainsi que
   `docs/audit/implementation/ux-05d-column-layout.md`.

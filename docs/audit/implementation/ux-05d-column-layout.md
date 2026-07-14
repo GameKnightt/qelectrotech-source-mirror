@@ -39,6 +39,13 @@ Comme pour UX-05A à UX-05C, toutes les modifications restent dans le brouillon
 jusqu’à **Vérifier**, puis passent par l’aperçu et une transaction Undo unique.
 Aucun format `.qet`, `.elmt`, XML, SQLite ou export n’est modifié.
 
+Le point d’entrée tolère désormais un index de recherche vide ou périmé. Quand
+aucun conducteur vivant n’est disponible dans l’arbre, le dialogue retrouve le
+projet ouvert et reconstruit sa portée depuis les scènes puis, pour les anciens
+projets, depuis les bornes des éléments. Une sélection explicitement décochée
+reste respectée. Cette récupération réutilise les objets `Conductor` existants
+et ne crée aucune représentation parallèle des données.
+
 ## Ergonomie et accessibilité
 
 - bouton de 32 pixels minimum dans le bandeau d’actions existant ;
@@ -70,6 +77,31 @@ Les tests Qt couvrent :
 La matrice ciblée réussit sous Qt 5.15 en mode hors écran et sous Windows natif,
 à 100 % et avec `QT_SCALE_FACTOR=1.5`. L’application complète est également
 compilée et liée avec l’incrément.
+
+## Validation manuelle Windows 11
+
+Validation rejouée le 14 juillet 2026 avec la préversion portable
+`QElectroTech-UX05D-Preview-5b32d9ff3`, puis avec le binaire Debug intégrant la
+correction du point d’entrée, dans une fenêtre logique de
+1269 × 840 pixels correspondant au poste Windows 11 de validation. Aucun projet
+n’a été enregistré ou modifié pendant ce contrôle.
+
+| Étape | Contrôle | État | Preuve |
+|---|---|---|---|
+| 1 | Ouverture de `examples/industrial.qet`, chargement du folio câblé « Mains Power Supply », recherche avancée puis rafraîchissement, avant correction | **Dégradé reproduit** : la catégorie Conducteurs reste vide et bloque initialement l’entrée vers le tableau | [`00-entry-limitation-industrial.png`](../evidence/ux-05d-column-layout/00-entry-limitation-industrial.png) |
+| 2 | Affichage du dialogue avec 36 potentiels réalistes en utilisant directement le composant compilé du lot | **Sain** : les sept colonnes, le défilement, les textes d’aide et les actions sont lisibles | [`01-default-columns.png`](../evidence/ux-05d-column-layout/01-default-columns.png) |
+| 3 | Ouverture de **Colonnes…** | **Sain** : les sept champs sont nommés, le potentiel est obligatoire et la restauration est visible | [`02-columns-menu.png`](../evidence/ux-05d-column-layout/02-columns-menu.png) |
+| 4 | Masquage de quatre colonnes puis déplacement de **Couleur** avant **Fonction** | **Sain** : la grille compacte conserve le contexte du potentiel et accepte le glisser-déposer | [`03-compact-reordered.png`](../evidence/ux-05d-column-layout/03-compact-reordered.png) |
+| 5 | Modification d’une fonction puis masquage de sa colonne | **Sain** : le résumé annonce explicitement une modification dans une colonne masquée | [`04-hidden-change-announcement.png`](../evidence/ux-05d-column-layout/04-hidden-change-announcement.png) |
+| 6 | Fermeture par **Annuler**, puis réouverture | **Sain** : l’ordre et la visibilité sont restaurés sans réappliquer le brouillon annulé | [`05-persisted-layout.png`](../evidence/ux-05d-column-layout/05-persisted-layout.png) |
+| 7 | **Rétablir la disposition par défaut** | **Sain** : les sept colonnes et leur ordre initial sont restaurés | [`06-reset-default.png`](../evidence/ux-05d-column-layout/06-reset-default.png) |
+| 8 | Rejeu dans l’application complète après récupération de l’index vide : `industrial.qet` → folio 4 → recherche avancée → tableau | **Sain** : le dialogue s’ouvre sur les potentiels réels du projet (`423`, `411N`, `308`, etc.) | [`07-end-to-end-recovered.png`](../evidence/ux-05d-column-layout/07-end-to-end-recovered.png) |
+
+Le banc visuel des étapes 2 à 7 instancie exactement
+`ConductorBulkEditDialog` et son modèle depuis les sources de la préversion,
+avec des données de validation détachées. L’étape 8 complète cette couverture
+par une validation de bout en bout dans l’application complète. La capture 00
+est conservée comme preuve du défaut reproduit avant correction.
 
 ## Limites et suite
 

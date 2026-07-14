@@ -20,6 +20,7 @@
 #include "../../QWidgetAnimation/qwidgetanimation.h"
 #include "../../diagram.h"
 #include "../../diagramcontent.h"
+#include "../../diagramview.h"
 #include "../../qetapp.h"
 #include "../../qetdiagrameditor.h"
 #include "../../qetgraphicsitem/conductor.h"
@@ -27,9 +28,11 @@
 #include "../../qetgraphicsitem/element.h"
 #include "../../qetgraphicsitem/elementtextitemgroup.h"
 #include "../../qetgraphicsitem/independenttextitem.h"
+#include "../../qetgraphicsitem/terminal.h"
 #include "../../qeticons.h"
 #include "../../qetinformation.h"
 #include "../../qetproject.h"
+#include "../../projectview.h"
 #include "../conductorbulkeditadapter.h"
 #include "conductorbulkeditdialog.h"
 #include "conductorchangepreviewdialog.h"
@@ -41,6 +44,9 @@
 
 #include <QMessageBox>
 #include <QSettings>
+#include <QSet>
+
+#include <algorithm>
 
 /**
 	@brief SearchAndReplaceWidget::SearchAndReplaceWidget
@@ -1450,12 +1456,85 @@ void SearchAndReplaceWidget::on_m_conductor_pb_clicked()
 */
 void SearchAndReplaceWidget::on_m_conductor_bulk_edit_pb_clicked()
 {
-	const QList<Conductor *> conductors = selectedConductor();
+	QList<Conductor *> conductors = selectedConductor();
+	const bool has_indexed_conductors = std::any_of(
+		m_conductor_hash.cbegin(),
+		m_conductor_hash.cend(),
+		[](const QPointer<Conductor> &conductor) {
+			return !conductor.isNull();
+		});
+
+	// Some projects expose their diagrams before the advanced-search tree has
+	// indexed the conductor potentials, and an index can retain rows whose
+	// QPointer was invalidated by a folio refresh. Keep an explicit empty
+	// selection when live conductor rows exist, but recover from an empty or
+	// stale index by collecting the project conductors directly.
+	// ConductorChangePlan remains responsible for expanding and deduplicating
+	// complete potentials.
+	if (conductors.isEmpty() && !has_indexed_conductors && m_editor)
+	{
+		ProjectView *project_view = m_editor->currentProjectView();
+		if (!project_view)
+		{
+			const QList<ProjectView *> opened_projects = m_editor->openedProjects();
+			if (opened_projects.size() == 1)
+				project_view = opened_projects.first();
+		}
+		QETProject *project = project_view ? project_view->project() : nullptr;
+
+		QSet<Conductor *> seen;
+		auto append_diagram_conductors = [&conductors, &seen](Diagram *diagram) {
+			if (!diagram) return;
+			for (Conductor *conductor : diagram->conductors())
+			{
+				if (conductor && !seen.contains(conductor))
+				{
+					seen.insert(conductor);
+					conductors.append(conductor);
+				}
+			}
+
+			// Projects created with older QET versions can expose visible
+			// conductors through their terminals before Diagram::conductors()
+			// sees them in the scene item list. The terminal graph is the same
+			// authoritative object graph used by conductor editing operations.
+			for (Element *element : diagram->elements())
+			{
+				if (!element) continue;
+				for (Terminal *terminal : element->terminals())
+				{
+					if (!terminal) continue;
+					for (Conductor *conductor : terminal->conductors())
+					{
+						if (conductor && !seen.contains(conductor))
+						{
+							seen.insert(conductor);
+							conductors.append(conductor);
+						}
+					}
+				}
+			}
+		};
+
+		if (DiagramView *view = project_view ? project_view->currentDiagram() : nullptr) {
+			append_diagram_conductors(view->diagram());
+		}
+		if (project)
+		{
+			for (Diagram *diagram : project->diagrams())
+				append_diagram_conductors(diagram);
+		}
+	}
+
 	if (conductors.isEmpty()) {
 		QMessageBox::information(
 			this,
-			tr("Aucun conducteur sélectionné"),
-			tr("Cochez au moins un conducteur visible avant d’ouvrir le tableau."));
+			!has_indexed_conductors
+				? tr("Aucun conducteur disponible")
+				: tr("Aucun conducteur sélectionné"),
+			!has_indexed_conductors
+				? tr("Le projet courant ne contient aucun conducteur modifiable.")
+				: tr("Cochez au moins un conducteur visible avant d’ouvrir le tableau."));
 		return;
 	}
 

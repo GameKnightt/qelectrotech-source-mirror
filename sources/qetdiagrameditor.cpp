@@ -41,6 +41,8 @@
 #include "ui/diagrampropertieseditordockwidget.h"
 #include "ui/backupdialog.h"
 #include "ui/dialogwaiting.h"
+#include "ui/startcenterpagecontroller.h"
+#include "ui/startcenterwidget.h"
 #include "undocommand/addelementtextcommand.h"
 #include "undocommand/rotateselectioncommand.h"
 #include "undocommand/rotatetextscommand.h"
@@ -54,6 +56,9 @@
 #include <QDebug>
 #include <QDir>
 #include <QEventLoop>
+#include <QMessageBox>
+#include <QPushButton>
+#include <QStackedWidget>
 #include <QStyle>
 #ifdef BUILD_WITHOUT_KF5
 #	include "ui/nokde/kautosavefile.h"
@@ -87,7 +92,11 @@ QETDiagramEditor::QETDiagramEditor(const QStringList &files, QWidget *parent) :
 	splitter_->setOrientation(Qt::Vertical);
 	splitter_->addWidget(&m_workspace);
 	splitter_->addWidget(&m_search_and_replace_widget);
-	setCentralWidget(splitter_);
+	m_editor_page = splitter_;
+	m_central_pages = new QStackedWidget(this);
+	m_central_pages->setObjectName(QStringLiteral("diagramEditorCentralPages"));
+	m_central_pages->addWidget(m_editor_page);
+	setCentralWidget(m_central_pages);
 	m_search_and_replace_widget.setEditor(this);
 
 	QList<int> s;
@@ -120,6 +129,7 @@ QETDiagramEditor::QETDiagramEditor(const QStringList &files, QWidget *parent) :
 	setUpAutonumberingWidget();
 
 	setUpActions();
+	setUpStartCenter();
 	setUpToolBar();
 	setUpMenu();
 
@@ -137,6 +147,7 @@ QETDiagramEditor::QETDiagramEditor(const QStringList &files, QWidget *parent) :
 		 SLOT(slot_updatePasteAction()));
 
 	readSettings();
+	m_start_center_page_controller->setHasOpenProjects(!files.isEmpty());
 	show();
 
 		//If valid file path is given as arguments
@@ -149,6 +160,7 @@ QETDiagramEditor::QETDiagramEditor(const QStringList &files, QWidget *parent) :
 				++ opened_projects;
 	}
 
+	updateCentralPage();
 	slot_updateActions();
 }
 
@@ -192,6 +204,29 @@ void QETDiagramEditor::setUpElementsPanel()
 	connect(pa, SIGNAL(requestForDiagramMoveDownx10		  (const QList<Diagram *> &)), this, SLOT(moveDiagramDownx10(const QList<Diagram *>&)));
 	connect(pa, SIGNAL(requestForDiagramMoveUpx100		  (const QList<Diagram *> &)), this, SLOT(moveDiagramUpx100(const QList<Diagram *>&)));
 	connect(pa, SIGNAL(requestForDiagramMoveDownx100	  (const QList<Diagram *> &)), this, SLOT(moveDiagramDownx100(const QList<Diagram *>&)));
+}
+
+/**
+	Set up the useful empty state shown before a project is opened.
+*/
+void QETDiagramEditor::setUpStartCenter()
+{
+	m_start_center = new StartCenterWidget(
+		m_new_file,
+		m_open_file,
+		QETApp::projectsRecentFiles(),
+		QET::Icons::QETLogo,
+		m_central_pages);
+	m_central_pages->insertWidget(0, m_start_center);
+	m_start_center_page_controller = std::make_unique<StartCenterPageController>(
+		m_central_pages,
+		m_start_center,
+		m_editor_page);
+	connect(
+		m_start_center,
+		&StartCenterWidget::recentProjectRequested,
+		this,
+		&QETDiagramEditor::openStartCenterRecentFile);
 }
 
 /**
@@ -1022,8 +1057,18 @@ void QETDiagramEditor::setUpMenu()
 
 	// File menu
 	QMenu *recentfile = menu_fichier -> addMenu(QET::Icons::DocumentOpenRecent, tr("&Récemment ouverts"));
-	recentfile->addActions(QETApp::projectsRecentFiles()->menu()->actions());
-	connect(QETApp::projectsRecentFiles(), SIGNAL(fileOpeningRequested(const QString &)),
+	RecentFiles *recent_files = QETApp::projectsRecentFiles();
+	auto rebuild_recent_menu = [recentfile, recent_files]() {
+		recentfile->clear();
+		recentfile->addActions(recent_files->menu()->actions());
+	};
+	rebuild_recent_menu();
+	connect(
+		recent_files,
+		&RecentFiles::filesChanged,
+		this,
+		rebuild_recent_menu);
+	connect(recent_files, SIGNAL(fileOpeningRequested(const QString &)),
 		this, SLOT(openRecentFile(const QString &)));
 	menu_fichier -> addActions(m_file_actions_group.actions());
 	menu_fichier -> addSeparator();
@@ -1251,6 +1296,27 @@ bool QETDiagramEditor::openRecentFile(const QString &filepath)
 }
 
 /**
+	Open a recent project selected in this window's start center. Missing files
+	remain in history until the user explicitly chooses to forget them.
+*/
+void QETDiagramEditor::openStartCenterRecentFile(const QString &filepath)
+{
+	if (filepath.isEmpty()) return;
+	openAndAddProject(filepath, true, true);
+}
+
+/**
+	Show the start center only while this editor owns no project subwindow.
+*/
+void QETDiagramEditor::updateCentralPage()
+{
+	if (m_start_center_page_controller) {
+		m_start_center_page_controller->setHasOpenProjects(
+			!openedProjects().isEmpty());
+	}
+}
+
+/**
 	Cette fonction demande un nom de fichier a ouvrir a l'utilisateur
 	@return true si l'ouverture a reussi, false sinon
 */
@@ -1311,7 +1377,8 @@ bool QETDiagramEditor::closeProject(QETProject *project)
 */
 bool QETDiagramEditor::openAndAddProject(
 		const QString &filepath,
-		bool interactive)
+		bool interactive,
+		bool offer_forget_if_missing)
 {
 	if (filepath.isEmpty()) return(false);
 
@@ -1342,14 +1409,35 @@ bool QETDiagramEditor::openAndAddProject(
 	{
 		if (interactive)
 		{
-			QET::QetMessageBox::critical(
-				this,
-				tr("Impossible d'ouvrir le fichier", "message box title"),
-				QString(
-					tr("Il semblerait que le fichier %1 que vous essayez d'ouvrir"
-					" n'existe pas ou plus.")
-				).arg(filepath)
-			);
+			if (offer_forget_if_missing) {
+				QMessageBox message_box(
+					QMessageBox::Warning,
+					tr("Projet récent indisponible"),
+					tr("Ce projet est introuvable ou son emplacement est momentanément indisponible."),
+					QMessageBox::NoButton,
+					this);
+				message_box.setInformativeText(filepath);
+				QPushButton *keep_button = message_box.addButton(
+					tr("Conserver dans la liste"),
+					QMessageBox::RejectRole);
+				QPushButton *forget_button = message_box.addButton(
+					tr("Oublier de la liste"),
+					QMessageBox::ActionRole);
+				message_box.setDefaultButton(keep_button);
+				message_box.exec();
+				if (message_box.clickedButton() == forget_button) {
+					QETApp::projectsRecentFiles()->forgetFile(filepath);
+				}
+			} else {
+				QET::QetMessageBox::critical(
+					this,
+					tr("Impossible d'ouvrir le fichier", "message box title"),
+					QString(
+						tr("Il semblerait que le fichier %1 que vous essayez d'ouvrir"
+						" n'existe pas ou plus.")
+					).arg(filepath)
+				);
+			}
 		}
 		return(false);
 	}
@@ -2182,9 +2270,10 @@ void QETDiagramEditor::addProjectView(ProjectView *project_view)
 			act->setShortcut(QKeySequence());
 	}
 
-		//Display the new window
+	//Display the new window
 	if (maximise) project_view -> showMaximized();
 	else          project_view -> show();
+	updateCentralPage();
 	refreshProjectSaveStatus();
 }
 
@@ -2519,6 +2608,7 @@ void QETDiagramEditor::projectWasClosed(ProjectView *project_view)
 	project_view -> deleteLater();
 	project -> deleteLater();
 	QTimer::singleShot(0, this, &QETDiagramEditor::refreshProjectSaveStatus);
+	QTimer::singleShot(0, this, &QETDiagramEditor::updateCentralPage);
 }
 
 /**
@@ -2810,6 +2900,7 @@ void QETDiagramEditor::subWindowActivated(QMdiSubWindow *subWindows)
 {
 	Q_UNUSED(subWindows)
 
+	updateCentralPage();
 	slot_updateActions();
 	slot_updateWindowsMenu();
 	refreshProjectSaveStatus();

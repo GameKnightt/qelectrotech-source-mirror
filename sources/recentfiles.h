@@ -36,21 +36,24 @@ class RecentFiles : public QObject {
 	// methods
 	public:
 	int size() const;
+	QStringList files() const;
 	QMenu *menu() const;
 	QIcon iconForFiles() const;
 	void setIconForFiles(const QIcon &);
 	
 	public slots:
 	void clear();
+	void forgetFile(const QString &);
 	void save();
 	void fileWasOpened(const QString &);
 	
 	signals:
 	void fileOpeningRequested(const QString &);
+	void filesChanged();
 	
 	private:
 	void extractFilesFromSettings();
-	void insertFile(const QString &);
+	bool insertFile(const QString &);
 	void saveFilesToSettings();
 	void buildMenu();
 	
@@ -61,9 +64,8 @@ class RecentFiles : public QObject {
 	private:
 	QString identifier_;
 	int size_;
-	QList<QString> list_;
+	QStringList list_;
 	QMenu *menu_;
-	QSignalMapper *mapper_;
 	QIcon files_icon_;
 };
 #endif

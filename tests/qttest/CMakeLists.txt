@@ -109,6 +109,34 @@ set_tests_properties(
   PROPERTIES LABELS "workspace;ui-01")
 
 add_executable(
+  start_center_test
+  tst_startcenter.cpp
+  ${QET_DIR}/sources/recentfiles.cpp
+  ${QET_DIR}/sources/recentfiles.h
+  ${QET_DIR}/sources/ui/startcenterpagecontroller.cpp
+  ${QET_DIR}/sources/ui/startcenterpagecontroller.h
+  ${QET_DIR}/sources/ui/startcenterwidget.cpp
+  ${QET_DIR}/sources/ui/startcenterwidget.h)
+add_test(
+  NAME start_center_test
+  COMMAND start_center_test)
+add_test(
+  NAME start_center_keyboard_test
+  COMMAND start_center_test keyboardContract)
+add_test(
+  NAME start_center_large_text_150_test
+  COMMAND start_center_test fitsScreenAt150Percent)
+add_test(
+  NAME start_center_lifecycle_test
+  COMMAND start_center_test projectHomeCyclesAreIdempotent)
+set_tests_properties(
+  start_center_test
+  start_center_keyboard_test
+  start_center_large_text_150_test
+  start_center_lifecycle_test
+  PROPERTIES LABELS "start-center;ui-03;accessibility;deterministic-scale")
+
+add_executable(
   export_integrity_test
   tst_exportutils.cpp
   ${QET_DIR}/sources/createdxf.cpp
@@ -306,6 +334,18 @@ target_include_directories(
 
 target_link_libraries(
   workspace_profile_test
+  PRIVATE
+  Qt::Test
+  Qt::Widgets)
+
+target_include_directories(
+  start_center_test
+  PRIVATE
+  ${QET_DIR}/sources
+  ${QET_DIR}/sources/ui)
+
+target_link_libraries(
+  start_center_test
   PRIVATE
   Qt::Test
   Qt::Widgets)

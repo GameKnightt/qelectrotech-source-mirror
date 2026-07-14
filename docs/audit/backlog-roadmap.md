@@ -256,6 +256,31 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
 - **Cible restante :** préréglages, résumé fichiers/folios créés, avertissements,
   annulation globale, composition multi-livrables et équivalence interface/CLI.
 
+### UI-03 — Centre de démarrage orienté tâche
+
+- **Preuve :** E01 et E02 ; la zone centrale sans projet ne proposait aucun
+  parcours et donnait l'impression que le fork était identique à la stable.
+- **État du fork :** premier incrément implémenté. L'accueil propose Nouveau,
+  Ouvrir et six projets récents, réutilise les actions historiques, conserve les
+  profils de workspace et disparaît uniquement après ouverture effective d'un
+  projet. La conception et les validations sont documentées dans
+  `docs/audit/implementation/ui-03-start-center.md`.
+- **Utilisateurs touchés :** nouveaux utilisateurs, utilisateurs occasionnels et
+  toute personne reprenant quotidiennement un dossier existant.
+- **Fréquence :** à chaque démarrage ou fermeture du dernier projet.
+- **Impact :** orientation immédiate, reprise de travail plus rapide et première
+  différence visible du fork sans perturber le dessin.
+- **Effort :** S à M.
+- **Risque :** faible ; façade Qt autour des parcours existants.
+- **Dépendances :** `QETDiagramEditor`, `RecentFiles`, profils Essentiel/Classique
+  et packaging des exemples pour l'incrément suivant.
+- **Compatibilité amont :** additive, sans nouvelle clé de format ni migration.
+- **Critères d'acceptation :** bascule zéro/un projet déterministe, aucun flash
+  avec un fichier en argument, actions exactes, récents synchronisés dans toutes
+  les fenêtres, clavier/DPI/accessibilité, aucun accès réseau au rendu initial.
+- **Cible restante UI-03B :** exemples curatés et modèles ouverts comme copies
+  non enregistrées après mise en place de leur packaging Windows sûr.
+
 ### A11Y-01 — Socle d'accessibilité et navigation clavier
 
 - **Preuve :** inspection des arbres accessibles, E03/E07/E08.

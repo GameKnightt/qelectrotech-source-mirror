@@ -34,6 +34,7 @@
 #include <memory>
 
 class QMdiSubWindow;
+class QStackedWidget;
 class QETProject;
 class QETResult;
 class ProjectView;
@@ -48,6 +49,8 @@ class DiagramPropertiesEditorDockWidget;
 class ElementsCollectionWidget;
 class AutoNumberingDockWidget;
 class TerminalNumberingDialog;
+class StartCenterWidget;
+class StartCenterPageController;
 
 class KAutoSaveFile;
 /**
@@ -68,7 +71,7 @@ class QETDiagramEditor : public QETMainWindow
 		void                 closeEvent        (QCloseEvent *) override;
 		QList<ProjectView *> openedProjects    () const;
 		void                 addProjectView    (ProjectView *);
-		bool                 openAndAddProject (const QString &, bool = true);
+		bool                 openAndAddProject (const QString &, bool = true, bool = false);
 		QList<QString>       editedFiles       () const;
 		ProjectView         *viewForFile       (const QString &) const;
 		ProjectView *currentProjectView() const;
@@ -93,7 +96,10 @@ class QETDiagramEditor : public QETMainWindow
 		void setUpActions       ();
 		void setUpToolBar       ();
 		void setUpMenu          ();
+		void setUpStartCenter   ();
 		void openExportCenter   ();
+		void openStartCenterRecentFile(const QString &);
+		void updateCentralPage  ();
 		void syncSelectionPropertiesEditor();
 		void applyWorkspaceProfile(
 			WorkspaceProfileController::Profile profile,
@@ -255,6 +261,9 @@ class QETDiagramEditor : public QETMainWindow
 		void refreshProjectSaveStatus();
 
 		QMdiArea m_workspace;
+		QStackedWidget *m_central_pages = nullptr;
+		QWidget *m_editor_page = nullptr;
+		StartCenterWidget *m_start_center = nullptr;
 		QSignalMapper windowMapper;
 		QDir open_dialog_dir; /// Directory to use for file dialogs such as File > save
 
@@ -281,6 +290,7 @@ class QETDiagramEditor : public QETMainWindow
 		*m_depth_tool_bar    = nullptr;
 
 		std::unique_ptr<WorkspaceProfileController> m_workspace_profile_controller;
+		std::unique_ptr<StartCenterPageController> m_start_center_page_controller;
 		
 		QUndoGroup undo_group;
 		AutoNumberingDockWidget *m_autonumbering_dock;

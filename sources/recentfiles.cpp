@@ -16,7 +16,6 @@
 	along with QElectroTech.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "recentfiles.h"
-#include "qeticons.h"
 #include <QMenu>
 
 /**
@@ -32,9 +31,6 @@ RecentFiles::RecentFiles(const QString &identifier, int size, QObject *parent) :
 	size_(size > 0 ? size : 10),
 	menu_(nullptr)
 {
-	mapper_ = new QSignalMapper(this);
-	connect(mapper_, SIGNAL(mapped(const QString &)), this, SLOT(handleMenuRequest(const QString &)));
-
 	extractFilesFromSettings();
 	buildMenu();
 }
@@ -57,6 +53,14 @@ RecentFiles::~RecentFiles()
 int RecentFiles::size() const
 {
 	return(size_);
+}
+
+/**
+	@return the recent files, newest first
+*/
+QStringList RecentFiles::files() const
+{
+	return list_;
 }
 
 /**
@@ -91,8 +95,23 @@ void RecentFiles::setIconForFiles(const QIcon &icon) {
 */
 void RecentFiles::clear()
 {
+	if (list_.isEmpty()) return;
 	list_.clear();
+	saveFilesToSettings();
 	buildMenu();
+	emit filesChanged();
+}
+
+/**
+	Forget a single recent file without touching the file on disk.
+*/
+void RecentFiles::forgetFile(const QString &filepath)
+{
+	const QString native_path = QDir::toNativeSeparators(filepath);
+	if (native_path.isEmpty() || !list_.removeAll(native_path)) return;
+	saveFilesToSettings();
+	buildMenu();
+	emit filesChanged();
 }
 
 /**
@@ -115,8 +134,10 @@ void RecentFiles::handleMenuRequest(const QString &filepath) {
 	@param filepath Chemin du fichier ouvert
 */
 void RecentFiles::fileWasOpened(const QString &filepath) {
-	insertFile(filepath);
+	if (!insertFile(filepath)) return;
+	saveFilesToSettings();
 	buildMenu();
+	emit filesChanged();
 }
 
 /**
@@ -141,12 +162,13 @@ void RecentFiles::extractFilesFromSettings()
 /**
 	Insere un fichier dans la liste des fichiers recents
 */
-void RecentFiles::insertFile(const QString &filepath) {
+bool RecentFiles::insertFile(const QString &filepath) {
 	// s'assure que le chemin soit exprime avec des separateurs conformes au systeme
 	QString filepath_ns = QDir::toNativeSeparators(filepath);
 
 	// evite d'inserer un chemin de fichier vide ou en double
-	if (filepath_ns.isEmpty()) return;
+	if (filepath_ns.isEmpty()) return false;
+	const QStringList previous_list = list_;
 	list_.removeAll(filepath_ns);
 
 	// insere le chemin de fichier
@@ -154,6 +176,7 @@ void RecentFiles::insertFile(const QString &filepath) {
 
 	// s'assure que l'on ne retient pas plus de fichiers que necessaire
 	while (list_.count() > size_) list_.removeLast();
+	return list_ != previous_list;
 }
 
 /**
@@ -163,10 +186,11 @@ void RecentFiles::insertFile(const QString &filepath) {
 void RecentFiles::saveFilesToSettings()
 {
 	QSettings settings;
-	for (int i = 0 ; i < size_ && i < list_.count() ; ++ i)
+	for (int i = 0 ; i < size_ ; ++ i)
 	{
 		QString key(identifier_ % "-recentfiles/file" % QString::number(i + 1));
-		settings.setValue(key, list_[i]);
+		if (i < list_.count()) settings.setValue(key, list_[i]);
+		else settings.remove(key);
 	}
 }
 
@@ -179,7 +203,9 @@ void RecentFiles::buildMenu()
 	if (!menu_) {
 		menu_ = new QMenu;
 	} else {
+		const QList<QAction *> previous_actions = menu_->actions();
 		menu_ -> clear();
+		for (QAction *action : previous_actions) action->deleteLater();
 	}
 
 	// remplit le menu
@@ -191,8 +217,8 @@ void RecentFiles::buildMenu()
 		}
 		menu_ -> addAction(action);
 
-		// lie l'action et le mapper
-		mapper_ -> setMapping(action, filepath);
-		connect(action, SIGNAL(triggered()), mapper_, SLOT(map()));
+		connect(action, &QAction::triggered, this, [this, filepath]() {
+			handleMenuRequest(filepath);
+		});
 	}
 }

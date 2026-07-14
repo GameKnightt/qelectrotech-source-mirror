@@ -280,6 +280,24 @@ try {
         Copy-Item -LiteralPath $dataSource -Destination $dataDestination -Recurse
     }
 
+    # Submodules are working trees and therefore contain a .git file (or, in
+    # nested cases, a .git directory). Those implementation details are not
+    # runtime data and must never leak into a distributable archive. Validate
+    # every resolved deletion target before removing version-control metadata.
+    $versionControlNames = @('.git', '.hg', '.svn')
+    $versionControlMetadata = @(Get-ChildItem -LiteralPath $stagingPath -Recurse -Force |
+        Where-Object { $_.Name -in $versionControlNames } |
+        Sort-Object FullName -Descending)
+    foreach ($metadata in $versionControlMetadata) {
+        $metadataPath = Get-FullPath $metadata.FullName
+        if (-not $metadataPath.StartsWith(
+                $stagingPrefix,
+                [System.StringComparison]::OrdinalIgnoreCase)) {
+            throw "Version-control metadata escapes staging: $metadataPath"
+        }
+        Remove-Item -LiteralPath $metadataPath -Recurse:$metadata.PSIsContainer -Force
+    }
+
     $languageSource = Join-Path $sourcePath 'lang'
     $languageDestination = Join-Path $stagingPath 'l10n'
     New-Item -ItemType Directory -Path $languageDestination | Out-Null
@@ -337,7 +355,7 @@ try {
     }
 
     $manifestPath = Join-Path $stagingPath 'manifest-sha256.txt'
-    $manifestLines = @(Get-ChildItem -LiteralPath $stagingPath -Recurse -File |
+    $manifestLines = @(Get-ChildItem -LiteralPath $stagingPath -Recurse -File -Force |
         Where-Object { $_.FullName -ne $manifestPath } |
         Sort-Object FullName |
         ForEach-Object {

@@ -189,11 +189,11 @@ et critères d’acceptation : [backlog-roadmap.md](docs/audit/backlog-roadmap.m
 
 ## Compiler et contribuer
 
-Pour éviter le téléchargement Git LFS de la documentation Qt Creator, qui n’est
-pas nécessaire au build, le clone Windows recommandé est :
+Le clone Windows ne dépend d’aucun objet Git LFS et doit être propre dès le
+premier checkout :
 
 ```bash
-GIT_LFS_SKIP_SMUDGE=1 git clone --recursive \
+git clone --recursive \
   https://github.com/GameKnightt/qelectrotech-source-mirror.git
 cd qelectrotech-source-mirror
 git remote add upstream \
@@ -204,6 +204,10 @@ Le guide [Windows MSYS2/UCRT64](docs/development/windows-msys2-build.md) contien
 les dépendances, les options CMake et les commandes de test. Les contributions
 doivent rester découpées en incréments vérifiables, préserver les formats et
 ajouter une preuve Windows pour tout changement d’interface.
+
+La documentation Qt Creator (`.qch`) est un artefact généré par Doxygen. Elle
+n’est pas versionnée et n’est requise ni pour compiler, ni pour tester, ni pour
+utiliser QElectroTech.
 
 Consultez également [CONTRIBUTING.md](CONTRIBUTING.md).
 

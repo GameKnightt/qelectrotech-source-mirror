@@ -77,17 +77,24 @@ Procédure de référence proposée pour `master` :
 
 1. installer MSYS2 et ouvrir **MSYS2 UCRT64** ;
 2. installer Git, CMake, Ninja, GCC UCRT64, Qt 5, KF5 et SQLite selon le workflow CI ;
-3. cloner avec sous-modules en contournant temporairement le gros objet LFS si le quota amont reste indisponible ;
+3. cloner normalement le fork avec ses sous-modules ;
 4. configurer un répertoire `build` avec Ninja et les préfixes UCRT64 ;
 5. compiler puis exécuter les tests activés par `PACKAGE_TESTS` ;
 6. déployer les DLL Qt/KF et valider un lancement hors environnement de build.
 
-Le build n'a pas été lancé localement : `cmake`, `ninja`, `make`, `qmake` et MSBuild n'étaient pas disponibles, et `C:\msys64` était absent. Installer une chaîne complète aurait modifié substantiellement la machine et dépassé la phase d'audit.
+Depuis l'audit initial, la procédure a été exécutée sous Windows 11 avec MSYS2
+UCRT64 et Qt 5. L'application complète, les tests CTest et la préversion
+portable sont également reconstruits par le workflow Windows du fork.
 
 ### Défauts d'expérience développeur confirmés
 
-- Le quota Git LFS du dépôt amont est épuisé pour `doc/QElectroTech.qch` (~530 Mo), ce qui bloque un clone normal. Le checkout a été terminé avec `GIT_LFS_SKIP_SMUDGE=1`.
-- `ChangeLog.MD` et `ChangeLog.md` entrent en collision sur un système de fichiers Windows insensible à la casse. Le `M ChangeLog.md` visible dans Git n'est pas une modification de l'audit.
+- Le quota Git LFS du dépôt amont était épuisé pour `doc/QElectroTech.qch`
+  (~530 Mo). DEV-01 supprime ce pointeur généré du checkout courant : le fichier
+  `.qch` reste reproductible par Doxygen et n'est requis par aucun build ou
+  parcours utilisateur.
+- `ChangeLog.MD` et `ChangeLog.md` entraient en collision sur un système de
+  fichiers Windows insensible à la casse. DEV-01 conserve leurs blobs exacts
+  sous `docs/history/` et garde `ChangeLog` comme changelog canonique installé.
 - Le workflow Windows transmet `-DBUILD_TESTING=OFF`, alors que le projet pilote ses tests avec `PACKAGE_TESTS`. Le paramètre CI peut donc ne pas produire l'effet attendu.
 - La documentation Windows moderne existe surtout sur une branche Qt 6, pas comme parcours contributeur cohérent sur `master`.
 - Les tests présents couvrent quelques utilitaires et la récupération automatique, mais pas les invariants critiques UUID, variables, aller-retour XML/SQLite et duplication de folios.

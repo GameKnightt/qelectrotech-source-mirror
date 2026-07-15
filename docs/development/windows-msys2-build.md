@@ -65,7 +65,7 @@ Depuis le terminal UCRT64 :
 ```bash
 mkdir -p /c/dev
 cd /c/dev
-GIT_LFS_SKIP_SMUDGE=1 git clone --recursive https://github.com/GameKnightt/qelectrotech-source-mirror.git qelectrotech
+git clone --recursive https://github.com/GameKnightt/qelectrotech-source-mirror.git qelectrotech
 cd qelectrotech
 git remote add upstream https://github.com/qelectrotech/qelectrotech-source-mirror.git
 git submodule update --init --recursive
@@ -73,13 +73,10 @@ git submodule update --init --recursive
 
 Pour un autre fork, remplacer uniquement l'URL de la commande `git clone`.
 
-Le fichier de documentation Qt Creator `doc/QElectroTech.qch` est géré par Git
-LFS mais n'est pas nécessaire à la compilation. Si son téléchargement est
-indisponible, conserver le pointeur LFS et poursuivre :
-
-```bash
-GIT_LFS_SKIP_SMUDGE=1 git checkout -- doc/QElectroTech.qch
-```
+Le fichier de documentation Qt Creator `doc/QElectroTech.qch` est un artefact
+généré par Doxygen. Il est ignoré par Git et n'est nécessaire ni à la
+compilation, ni aux tests, ni à l'exécution de l'application. Aucun réglage Git
+LFS n'est requis pour cloner ce fork.
 
 ## 3. Configurer un build Qt 5
 

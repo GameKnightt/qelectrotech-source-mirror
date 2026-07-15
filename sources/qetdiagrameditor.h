@@ -100,6 +100,7 @@ class QETDiagramEditor : public QETMainWindow
 		void setUpStartCenter   ();
 		void openExportCenter   ();
 		void openStartCenterRecentFile(const QString &);
+		void createProjectFromTemplate(const QString &);
 		void updateCentralPage  ();
 		void syncSelectionPropertiesEditor();
 		void applyWorkspaceProfile(

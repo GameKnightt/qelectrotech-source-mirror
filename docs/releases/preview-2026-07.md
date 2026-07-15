@@ -7,8 +7,9 @@ version officielle grâce à son profil de configuration portable isolé.
 
 ## Points forts
 
-- centre de démarrage orienté tâches et profils d’espace de travail
-  **Essentiel** / **Classique** ;
+- centre de démarrage orienté tâches, quatre exemples métier toujours ouverts
+  comme copies non enregistrées et profils d’espace de travail **Essentiel** /
+  **Classique** ;
 - shell contextuel, navigation rapide entre folios et recherche de collections
   clarifiée ;
 - inspecteur de propriétés contextuel et sélection des conducteurs fiabilisée ;
@@ -24,12 +25,12 @@ version officielle grâce à son profil de configuration portable isolé.
 
 - application complète compilée en Release sous Windows 11, Qt 5 et MSYS2
   UCRT64 ;
-- 36/36 tests CTest réussis en série ;
-- 11/11 contrats clavier sur la plateforme Windows native ;
-- 16/16 contrats Windows natifs à 150 % ;
+- 39/39 tests CTest réussis en série ;
+- 12/12 contrats clavier sur la plateforme Windows native ;
+- 18/18 contrats Windows natifs à 150 % ;
 - commande `qelectrotech.exe --version` vérifiée sans démarrage graphique ;
-- paquet portable vérifié avec ses dépendances, ses ressources et un manifeste
-  SHA-256 ;
+- paquet portable vérifié avec ses dépendances, ses ressources, ses quatre
+  exemples curatés et un manifeste SHA-256 ;
 - parcours réel vérifié : démarrage, ouverture d’un projet, modification,
   sauvegarde et retour au statut **Sauvegardé**.
 

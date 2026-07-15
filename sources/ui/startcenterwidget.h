@@ -10,13 +10,18 @@
 #ifndef START_CENTER_WIDGET_H
 #define START_CENTER_WIDGET_H
 
+#include "startcentertemplatecatalog.h"
+
 #include <QIcon>
 #include <QStringList>
+#include <QVector>
 #include <QWidget>
 
 class QAction;
 class QBoxLayout;
 class QCommandLinkButton;
+class QGridLayout;
+class QGroupBox;
 class QLabel;
 class QPushButton;
 class QTreeWidget;
@@ -37,11 +42,15 @@ class StartCenterWidget : public QWidget
 
 		void focusPrimaryAction();
 		QStringList displayedRecentFiles() const;
+		void setTemplateRoots(const QStringList &roots);
+		QString templatePath(const QString &id) const;
 
 	signals:
 		void recentProjectRequested(const QString &path);
+		void templateProjectRequested(const QString &id);
 
 	protected:
+		bool eventFilter(QObject *watched, QEvent *event) override;
 		void resizeEvent(QResizeEvent *event) override;
 
 	private slots:
@@ -49,6 +58,7 @@ class StartCenterWidget : public QWidget
 		void activateRecentProject(QTreeWidgetItem *item, int column = 0);
 		void forgetSelectedRecentProject();
 		void showRecentProjectContextMenu(const QPoint &position);
+		void activateTemplateProject();
 
 	private:
 		void configureActionButton(
@@ -56,6 +66,7 @@ class StartCenterWidget : public QWidget
 			QAction *action,
 			const QString &accessible_name);
 		QString pathForItem(const QTreeWidgetItem *item) const;
+		void rebuildTemplateProjects();
 		void updateResponsiveLayout();
 		void updateRecentSelectionActions();
 
@@ -69,6 +80,10 @@ class StartCenterWidget : public QWidget
 		QLabel *m_empty_recent_label = nullptr;
 		QPushButton *m_forget_recent_button = nullptr;
 		QBoxLayout *m_sections_layout = nullptr;
+		QGroupBox *m_template_group = nullptr;
+		QGridLayout *m_template_layout = nullptr;
+		QVector<QCommandLinkButton *> m_template_buttons;
+		StartCenterTemplateCatalog m_template_catalog;
 };
 
 #endif

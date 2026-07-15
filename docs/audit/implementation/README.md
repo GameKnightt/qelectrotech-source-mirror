@@ -16,6 +16,7 @@ reste la source de vérité pour les priorités futures.
 - [UI-01 — Espace de travail Essentiel](ui-01-essential-workspace.md)
 - [UI-02 — Centre d’export unifié](ui-02-export-center.md)
 - [UI-03 — Centre de démarrage](ui-03-start-center.md)
+- [UI-03B — Exemples curatés ouverts en copie](ui-03b-curated-examples.md)
 - [UI-04 — Shell contextuel et profil Essentiel](ui-04-modern-shell.md)
 - [PROPS-01 — Inspecteur de propriétés contextuel](props-01-contextual-properties.md)
 - [UX-02 — Navigation rapide entre les folios](ux-02-folio-navigation.md)

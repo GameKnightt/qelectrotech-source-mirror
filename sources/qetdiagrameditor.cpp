@@ -250,6 +250,11 @@ void QETDiagramEditor::setUpStartCenter()
 		&StartCenterWidget::recentProjectRequested,
 		this,
 		&QETDiagramEditor::openStartCenterRecentFile);
+	connect(
+		m_start_center,
+		&StartCenterWidget::templateProjectRequested,
+		this,
+		&QETDiagramEditor::createProjectFromTemplate);
 }
 
 /**
@@ -1361,6 +1366,45 @@ void QETDiagramEditor::openStartCenterRecentFile(const QString &filepath)
 {
 	if (filepath.isEmpty()) return;
 	openAndAddProject(filepath, true, true);
+}
+
+/**
+	Open a curated bundled project as an independent, unsaved copy.  This flow is
+	intentionally separate from openAndAddProject(): bundled examples must never
+	be added to recent files, offered for backup, or saved over their source.
+*/
+void QETDiagramEditor::createProjectFromTemplate(const QString &id)
+{
+	if (!m_start_center || id.isEmpty()) return;
+	const QString filepath = m_start_center->templatePath(id);
+	if (filepath.isEmpty()) {
+		QET::QetMessageBox::warning(
+			this,
+			tr("Exemple indisponible"),
+			tr("Ce projet d'exemple n'est plus disponible. "
+				"Réinstallez les exemples QElectroTech puis réessayez."));
+		return;
+	}
+
+	DialogWaiting::instance(this);
+	auto project = new QETProject(filepath);
+	if (project->state() != QETProject::Ok) {
+		delete project;
+		DialogWaiting::dropInstance();
+		QET::QetMessageBox::warning(
+			this,
+			tr("Impossible d'ouvrir l'exemple"),
+			tr("Le projet d'exemple semble incomplet ou endommagé. "
+				"Aucun projet n'a été créé."));
+		return;
+	}
+
+	project->detachAsUntitledCopy();
+	addProject(project);
+	DialogWaiting::dropInstance();
+	statusBar()->showMessage(
+		tr("Exemple ouvert comme copie non enregistrée."),
+		4000);
 }
 
 /**

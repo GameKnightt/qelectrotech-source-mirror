@@ -122,6 +122,19 @@ Assert-DirectoryContainsFile (Join-Path $sourcePath 'elements') '*.elmt' 'elemen
 Assert-DirectoryContainsFile (Join-Path $sourcePath 'titleblocks') '*.titleblock' 'titleblocks'
 Assert-DirectoryContainsFile (Join-Path $sourcePath 'lang') 'qet_*.qm' 'translations'
 
+$curatedExamples = @(
+    'ArduinoLCD.qet',
+    'grafcet.qet',
+    'Habitat-Unifilaire.qet',
+    'industrial.qet'
+)
+foreach ($exampleName in $curatedExamples) {
+    $examplePath = Join-Path (Join-Path $sourcePath 'examples') $exampleName
+    if (-not (Test-Path -LiteralPath $examplePath -PathType Leaf)) {
+        throw "Missing curated example: $examplePath"
+    }
+}
+
 $outputLeaf = Split-Path -Leaf $outputPath
 $stagingPath = Join-Path $outputParent (
     ".{0}.staging-{1}" -f $outputLeaf, [Guid]::NewGuid().ToString('N'))
@@ -267,6 +280,19 @@ try {
                 continue
             }
 
+            # A clean CMake build fetches and builds the KDE compatibility
+            # libraries locally. Their DLLs live in BuildDir/bin rather than
+            # the MSYS2 prefix, so resolve those build products before falling
+            # back to the shared toolchain. The dependency name has already
+            # been constrained to a leaf filename above.
+            $buildDependency = Join-Path (Join-Path $buildPath 'bin') $dependency
+            if (Test-Path -LiteralPath $buildDependency -PathType Leaf) {
+                Copy-Item -LiteralPath $buildDependency -Destination $destination
+                [void]$copied.Add($dependency)
+                $queue.Enqueue($destination)
+                continue
+            }
+
             $toolchainDependency = Join-Path $ucrtBin $dependency
             if (Test-Path -LiteralPath $toolchainDependency -PathType Leaf) {
                 Copy-Item -LiteralPath $toolchainDependency -Destination $destination
@@ -295,6 +321,14 @@ try {
         $dataSource = Join-Path $sourcePath $entry.Source
         $dataDestination = Join-Path $stagingPath $entry.Destination
         Copy-Item -LiteralPath $dataSource -Destination $dataDestination -Recurse
+    }
+
+    $deployedExamples = Join-Path $stagingPath 'examples'
+    New-Item -ItemType Directory -Path $deployedExamples | Out-Null
+    foreach ($exampleName in $curatedExamples) {
+        Copy-Item -LiteralPath (
+            Join-Path (Join-Path $sourcePath 'examples') $exampleName
+        ) -Destination $deployedExamples
     }
 
     # Submodules are working trees and therefore contain a .git file (or, in
@@ -342,6 +376,12 @@ try {
     Assert-DirectoryContainsFile (Join-Path $stagingPath 'elements') '*.elmt' 'deployed elements'
     Assert-DirectoryContainsFile (Join-Path $stagingPath 'titleblocks') '*.titleblock' 'deployed titleblocks'
     Assert-DirectoryContainsFile (Join-Path $stagingPath 'l10n') 'qet_*.qm' 'deployed translations'
+    foreach ($exampleName in $curatedExamples) {
+        $deployedExample = Join-Path (Join-Path $stagingPath 'examples') $exampleName
+        if (-not (Test-Path -LiteralPath $deployedExample -PathType Leaf)) {
+            throw "Incomplete portable runtime, missing curated example: $exampleName"
+        }
+    }
 
     # Verify startup without inheriting MSYS2 from PATH. --version exits before
     # opening a window and exercises the native loader and the Qt platform setup.

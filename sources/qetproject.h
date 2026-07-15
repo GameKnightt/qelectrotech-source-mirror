@@ -115,6 +115,7 @@ class QETProject : public QObject
 		TitleBlockTemplatesProjectCollection *embeddedTitleBlockTemplatesCollection();
 		QString filePath();
 		void setFilePath(const QString &);
+		void detachAsUntitledCopy();
 		QString currentDir() const;
 		QString pathNameTitle() const;
 		QString title() const;

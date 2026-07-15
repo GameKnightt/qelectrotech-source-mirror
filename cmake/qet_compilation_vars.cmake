@@ -675,6 +675,8 @@ set(QET_SRC_FILES
   ${QET_DIR}/sources/ui/exportcenterdialog.h
   ${QET_DIR}/sources/ui/startcenterpagecontroller.cpp
   ${QET_DIR}/sources/ui/startcenterpagecontroller.h
+  ${QET_DIR}/sources/ui/startcentertemplatecatalog.cpp
+  ${QET_DIR}/sources/ui/startcentertemplatecatalog.h
   ${QET_DIR}/sources/ui/startcenterwidget.cpp
   ${QET_DIR}/sources/ui/startcenterwidget.h
   ${QET_DIR}/sources/ui/folionavigatordialog.cpp

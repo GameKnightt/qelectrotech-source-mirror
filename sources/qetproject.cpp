@@ -404,6 +404,21 @@ void QETProject::setFilePath(const QString &filepath)
 }
 
 /**
+	Turn a project loaded from a read-only source such as a bundled example into
+	an independent, unsaved document.  This must happen before the project is
+	registered in an editor so no recent-file, backup or canonical-save state can
+	remain attached to the source file.
+*/
+void QETProject::detachAsUntitledCopy()
+{
+	setFilePath(QString());
+	setReadOnly(false);
+	m_project_properties.addValue("savedfilename", QString());
+	m_project_properties.addValue("savedfilepath", QString());
+	setModified(true);
+}
+
+/**
 	@return the folder containing the project file if it has been saved;
 	otherwise, this method returns the location of the user's documents.
 	en français:

@@ -532,5 +532,26 @@ jobs:
             downloaded/portable/*.zip
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Move nightly tag to current build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if gh api "repos/$REPO/git/ref/tags/nightly" >/dev/null 2>&1; then
+            gh api --method PATCH "repos/$REPO/git/refs/tags/nightly" \
+              -f sha="$SHA" \
+              -F force=true >/dev/null
+          else
+            gh api --method POST "repos/$REPO/git/refs" \
+              -f ref='refs/tags/nightly' \
+              -f sha="$SHA" >/dev/null
+          fi
+
+          RESOLVED_SHA=$(gh api "repos/$REPO/git/ref/tags/nightly" --jq '.object.sha')
+          test "$RESOLVED_SHA" = "$SHA"
+          echo "nightly now points to $RESOLVED_SHA"
+
       # GitHub Pages is generated and deployed by windows-msi.yml
       # after the MSI upload, so that all 3 URLs (exe, zip, msi) are known.

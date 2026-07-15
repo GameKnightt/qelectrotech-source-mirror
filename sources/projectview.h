@@ -172,6 +172,7 @@ class ProjectView : public QWidget
 		void pruneNavigationHistory();
 		void refreshFolioNavigator(bool preserve_filters);
 		void scheduleFolioNavigatorRefresh();
+		void detachDiagramView(DiagramView *diagram_view);
 		QVector<FolioNavigationEntry> folioNavigationEntries() const;
 		void activateFolio(const QUuid &diagram_id);
 		void setFolioFavorite(const QUuid &diagram_id, bool favorite);

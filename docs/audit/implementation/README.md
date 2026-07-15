@@ -6,6 +6,7 @@ reste la source de vérité pour les priorités futures.
 
 ## Fiabilité et données
 
+- [DATA-01 — Intégrité de la duplication de folios](data-01-folio-duplication-integrity.md)
 - [EXPORT-01 — Intégrité des exports interactifs](export-01-integrity.md)
 - [DATA-03 — Intégrité de la base de données projet](data-03-project-database-integrity.md)
 - [SAVE-02 — État de sauvegarde fiable](save-02-project-save-status.md)

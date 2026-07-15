@@ -769,6 +769,8 @@ set(QET_SRC_FILES
   ${QET_DIR}/sources/undocommand/changetitleblockcommand.h
   ${QET_DIR}/sources/undocommand/deleteqgraphicsitemcommand.cpp
   ${QET_DIR}/sources/undocommand/deleteqgraphicsitemcommand.h
+  ${QET_DIR}/sources/undocommand/duplicatediagramscommand.cpp
+  ${QET_DIR}/sources/undocommand/duplicatediagramscommand.h
   ${QET_DIR}/sources/undocommand/itemmodelcommand.cpp
   ${QET_DIR}/sources/undocommand/itemmodelcommand.h
   ${QET_DIR}/sources/undocommand/linkelementcommand.cpp

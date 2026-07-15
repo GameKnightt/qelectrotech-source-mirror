@@ -66,7 +66,7 @@ référence de câble, aperçu avant application et Undo atomique.*
 
 | Domaine | Changements disponibles |
 |---|---|
-| Fiabilité | Écritures d’export atomiques, base projet SQLite reconstruite dans une transaction, état de sauvegarde fiable, copies de récupération vérifiées, historique Undo conservé après sauvegarde |
+| Fiabilité | Duplication de folios sans collision d’UUID avec Annuler/Rétablir groupé, écritures d’export atomiques, base projet SQLite reconstruite dans une transaction, état de sauvegarde fiable, copies de récupération vérifiées, historique Undo conservé après sauvegarde |
 | Windows et DPI | Dialogues adaptatifs, contrôles clavier et texte à 150 %, build MSYS2/UCRT64 reproductible, préversion portable isolée |
 | Démarrage et interface | Centre de démarrage orienté tâche, quatre exemples métier ouverts en copies non enregistrées, profils **Essentiel** et **Classique**, shell contextuel, actions principales hiérarchisées |
 | Navigation | Navigation rapide entre folios, prise en charge déterministe des grands projets, recherche des collections séparée de leur exploration |
@@ -109,6 +109,9 @@ Windows sont inclus dans le paquet.
 8. Enregistrez avec `Ctrl+S` : le statut ne doit revenir à **Sauvegardé**
    qu’après la fin réelle de l’écriture.
 9. Vérifiez que Undo/Redo reste disponible après la sauvegarde.
+10. Dans l’arbre projet, utilisez **Dupliquer le folio**, puis
+    utilisez Annuler et Rétablir : le folio et son onglet doivent disparaître
+    et réapparaître ensemble, sans composant manquant dans la nomenclature.
 
 Consultez le [guide de la préversion portable](docs/development/windows-portable-preview.md)
 pour le packaging et les contrôles de manifeste.
@@ -130,6 +133,8 @@ Validation de cette préversion :
 
 - compilation de l’application complète sous Windows 11 / Qt 5 / UCRT64 ;
 - **48/48 tests CTest** réussis en série ;
+- stress DATA-01 : 100 duplications de deux folios liés, 200 UUID nouveaux et
+  aucune collision sur les clés SQLite `element` / `element_info` ;
 - **13/13** contrats IND-01C, dont la portée exacte, la multi-sélection et le
   brouillon Câble/Couleur ;
 - **17/17** parcours clavier Windows natifs et **25/25** contrôles natifs à

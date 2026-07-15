@@ -23,6 +23,7 @@
 #include "qeticons.h"
 #include "qetproject.h"
 #include "titleblock/templatedeleter.h"
+#include "undocommand/duplicatediagramscommand.h"
 #include "utils/diagramduplicateuuidremapper.h"
 #include <QFileInfo>
 #include <QMessageBox>
@@ -61,7 +62,9 @@ ElementsPanelWidget::ElementsPanelWidget(QWidget *parent) : QWidget(parent) {
 	prj_edit_prop            = new QAction(QET::Icons::DialogInformation,      tr("Propriétés du projet"),          this);
 	prj_prop_diagram         = new QAction(QET::Icons::DialogInformation,      tr("Propriétés du folio"),       this);
 	prj_add_diagram          = new QAction(QET::Icons::DiagramAdd,              tr("Ajouter un folio"),                this);
-	prj_duplicate_diagram   = new QAction(QET::Icons::IC_CopyFile,              tr("Copier et coller"),               this);
+	prj_duplicate_diagram   = new QAction(QET::Icons::IC_CopyFile,              tr("Dupliquer le folio"),             this);
+	prj_duplicate_diagram->setStatusTip(
+		tr("Crée une copie indépendante du ou des folios sélectionnés"));
 	prj_del_diagram          = new QAction(QET::Icons::DiagramDelete,          tr("Supprimer ce folio"),              this);
 	prj_move_diagram_up      = new QAction(QET::Icons::GoUp,                   tr("Remonter ce folio"),               this);
 	prj_move_diagram_down    = new QAction(QET::Icons::GoDown,                 tr("Abaisser ce folio"),               this);
@@ -435,6 +438,10 @@ void ElementsPanelWidget::updateButtons()
 		QList<Diagram *> selected_diagrams = elements_panel -> selectedDiagrams();
 
 		if (!selected_diagrams.isEmpty()) {
+			prj_duplicate_diagram->setText(
+				selected_diagrams.size() == 1
+					? tr("Dupliquer le folio")
+					: tr("Dupliquer les folios"));
 			QETProject *selected_diagram_project = selected_diagrams.first() -> project();
 			bool is_writable           = !(selected_diagram_project -> isReadOnly());
 			int project_diagrams_count = selected_diagram_project -> diagrams().count();
@@ -653,6 +660,8 @@ void ElementsPanelWidget::duplicateDiagram()
 	}
 
 	QVector<Diagram *> imported_diagrams;
+	QVector<DuplicateDiagramsCommand::DiagramSnapshot> snapshots;
+	snapshots.reserve(source_diagrams.size());
 	bool import_failed = false;
 	for (int index = 0; index < source_diagrams.size(); ++index) {
 		Diagram *source_diagram = source_diagrams.at(index);
@@ -674,6 +683,14 @@ void ElementsPanelWidget::duplicateDiagram()
 			source_diagram->border_and_titleblock.exportBorder();
 		new_diagram->border_and_titleblock.importBorder(bp);
 
+		DuplicateDiagramsCommand::DiagramSnapshot snapshot;
+		snapshot.document =
+			cloned_documents[index].cloneNode(true).toDocument();
+		snapshot.titleBlockTemplateName = template_name;
+		snapshot.titleBlockProperties = tbp;
+		snapshot.borderProperties = bp;
+		snapshot.projectPosition = project->diagrams().indexOf(new_diagram);
+
 		QDomElement diagram_element = cloned_documents[index].documentElement();
 		if (!new_diagram->fromXml(
 				diagram_element, QPointF(0, 0), false, nullptr)) {
@@ -682,6 +699,7 @@ void ElementsPanelWidget::duplicateDiagram()
 			continue;
 		}
 		imported_diagrams.append(new_diagram);
+		snapshots.append(snapshot);
 	}
 
 	if (import_failed) {
@@ -717,6 +735,9 @@ void ElementsPanelWidget::duplicateDiagram()
 			   "n'ont pas pu être actualisés. Les données précédentes ont été conservées.\n\n%1")
 				.arg(update_result.diagnostic()));
 	}
+
+	project->undoStack()->push(new DuplicateDiagramsCommand(
+		project, snapshots, imported_diagrams));
 
 	elements_panel->reload();
 }

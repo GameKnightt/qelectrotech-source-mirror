@@ -19,6 +19,10 @@
 #include "../../sources/utils/diagramduplicateuuidremapper.h"
 
 #include <QDomDocument>
+#include <QSet>
+#include <QSqlDatabase>
+#include <QSqlError>
+#include <QSqlQuery>
 #include <QtTest>
 
 class DiagramDuplicateUuidRemapperTest : public QObject
@@ -31,6 +35,7 @@ private slots:
 	void remapsChainedTablesAcrossFolios();
 	void rejectsAmbiguousSourceUuidsWithoutChangingXml();
 	void assignsAnIdentityToLegacyElements();
+	void oneHundredDuplicationsKeepSqliteIdentitiesUnique();
 };
 
 static QDomDocument documentFromXml(const QString &xml)
@@ -202,6 +207,107 @@ void DiagramDuplicateUuidRemapperTest::assignsAnIdentityToLegacyElements()
 	const QDomElement element =
 		documents[0].elementsByTagName(QStringLiteral("element")).at(0).toElement();
 	QVERIFY(!QUuid(element.attribute(QStringLiteral("uuid"))).isNull());
+}
+
+void DiagramDuplicateUuidRemapperTest::oneHundredDuplicationsKeepSqliteIdentitiesUnique()
+{
+	const QUuid firstUuid(
+		QStringLiteral("{11111111-1111-1111-1111-111111111111}"));
+	const QUuid secondUuid(
+		QStringLiteral("{22222222-2222-2222-2222-222222222222}"));
+	const QString connectionName = QStringLiteral("diagram-duplicate-stress");
+
+	{
+		QSqlDatabase database = QSqlDatabase::addDatabase(
+			QStringLiteral("QSQLITE"), connectionName);
+		database.setDatabaseName(QStringLiteral(":memory:"));
+		QVERIFY2(database.open(), qPrintable(database.lastError().text()));
+
+		QSqlQuery query(database);
+		QVERIFY2(
+			query.exec(QStringLiteral(
+				"CREATE TABLE element(uuid TEXT PRIMARY KEY NOT NULL)")),
+			qPrintable(query.lastError().text()));
+		QVERIFY2(
+			query.exec(QStringLiteral(
+				"CREATE TABLE element_info("
+				"element_uuid TEXT PRIMARY KEY NOT NULL, "
+				"FOREIGN KEY(element_uuid) REFERENCES element(uuid))")),
+			qPrintable(query.lastError().text()));
+
+		query.prepare(QStringLiteral("INSERT INTO element(uuid) VALUES (?)"));
+		for (const QUuid &sourceUuid : {firstUuid, secondUuid}) {
+			query.bindValue(0, sourceUuid.toString());
+			QVERIFY2(query.exec(), qPrintable(query.lastError().text()));
+		}
+
+		QSet<QUuid> generatedUuids;
+		for (int duplication = 0; duplication < 100; ++duplication) {
+			QVector<QDomDocument> documents {
+				documentFromXml(QStringLiteral(
+					"<diagram><elements>"
+					"<element uuid=\"{11111111-1111-1111-1111-111111111111}\">"
+					"<links_uuids><link_uuid uuid=\"{22222222-2222-2222-2222-222222222222}\"/>"
+					"</links_uuids></element>"
+					"</elements><conductors><conductor "
+					"element1=\"{11111111-1111-1111-1111-111111111111}\" "
+					"element2=\"{22222222-2222-2222-2222-222222222222}\"/>"
+					"</conductors></diagram>")),
+				documentFromXml(QStringLiteral(
+					"<diagram><elements>"
+					"<element uuid=\"{22222222-2222-2222-2222-222222222222}\">"
+					"<links_uuids><link_uuid uuid=\"{11111111-1111-1111-1111-111111111111}\"/>"
+					"</links_uuids></element>"
+					"</elements></diagram>"))
+			};
+
+			DiagramDuplicateUuidRemapper::UuidMap uuidMap;
+			QString error;
+			QVERIFY2(
+				DiagramDuplicateUuidRemapper::remapDocuments(
+					documents, &uuidMap, &error),
+				qPrintable(error));
+			QCOMPARE(uuidMap.size(), 2);
+
+			for (const QUuid &sourceUuid : {firstUuid, secondUuid}) {
+				const QUuid generatedUuid = uuidMap.value(sourceUuid);
+				QVERIFY(!generatedUuid.isNull());
+				QVERIFY(generatedUuid != sourceUuid);
+				QVERIFY(!generatedUuids.contains(generatedUuid));
+				generatedUuids.insert(generatedUuid);
+
+				query.prepare(QStringLiteral(
+					"INSERT INTO element(uuid) VALUES (?)"));
+				query.bindValue(0, generatedUuid.toString());
+				QVERIFY2(query.exec(), qPrintable(query.lastError().text()));
+				query.prepare(QStringLiteral(
+					"INSERT INTO element_info(element_uuid) VALUES (?)"));
+				query.bindValue(0, generatedUuid.toString());
+				QVERIFY2(query.exec(), qPrintable(query.lastError().text()));
+			}
+
+			const QDomElement conductor =
+				documents[0].elementsByTagName(
+					QStringLiteral("conductor")).at(0).toElement();
+			QCOMPARE(
+				QUuid(conductor.attribute(QStringLiteral("element1"))),
+				uuidMap.value(firstUuid));
+			QCOMPARE(
+				QUuid(conductor.attribute(QStringLiteral("element2"))),
+				uuidMap.value(secondUuid));
+		}
+
+		QCOMPARE(generatedUuids.size(), 200);
+		QVERIFY(query.exec(QStringLiteral("SELECT COUNT(*) FROM element")));
+		QVERIFY(query.next());
+		QCOMPARE(query.value(0).toInt(), 202);
+		QVERIFY(query.exec(QStringLiteral("SELECT COUNT(*) FROM element_info")));
+		QVERIFY(query.next());
+		QCOMPARE(query.value(0).toInt(), 200);
+
+		database.close();
+	}
+	QSqlDatabase::removeDatabase(connectionName);
 }
 
 QTEST_GUILESS_MAIN(DiagramDuplicateUuidRemapperTest)

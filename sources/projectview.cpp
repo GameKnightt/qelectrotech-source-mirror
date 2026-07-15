@@ -90,6 +90,13 @@ void ProjectView::setProject(QETProject *project)
 			Q_UNUSED(project)
 			this->diagramAdded(diagram);
 		});
+		connect(m_project, &QETProject::diagramRemoved, this,
+			[this](QETProject *project, Diagram *diagram) {
+				Q_UNUSED(project)
+				if (DiagramView *diagramView = findDiagram(diagram)) {
+					detachDiagramView(diagramView);
+				}
+			});
 
 		adjustReadOnlyState();
 		loadDiagrams();
@@ -636,23 +643,38 @@ void ProjectView::removeDiagram(DiagramView *diagram_view, bool silent)
 		}
 	}
 
-	const QUuid removed_diagram_id = diagram_view->diagram()->uuid();
+	Diagram *diagram = diagram_view->diagram();
+	detachDiagramView(diagram_view);
+	m_project->removeDiagram(diagram);
+	m_project -> setModified(true);
+}
 
-	//Remove the diagram view of the tabs widget
-	int index_to_remove = diagramIndex(diagram_view);
-	m_tab->removeTab(index_to_remove);
+/**
+ * Remove only the visual representation of a folio.
+ *
+ * QETProject can remove a folio outside ProjectView (for example while an
+ * undo command rolls back a group duplication). Keeping this operation
+ * separate makes that signal path idempotent and prevents orphan tabs from
+ * retaining a Diagram scheduled for deletion.
+ */
+void ProjectView::detachDiagramView(DiagramView *diagram_view)
+{
+	if (!diagram_view || !m_diagram_indexes.contains(diagram_view)) {
+		return;
+	}
+
+	const QUuid removedDiagramId = diagram_view->diagram()->uuid();
+	const int indexToRemove = diagramIndex(diagram_view);
+	m_tab->removeTab(indexToRemove);
 	m_diagram_view_list.removeAll(diagram_view);
 	rebuildDiagramsMap();
-
-	m_project -> removeDiagram(diagram_view -> diagram());
-	delete diagram_view;
-	m_favorite_folios.remove(removed_diagram_id);
+	m_favorite_folios.remove(removedDiagramId);
 	pruneNavigationHistory();
 	updateNavigationHistoryActions();
-
-	emit(diagramRemoved(diagram_view));
 	updateAllTabsTitle();
-	m_project -> setModified(true);
+
+	emit diagramRemoved(diagram_view);
+	delete diagram_view;
 }
 
 /**

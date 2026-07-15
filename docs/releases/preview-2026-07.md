@@ -29,6 +29,14 @@ version officielle grâce à son profil de configuration portable isolé.
   préservés et une étape Annuler/Rétablir atomique ;
 - dialogues Windows adaptatifs et contrats clavier / grande police à 150 %.
 
+## Livraison Windows
+
+- le workflow MSI ne bloque plus la publication lorsque les secrets SignPath ne
+  sont pas encore configurés ; le paquet de repli porte explicitement le suffixe
+  `-unsigned.msi` et la page de téléchargement signale l'avertissement éditeur ;
+- le workflow MSI utilise exactement le commit du build portable déclencheur,
+  afin d'éviter tout mélange entre sources et binaires.
+
 ## Validation
 
 - application complète compilée en Release sous Windows 11, Qt 5 et MSYS2

@@ -112,6 +112,19 @@ ConductorChangePlan ConductorChangePlan::build(
 	const QList<Conductor *> &roots,
 	const Transform &transform)
 {
+	return build(
+		project,
+		roots,
+		transform,
+		ExpansionScope::ElectricalPotential);
+}
+
+ConductorChangePlan ConductorChangePlan::build(
+	QETProject *project,
+	const QList<Conductor *> &roots,
+	const Transform &transform,
+	ExpansionScope expansionScope)
+{
 	TargetTransform targeted_transform;
 	if (transform) {
 		targeted_transform = [transform](
@@ -119,7 +132,7 @@ ConductorChangePlan ConductorChangePlan::build(
 			return transform(before);
 		};
 	}
-	return build(project, roots, targeted_transform);
+	return build(project, roots, targeted_transform, expansionScope);
 }
 
 ConductorChangePlan ConductorChangePlan::build(
@@ -127,7 +140,21 @@ ConductorChangePlan ConductorChangePlan::build(
 	const QList<Conductor *> &roots,
 	const TargetTransform &transform)
 {
+	return build(
+		project,
+		roots,
+		transform,
+		ExpansionScope::ElectricalPotential);
+}
+
+ConductorChangePlan ConductorChangePlan::build(
+	QETProject *project,
+	const QList<Conductor *> &roots,
+	const TargetTransform &transform,
+	ExpansionScope expansionScope)
+{
 	ConductorChangePlan plan;
+	plan.m_expansion_scope = expansionScope;
 	plan.m_project = project;
 	if (!project) {
 		plan.m_build_result.code = Code::ProjectUnavailable;
@@ -172,6 +199,41 @@ ConductorChangePlan ConductorChangePlan::build(
 		}
 	}
 
+	auto append_entry = [&plan, &transform, &requested_set](
+		Conductor *member,
+		int group_index) {
+		const ConductorProperties before = member->properties();
+		const ConductorProperties requested_after = transform(member, before);
+		const ConductorProperties after =
+			member->resolvedProperties(requested_after);
+		plan.m_entries.append({
+			member,
+			member->diagram(),
+			before,
+			requested_after,
+			after,
+			folioLabel(member->diagram()),
+			conductorLabel(member, before),
+			group_index,
+			requested_set.contains(member)});
+	};
+
+	if (expansionScope == ExpansionScope::ExactConductors)
+	{
+		QVector<Conductor *> members;
+		members.reserve(requested_set.size());
+		for (Conductor *member : requested_set) members.append(member);
+		std::sort(members.begin(), members.end(), pointerLess);
+
+		for (Conductor *member : members) {
+			append_entry(member, plan.m_entries.size());
+		}
+		plan.m_build_result.code = plan.changedConductorCount() == 0
+			? Code::NoChanges
+			: Code::Ok;
+		return plan;
+	}
+
 	QSet<Conductor *> visited;
 	for (Conductor *root : roots)
 	{
@@ -204,24 +266,7 @@ ConductorChangePlan ConductorChangePlan::build(
 		for (Conductor *member : members) potential.members.append(member);
 		const QVector<Conductor *> unique_members =
 			takeUnvisitedConductorScopeMembers(members, visited);
-		for (Conductor *member : unique_members)
-		{
-
-			const ConductorProperties before = member->properties();
-			const ConductorProperties requested_after = transform(member, before);
-			const ConductorProperties after =
-				member->resolvedProperties(requested_after);
-			plan.m_entries.append({
-				member,
-				member->diagram(),
-				before,
-				requested_after,
-				after,
-				folioLabel(member->diagram()),
-				conductorLabel(member, before),
-				group_index,
-				requested_set.contains(member)});
-		}
+		for (Conductor *member : unique_members) append_entry(member, group_index);
 		plan.m_potentials.append(potential);
 	}
 
@@ -238,7 +283,8 @@ ConductorChangePlan::Result ConductorChangePlan::buildResult() const
 
 ConductorChangePlan::Result ConductorChangePlan::revalidate() const
 {
-	if (!m_build_result.canApply()) return m_build_result;
+	if (!m_build_result.canApply() && !m_build_result.isNoOp())
+		return m_build_result;
 	if (!m_project || m_project->uuid() != m_project_uuid) {
 		return {Code::ProjectUnavailable, -1, -1};
 	}
@@ -269,21 +315,24 @@ ConductorChangePlan::Result ConductorChangePlan::revalidate() const
 		}
 	}
 
-	for (int group_index = 0; group_index < m_potentials.size(); ++group_index)
+	if (m_expansion_scope == ExpansionScope::ElectricalPotential)
 	{
-		const PotentialSnapshot &snapshot = m_potentials.at(group_index);
-		if (!snapshot.representative) {
-			return {Code::ConductorUnavailable, group_index, -1};
-		}
+		for (int group_index = 0; group_index < m_potentials.size(); ++group_index)
+		{
+			const PotentialSnapshot &snapshot = m_potentials.at(group_index);
+			if (!snapshot.representative) {
+				return {Code::ConductorUnavailable, group_index, -1};
+			}
 
-		const QSet<Conductor *> current = potentialMembers(snapshot.representative.data());
-		QSet<Conductor *> expected;
-		for (const QPointer<Conductor> &member : snapshot.members) {
-			if (!member) return {Code::ConductorUnavailable, group_index, -1};
-			expected.insert(member.data());
-		}
-		if (current != expected) {
-			return {Code::PotentialChanged, group_index, -1};
+			const QSet<Conductor *> current = potentialMembers(snapshot.representative.data());
+			QSet<Conductor *> expected;
+			for (const QPointer<Conductor> &member : snapshot.members) {
+				if (!member) return {Code::ConductorUnavailable, group_index, -1};
+				expected.insert(member.data());
+			}
+			if (current != expected) {
+				return {Code::PotentialChanged, group_index, -1};
+			}
 		}
 	}
 
@@ -367,6 +416,11 @@ int ConductorChangePlan::potentialCount() const
 	return groups.size();
 }
 
+ConductorChangePlan::ExpansionScope ConductorChangePlan::expansionScope() const
+{
+	return m_expansion_scope;
+}
+
 const QVector<ConductorChangePlan::PreviewEntry> &
 ConductorChangePlan::previewEntries() const
 {
@@ -380,7 +434,18 @@ ConductorChangePreviewData ConductorChangePlan::previewData() const
 	data.consideredCount = m_entries.size();
 	data.affectedCount = changedConductorCount();
 	data.unchangedCount = data.consideredCount - data.affectedCount;
-	data.potentialCount = potentialCount();
+	QSet<int> considered_groups;
+	for (const PreviewEntry &entry : m_entries) {
+		considered_groups.insert(entry.groupIndex);
+	}
+	data.groupCount = considered_groups.size();
+	data.scope = m_expansion_scope == ExpansionScope::ExactConductors
+		? ConductorChangePreviewData::Scope::ExactConductors
+		: ConductorChangePreviewData::Scope::ElectricalPotential;
+	data.potentialCount = data.scope
+			== ConductorChangePreviewData::Scope::ElectricalPotential
+		? data.groupCount
+		: 0;
 
 	QSet<Diagram *> folios;
 	for (const PreviewEntry &entry : m_entries)

@@ -20,6 +20,8 @@ version officielle grâce à son profil de configuration portable isolé.
   agrégation des conducteurs et navigation vers le folio ;
 - catalogue hiérarchique des câbles couvrant tous les folios, diagnostics
   prudents, navigation vers le conducteur et export CSV UTF-8 ;
+- édition exacte d’un ou plusieurs câbles/conducteurs depuis le catalogue,
+  limitée aux champs Couleur et Câble, avec aperçu et Undo atomique ;
 - sauvegarde et récupération renforcées, statut **Modifié/Sauvegardé** fidèle à
   l’écriture réelle et historique Undo conservé ;
 - reconstruction transactionnelle de la base SQLite du projet ;
@@ -29,10 +31,12 @@ version officielle grâce à son profil de configuration portable isolé.
 
 - application complète compilée en Release sous Windows 11, Qt 5 et MSYS2
   UCRT64 ;
-- 47/47 tests CTest réussis en série ;
+- 48/48 tests CTest réussis en série ;
+- 13/13 contrats IND-01C réussis, plus le scénario exact sous Windows natif à
+  100 % et 150 % ;
 - 12/12 contrats grande police à 150 % hors écran ;
-- 16/16 contrats clavier sur la plateforme Windows native ;
-- 24/24 contrats Windows natifs à 150 % ;
+- 17/17 contrats clavier sur la plateforme Windows native ;
+- 25/25 contrats Windows natifs à 150 % ;
 - commande `qelectrotech.exe --version` vérifiée sans démarrage graphique ;
 - paquet portable vérifié avec ses dépendances, ses ressources, ses quatre
   exemples curatés et un manifeste SHA-256 ; le ZIP est réextrait avec
@@ -66,8 +70,9 @@ hydraulique et process.
 
 Les vues Bornes et Câbles sont fonctionnelles sans changement de format. Le
 catalogue s’appuie sur les champs historiques libres et ne constitue pas une
-certification métier des plans de câblage. L’édition groupée avec aperçu et
-Undo est prévue dans IND-01C.
+certification métier des plans de câblage. IND-01C permet maintenant leur
+correction exacte avec aperçu et Undo ; réserves, destinations structurées et
+objet `Cable` persistant restent hors de cette préversion.
 
 Les détails et preuves sont disponibles dans le
 [README du fork](../../README.md), l’[audit](../audit/qet-audit.md) et l’[index

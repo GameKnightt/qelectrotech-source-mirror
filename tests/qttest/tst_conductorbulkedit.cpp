@@ -60,6 +60,7 @@ ConductorBulkEditModel::Row row(
 	draft_row.tensionProtocol = commonCell(QStringLiteral("24 VDC"));
 	draft_row.wireColor = commonCell(QStringLiteral("BU"));
 	draft_row.wireSection = commonCell(section);
+	draft_row.cable = commonCell(QStringLiteral("C1"));
 	return draft_row;
 }
 
@@ -151,6 +152,8 @@ class ConductorBulkEditTest : public QObject
 		void columnLayoutPersistsByStableKeys();
 		void corruptedColumnLayoutFallsBackToDefault();
 		void mandatoryAndLastEditableColumnsRemainVisible();
+		void exactModeOnlyEditsCableAndColor();
+		void exactDialogShowsContextColumns();
 		void reorderedPasteFollowsVisibleColumns();
 		void hiddenDraftChangesAreAnnounced();
 		void reviewCsvFollowsVisibleVisualOrder();
@@ -953,11 +956,15 @@ void ConductorBulkEditTest::corruptedColumnLayoutFallsBackToDefault()
 
 	ConductorBulkEditDialog dialog(rows(1));
 	auto header = dialog.draftTable()->horizontalHeader();
+	const auto descriptors = ConductorBulkEditModel::columnDescriptors();
 	for (int logical = 0;
 		 logical < ConductorBulkEditModel::ColumnCount;
 		 ++logical) {
 		QCOMPARE(header->logicalIndex(logical), logical);
-		QVERIFY(!dialog.draftTable()->isColumnHidden(logical));
+		const auto &descriptor = descriptors.at(logical);
+		QCOMPARE(
+			dialog.draftTable()->isColumnHidden(logical),
+			!(descriptor.mandatory || descriptor.defaultVisible));
 	}
 }
 
@@ -985,6 +992,73 @@ void ConductorBulkEditTest::mandatoryAndLastEditableColumnsRemainVisible()
 		ConductorBulkEditModel::WireSectionColumn));
 	QVERIFY(statusLabel(dialog)->text().contains(
 		QStringLiteral("au moins une colonne")));
+}
+
+void ConductorBulkEditTest::exactModeOnlyEditsCableAndColor()
+{
+	auto draft_row = row(0, {101});
+	ConductorBulkEditModel model(
+		{draft_row},
+		ConductorBulkEditModel::Mode::ExactConductors);
+	QCOMPARE(
+		model.mode(),
+		ConductorBulkEditModel::Mode::ExactConductors);
+	QVERIFY(!(model.flags(model.index(
+		0, ConductorBulkEditModel::FunctionColumn)) & Qt::ItemIsEditable));
+	QVERIFY(model.flags(model.index(
+		0, ConductorBulkEditModel::WireColorColumn)) & Qt::ItemIsEditable);
+	QVERIFY(model.flags(model.index(
+		0, ConductorBulkEditModel::CableColumn)) & Qt::ItemIsEditable);
+	QVERIFY(!model.setData(
+		model.index(0, ConductorBulkEditModel::FunctionColumn),
+		QStringLiteral("Ne doit pas changer")));
+	QVERIFY(model.setData(
+		model.index(0, ConductorBulkEditModel::WireColorColumn),
+		QStringLiteral("GY")));
+	QVERIFY(model.setData(
+		model.index(0, ConductorBulkEditModel::CableColumn),
+		QStringLiteral("C20")));
+
+	ConductorProperties before;
+	before.m_function = QStringLiteral("Commande");
+	before.m_tension_protocol = QStringLiteral("24 VDC");
+	before.m_wire_color = QStringLiteral("BU");
+	before.m_wire_section = QStringLiteral("1,5");
+	before.m_cable = QStringLiteral("C1");
+	const ConductorProperties after = model.propertiesForTarget(101, before);
+	QCOMPARE(after.m_function, before.m_function);
+	QCOMPARE(after.m_tension_protocol, before.m_tension_protocol);
+	QCOMPARE(after.m_wire_section, before.m_wire_section);
+	QCOMPARE(after.m_wire_color, QStringLiteral("GY"));
+	QCOMPARE(after.m_cable, QStringLiteral("C20"));
+}
+
+void ConductorBulkEditTest::exactDialogShowsContextColumns()
+{
+	ConductorBulkEditDialog dialog(
+		rows(2),
+		ConductorBulkEditModel::Mode::ExactConductors);
+	QVERIFY(dialog.windowTitle().contains(QStringLiteral("sélectionnés")));
+	QVERIFY(!dialog.draftTable()->isColumnHidden(
+		ConductorBulkEditModel::WireColorColumn));
+	QVERIFY(!dialog.draftTable()->isColumnHidden(
+		ConductorBulkEditModel::CableColumn));
+	for (int column : {
+		 ConductorBulkEditModel::FunctionColumn,
+		 ConductorBulkEditModel::TensionProtocolColumn,
+		 ConductorBulkEditModel::WireSectionColumn}) {
+		QVERIFY(dialog.draftTable()->isColumnHidden(column));
+		QVERIFY(!dialog.columnAction(column)->isEnabled());
+	}
+	QVERIFY(dialog.columnAction(
+		ConductorBulkEditModel::CableColumn)->isEnabled());
+	QVERIFY(dialog.draftModel()->setData(
+		dialog.draftModel()->index(
+			0, ConductorBulkEditModel::CableColumn),
+		QStringLiteral("C20")));
+	QVERIFY(statusLabel(dialog)->text().contains(
+		QStringLiteral("conducteur")));
+	QVERIFY(dialog.verifyButton()->isEnabled());
 }
 
 void ConductorBulkEditTest::reorderedPasteFollowsVisibleColumns()

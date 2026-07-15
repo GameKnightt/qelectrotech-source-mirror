@@ -36,6 +36,7 @@ reste la source de vérité pour les priorités futures.
 
 - [IND-01A — Vue consolidée Borniers et câbles](ind-01a-terminal-cable-overview.md)
 - [IND-01B — Catalogue et diagnostics des câbles](ind-01b-cable-catalog.md)
+- [IND-01C — Édition exacte des conducteurs d’un câble](ind-01c-exact-conductor-edit.md)
 
 ## Références
 

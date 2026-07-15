@@ -36,9 +36,12 @@ class CableCatalogWidget final : public QWidget
 		CableCatalogFilterProxyModel *proxyModel() const;
 		QTreeView *treeView() const;
 		CableNavigationTarget selectedTarget() const;
+		QVector<CableNavigationTarget> selectedTargets() const;
 
 	signals:
 		void showConductorRequested(const CableNavigationTarget &target);
+		void editConductorsRequested(
+				const QVector<CableNavigationTarget> &targets);
 		void reloadRequested();
 
 	protected:
@@ -50,6 +53,7 @@ class CableCatalogWidget final : public QWidget
 		void updateSummary();
 		void updateActionState();
 		void activateCurrentRow();
+		void requestEditSelectedConductors();
 		void handleDoubleClick(const QModelIndex &index);
 		void selectFirstVisibleRow();
 		void restoreSelection(const QString &stable_key);
@@ -70,8 +74,10 @@ class CableCatalogWidget final : public QWidget
 		QLabel *m_message_detail = nullptr;
 		QPushButton *m_clear_filters = nullptr;
 		QPushButton *m_export = nullptr;
+		QPushButton *m_edit_conductors = nullptr;
 		QPushButton *m_show_in_folio = nullptr;
 		QTimer *m_search_timer = nullptr;
+		bool m_read_only = false;
 		bool m_project_available = true;
 		bool m_load_failed = false;
 };

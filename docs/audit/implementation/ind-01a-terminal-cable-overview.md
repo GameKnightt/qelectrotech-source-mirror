@@ -80,7 +80,8 @@ valide ni la composition d’un câble, ni l’unicité des âmes, ni la continu
 la conformité d’un plan de câblage. Le dépôt ne possède pas encore de modèle
 métier `Cable` autonome.
 
-IND-01B devra définir les identités, règles de validation et regroupements de
-câbles sans casser les anciens projets. IND-01C pourra ensuite ajouter édition
-groupée, aperçu de génération et export déterministe. Ces sous-lots exigent des
-projets anonymisés représentatifs avant toute promesse de qualification métier.
+IND-01B définit maintenant les identités de session, règles prudentes de
+validation et regroupements de câbles sans casser les anciens projets. IND-01C
+ajoute l’édition exacte avec aperçu et Undo atomique. Les réserves,
+destinations structurées et futures règles métier exigent encore des projets
+anonymisés représentatifs avant toute promesse de qualification.

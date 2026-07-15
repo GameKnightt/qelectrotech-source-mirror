@@ -16,12 +16,14 @@
 #include <QFrame>
 #include <QGridLayout>
 #include <QHeaderView>
+#include <QHBoxLayout>
 #include <QItemSelectionModel>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QSet>
 #include <QStackedWidget>
 #include <QTextStream>
 #include <QTimer>
@@ -32,6 +34,19 @@ namespace {
 
 constexpr int TREE_PAGE = 0;
 constexpr int MESSAGE_PAGE = 1;
+
+QString navigationTargetKey(const CableNavigationTarget &target)
+{
+	if (target.token != 0)
+		return QStringLiteral("token:%1").arg(target.token);
+	return QStringLiteral("uuid:%1:%2:%3:%4:%5:%6")
+			.arg(target.project_uuid.toString(QUuid::WithoutBraces),
+				 target.diagram_uuid.toString(QUuid::WithoutBraces),
+				 target.element_1_uuid.toString(QUuid::WithoutBraces),
+				 target.element_2_uuid.toString(QUuid::WithoutBraces),
+				 target.terminal_1_uuid.toString(QUuid::WithoutBraces),
+				 target.terminal_2_uuid.toString(QUuid::WithoutBraces));
+}
 
 }
 
@@ -154,7 +169,7 @@ CableCatalogWidget::CableCatalogWidget(QWidget *parent) :
 	m_tree->setModel(m_proxy);
 	m_tree->setEditTriggers(QAbstractItemView::NoEditTriggers);
 	m_tree->setSelectionBehavior(QAbstractItemView::SelectRows);
-	m_tree->setSelectionMode(QAbstractItemView::SingleSelection);
+	m_tree->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	m_tree->setAlternatingRowColors(true);
 	m_tree->setSortingEnabled(true);
 	m_tree->sortByColumn(CableCatalogModel::Cable, Qt::AscendingOrder);
@@ -212,12 +227,23 @@ CableCatalogWidget::CableCatalogWidget(QWidget *parent) :
 	m_export->setAccessibleName(tr("Exporter le catalogue des câbles en CSV"));
 	actions_layout->addWidget(m_export, 0, 1);
 	actions_layout->setColumnStretch(2, 1);
+	m_edit_conductors = new QPushButton(tr("Modifier les conducteurs…"), this);
+	m_edit_conductors->setObjectName(
+			QStringLiteral("cableCatalogEditConductors"));
+	m_edit_conductors->setAccessibleName(
+			tr("Modifier les conducteurs sélectionnés"));
 	m_show_in_folio = new QPushButton(tr("Afficher dans le folio"), this);
 	m_show_in_folio->setObjectName(QStringLiteral("cableCatalogShowInFolio"));
 	m_show_in_folio->setAccessibleName(
 			tr("Afficher le câble ou le conducteur sélectionné dans son folio"));
 	m_show_in_folio->setDefault(true);
-	actions_layout->addWidget(m_show_in_folio, 1, 0, 1, 3, Qt::AlignRight);
+	auto *selection_actions = new QHBoxLayout;
+	selection_actions->setContentsMargins(0, 0, 0, 0);
+	selection_actions->setSpacing(8);
+	selection_actions->addStretch();
+	selection_actions->addWidget(m_edit_conductors);
+	selection_actions->addWidget(m_show_in_folio);
+	actions_layout->addLayout(selection_actions, 1, 0, 1, 3);
 	root_layout->addLayout(actions_layout);
 
 	m_search_timer->setSingleShot(true);
@@ -236,6 +262,8 @@ CableCatalogWidget::CableCatalogWidget(QWidget *parent) :
 			this, &CableCatalogWidget::clearFilters);
 	connect(m_export, &QPushButton::clicked,
 			this, &CableCatalogWidget::exportCsv);
+	connect(m_edit_conductors, &QPushButton::clicked,
+			this, &CableCatalogWidget::requestEditSelectedConductors);
 	connect(m_show_in_folio, &QPushButton::clicked,
 			this, &CableCatalogWidget::activateCurrentRow);
 	connect(m_tree, &QTreeView::doubleClicked,
@@ -259,12 +287,19 @@ CableCatalogWidget::CableCatalogWidget(QWidget *parent) :
 	addAction(reload_action);
 	connect(reload_action, &QAction::triggered,
 			this, &CableCatalogWidget::reloadRequested);
+	auto *edit_action = new QAction(this);
+	edit_action->setShortcut(QKeySequence(Qt::ALT | Qt::Key_M));
+	edit_action->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+	addAction(edit_action);
+	connect(edit_action, &QAction::triggered,
+			this, &CableCatalogWidget::requestEditSelectedConductors);
 
 	setTabOrder(m_search, m_health_filter);
 	setTabOrder(m_health_filter, m_diagnostic_filter);
 	setTabOrder(m_diagnostic_filter, m_include_unassigned);
 	setTabOrder(m_include_unassigned, m_tree);
-	setTabOrder(m_tree, m_show_in_folio);
+	setTabOrder(m_tree, m_edit_conductors);
+	setTabOrder(m_edit_conductors, m_show_in_folio);
 	updateState();
 }
 
@@ -278,7 +313,9 @@ void CableCatalogWidget::setSnapshot(const CableCatalogSnapshot &snapshot)
 
 void CableCatalogWidget::setReadOnly(bool read_only)
 {
+	m_read_only = read_only;
 	m_read_only_banner->setVisible(read_only);
+	updateActionState();
 }
 
 void CableCatalogWidget::setProjectAvailable(bool available)
@@ -315,6 +352,29 @@ CableNavigationTarget CableCatalogWidget::selectedTarget() const
 			? current.data(CableCatalogModel::NavigationTargetRole)
 					.value<CableNavigationTarget>()
 			: CableNavigationTarget();
+}
+
+QVector<CableNavigationTarget> CableCatalogWidget::selectedTargets() const
+{
+	QVector<CableNavigationTarget> targets;
+	if (!m_tree->selectionModel()) return targets;
+
+	QSet<QString> seen;
+	const QModelIndexList selected_rows =
+			m_tree->selectionModel()->selectedRows(0);
+	for (const QModelIndex &proxy_index : selected_rows)
+	{
+		const QModelIndex source_index = m_proxy->mapToSource(proxy_index);
+		for (const CableNavigationTarget &target :
+			 m_model->navigationTargetsForIndex(source_index))
+		{
+			const QString key = navigationTargetKey(target);
+			if (seen.contains(key)) continue;
+			seen.insert(key);
+			targets.append(target);
+		}
+	}
+	return targets;
 }
 
 bool CableCatalogWidget::eventFilter(QObject *watched, QEvent *event)
@@ -453,6 +513,25 @@ void CableCatalogWidget::updateActionState()
 	m_clear_filters->setEnabled(filters_active);
 	m_export->setEnabled(m_project_available && !m_load_failed
 			&& m_model->snapshot().conductor_count > 0);
+	const int selected_target_count = selectedTargets().size();
+	const bool can_edit = m_project_available && !m_load_failed
+			&& !m_read_only && selected_target_count > 0;
+	m_edit_conductors->setEnabled(can_edit);
+	QString edit_description;
+	if (!m_project_available)
+		edit_description = tr("Le projet n’est plus disponible.");
+	else if (m_load_failed)
+		edit_description = tr("Le catalogue des câbles n’est pas disponible.");
+	else if (m_read_only)
+		edit_description = tr("Le projet est en lecture seule.");
+	else if (selected_target_count == 0)
+		edit_description = tr(
+				"Sélectionnez un ou plusieurs câbles ou conducteurs à modifier.");
+	else
+		edit_description = tr("Modifier %n conducteur(s) sélectionné(s).",
+				nullptr, selected_target_count);
+	m_edit_conductors->setToolTip(edit_description);
+	m_edit_conductors->setAccessibleDescription(edit_description);
 }
 
 void CableCatalogWidget::activateCurrentRow()
@@ -460,6 +539,13 @@ void CableCatalogWidget::activateCurrentRow()
 	if (!m_show_in_folio->isEnabled()) return;
 	const CableNavigationTarget target = selectedTarget();
 	if (target.isValid()) emit showConductorRequested(target);
+}
+
+void CableCatalogWidget::requestEditSelectedConductors()
+{
+	if (!m_edit_conductors->isEnabled()) return;
+	const QVector<CableNavigationTarget> targets = selectedTargets();
+	if (!targets.isEmpty()) emit editConductorsRequested(targets);
 }
 
 void CableCatalogWidget::handleDoubleClick(const QModelIndex &index)
@@ -487,6 +573,12 @@ void CableCatalogWidget::selectFirstVisibleRow()
 
 void CableCatalogWidget::restoreSelection(const QString &stable_key)
 {
+	auto select_index = [this](const QModelIndex &index) {
+		m_tree->setCurrentIndex(index);
+		m_tree->selectionModel()->select(
+				index,
+				QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+	};
 	if (!stable_key.isEmpty())
 	{
 		for (int row = 0; row < m_proxy->rowCount(); ++row)
@@ -495,7 +587,7 @@ void CableCatalogWidget::restoreSelection(const QString &stable_key)
 			if (parent_index.data(CableCatalogModel::StableKeyRole).toString()
 					== stable_key)
 			{
-				m_tree->setCurrentIndex(parent_index);
+				select_index(parent_index);
 				return;
 			}
 			for (int child = 0; child < m_proxy->rowCount(parent_index); ++child)
@@ -505,14 +597,14 @@ void CableCatalogWidget::restoreSelection(const QString &stable_key)
 						== stable_key)
 				{
 					m_tree->expand(parent_index);
-					m_tree->setCurrentIndex(child_index);
+					select_index(child_index);
 					return;
 				}
 			}
 		}
 	}
 	if (m_proxy->rowCount() > 0)
-		m_tree->setCurrentIndex(m_proxy->index(0, 0));
+		select_index(m_proxy->index(0, 0));
 }
 
 QString CableCatalogWidget::selectedStableKey() const

@@ -304,7 +304,7 @@ set_tests_properties(
   conductor_change_preview_test
   conductor_change_preview_keyboard_test
   conductor_change_preview_large_text_150_test
-  PROPERTIES LABELS "conductor-properties;ux-05a;accessibility;deterministic-scale")
+  PROPERTIES LABELS "conductor-properties;ux-05a;ind-01c;accessibility;deterministic-scale")
 
 add_executable(
   conductor_bulk_edit_test
@@ -332,6 +332,11 @@ add_test(
   NAME conductor_bulk_edit_large_text_150_test
   COMMAND conductor_bulk_edit_test fitsScreenAt150Percent)
 add_test(
+  NAME conductor_bulk_edit_exact_selection_test
+  COMMAND conductor_bulk_edit_test
+    exactModeOnlyEditsCableAndColor
+    exactDialogShowsContextColumns)
+add_test(
   NAME conductor_bulk_edit_csv_test
   COMMAND conductor_bulk_edit_test
     reviewCsvFollowsVisibleVisualOrder
@@ -345,8 +350,9 @@ set_tests_properties(
   conductor_bulk_edit_keyboard_test
   conductor_bulk_edit_active_editor_test
   conductor_bulk_edit_large_text_150_test
+  conductor_bulk_edit_exact_selection_test
   conductor_bulk_edit_csv_test
-  PROPERTIES LABELS "conductor-properties;ux-05b;ux-05c;ux-05d;ux-05e;fill-down;column-layout;csv;excel;atomic;accessibility;clipboard;deterministic-scale")
+  PROPERTIES LABELS "conductor-properties;ux-05b;ux-05c;ux-05d;ux-05e;ind-01c;fill-down;column-layout;csv;excel;atomic;accessibility;clipboard;deterministic-scale")
 
 add_executable(
   ordered_index_cache_test
@@ -424,7 +430,10 @@ add_test(
   COMMAND cable_catalog_test)
 add_test(
   NAME cable_catalog_keyboard_test
-  COMMAND cable_catalog_test widgetNavigationAndKeyboardContract)
+  COMMAND cable_catalog_test
+    widgetNavigationAndKeyboardContract
+    multiSelectionParentAndChildIsDeduplicated
+    editActionHonorsReadOnlyAndAvailability)
 add_test(
   NAME cable_catalog_large_volume_test
   COMMAND cable_catalog_test largeFixtureStaysDeterministic)
@@ -436,7 +445,7 @@ set_tests_properties(
   cable_catalog_keyboard_test
   cable_catalog_large_volume_test
   cable_catalog_large_text_150_test
-  PROPERTIES LABELS "cable-catalog;ind-01b;read-only;diagnostics;search;navigation;accessibility;deterministic-scale")
+  PROPERTIES LABELS "cable-catalog;ind-01b;ind-01c;read-only;diagnostics;search;navigation;accessibility;deterministic-scale")
 
 target_link_libraries(
   ${PROJECT_NAME}

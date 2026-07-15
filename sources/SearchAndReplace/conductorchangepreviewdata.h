@@ -27,13 +27,20 @@ struct ConductorChangePreviewRow
 
 struct ConductorChangePreviewData
 {
+	enum class Scope {
+		ElectricalPotential,
+		ExactConductors
+	};
+
 	int requestedCount = 0;
 	int consideredCount = 0;
 	int affectedCount = 0;
 	int unchangedCount = 0;
 	int potentialCount = 0;
+	int groupCount = 0;
 	int folioCount = 0;
 	QVector<ConductorChangePreviewRow> rows;
+	Scope scope = Scope::ElectricalPotential;
 
 	bool hasChanges() const { return affectedCount > 0; }
 };

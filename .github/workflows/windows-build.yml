@@ -549,9 +549,19 @@ jobs:
               -f sha="$SHA" >/dev/null
           fi
 
-          RESOLVED_SHA=$(gh api "repos/$REPO/git/ref/tags/nightly" --jq '.object.sha')
-          test "$RESOLVED_SHA" = "$SHA"
-          echo "nightly now points to $RESOLVED_SHA"
+          for ATTEMPT in {1..10}; do
+            RESOLVED_SHA=$(gh api "repos/$REPO/git/ref/tags/nightly" --jq '.object.sha')
+            if [ "$RESOLVED_SHA" = "$SHA" ]; then
+              echo "nightly now points to $RESOLVED_SHA"
+              break
+            fi
+            if [ "$ATTEMPT" -eq 10 ]; then
+              echo "nightly still points to $RESOLVED_SHA instead of $SHA" >&2
+              exit 1
+            fi
+            echo "Waiting for nightly tag propagation ($ATTEMPT/10)..."
+            sleep 2
+          done
 
       # GitHub Pages is generated and deployed by windows-msi.yml
       # after the MSI upload, so that all 3 URLs (exe, zip, msi) are known.

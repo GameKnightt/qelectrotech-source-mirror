@@ -19,8 +19,11 @@
 #define TERMINALSTRIPEDITORWINDOW_H
 
 #include <QMainWindow>
+#include <QHash>
 #include <QMutex>
 #include <QPointer>
+
+#include "../../cablecatalog/cablecatalogtypes.h"
 
 class QETProject;
 class TerminalStripTreeDockWidget;
@@ -28,7 +31,10 @@ class TerminalStrip;
 class FreeTerminalEditor;
 class TerminalStripEditor;
 class TerminalStripOverviewWidget;
+class CableCatalogWidget;
+class Conductor;
 class QAbstractButton;
+class QTabWidget;
 
 namespace Ui {
 	class TerminalStripEditorWindow;
@@ -85,6 +91,7 @@ class TerminalStripEditorWindow : public QMainWindow
 		void on_m_stacked_widget_currentChanged(int arg1);
 		void refreshOverview();
 		void showElementInFolio(const QUuid &element_uuid);
+		void showConductorInFolio(const CableNavigationTarget &target);
 		void updateReadOnlyState();
 
 	private:
@@ -99,6 +106,9 @@ class TerminalStripEditorWindow : public QMainWindow
 		FreeTerminalEditor *m_free_terminal_editor {nullptr};
 		TerminalStripEditor *m_terminal_strip_editor {nullptr};
 		TerminalStripOverviewWidget *m_overview {nullptr};
+		CableCatalogWidget *m_cable_catalog {nullptr};
+		QTabWidget *m_workspace_tabs {nullptr};
+		QHash<quint64, QPointer<Conductor>> m_cable_targets;
 		QMetaObject::Connection m_project_destroy_connection;
 		QMetaObject::Connection m_project_read_only_connection;
 };

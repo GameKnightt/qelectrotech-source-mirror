@@ -75,7 +75,9 @@ int compareNatural(const QString &left, const QString &right)
 
 bool TerminalStripOverviewRow::cableIncomplete() const
 {
-	return cable.trimmed().isEmpty() != cable_wire.trimmed().isEmpty();
+	// A coloured wire without a cable reference is a valid standalone wire.
+	// Only a referenced cable without an associated core/colour is incomplete.
+	return !cable.trimmed().isEmpty() && cable_wire.trimmed().isEmpty();
 }
 
 bool TerminalStripOverviewRow::requiresAttention() const
@@ -182,7 +184,7 @@ QVariant TerminalStripOverviewModel::data(const QModelIndex &index, int role) co
 		if (!row.navigation_available)
 			return tr("La source de cette borne n’est plus disponible.");
 		if (row.cableIncomplete())
-			return tr("Le câble et l’âme doivent être renseignés ensemble.");
+			return tr("Un câble renseigné doit aussi indiquer une âme ou une couleur.");
 		if (!row.assigned)
 			return tr("Cette borne n’est affectée à aucun bornier.");
 		return tr("Aucun point à vérifier détecté.");

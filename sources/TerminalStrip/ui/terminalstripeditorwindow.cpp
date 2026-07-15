@@ -30,12 +30,18 @@
 #include "terminalstripcreatordialog.h"
 #include "terminalstripeditor.h"
 #include "terminalstripeditorwindow.h"
+#include "cablecatalogwidget.h"
 #include "terminalstripoverviewloader.h"
 #include "terminalstripoverviewwidget.h"
 #include "terminalstriptreedockwidget.h"
+#include "../../cablecatalog/cablecatalogloader.h"
+#include "../../diagram.h"
+#include "../../qetgraphicsitem/conductor.h"
 
+#include <QGraphicsView>
 #include <QGuiApplication>
 #include <QScreen>
+#include <QTabWidget>
 
 QPointer<TerminalStripEditorWindow> TerminalStripEditorWindow::window_;
 
@@ -80,16 +86,26 @@ TerminalStripEditorWindow::TerminalStripEditorWindow(QETProject *project, QWidge
 	m_free_terminal_editor = new FreeTerminalEditor(m_project, this);
 	m_terminal_strip_editor = new TerminalStripEditor{m_project, this};
 	m_overview = new TerminalStripOverviewWidget(this);
+	m_cable_catalog = new CableCatalogWidget(this);
+	m_workspace_tabs = new QTabWidget(this);
+	m_workspace_tabs->setObjectName(QStringLiteral("terminalCableWorkspaceTabs"));
+	m_workspace_tabs->setAccessibleName(tr("Borniers et câbles"));
+	m_workspace_tabs->addTab(m_overview, tr("&Bornes"));
+	m_workspace_tabs->addTab(m_cable_catalog, tr("&Câbles"));
 
 	connect(m_tree_dock, &TerminalStripTreeDockWidget::currentStripChanged, this, &TerminalStripEditorWindow::currentStripChanged);
 
-	ui->m_stacked_widget->insertWidget(OVERVIEW_PAGE, m_overview);
+	ui->m_stacked_widget->insertWidget(OVERVIEW_PAGE, m_workspace_tabs);
 	ui->m_stacked_widget->insertWidget(FREE_TERMINAL_PAGE, m_free_terminal_editor);
 	ui->m_stacked_widget->insertWidget(TERMINAL_STRIP_PAGE, m_terminal_strip_editor);
 	connect(m_overview, &TerminalStripOverviewWidget::reloadRequested,
 			this, &TerminalStripEditorWindow::refreshOverview);
 	connect(m_overview, &TerminalStripOverviewWidget::showElementRequested,
 			this, &TerminalStripEditorWindow::showElementInFolio);
+	connect(m_cable_catalog, &CableCatalogWidget::reloadRequested,
+			this, &TerminalStripEditorWindow::refreshOverview);
+	connect(m_cable_catalog, &CableCatalogWidget::showConductorRequested,
+			this, &TerminalStripEditorWindow::showConductorInFolio);
 	setProject(project);
 	ui->m_stacked_widget->setCurrentIndex(OVERVIEW_PAGE);
 }
@@ -121,6 +137,9 @@ void TerminalStripEditorWindow::setProject(QETProject *project)
 					m_project.clear();
 					m_overview->setRows({});
 					m_overview->setProjectAvailable(false);
+					m_cable_targets.clear();
+					m_cable_catalog->setSnapshot({});
+					m_cable_catalog->setProjectAvailable(false);
 					ui->m_stacked_widget->setCurrentIndex(OVERVIEW_PAGE);
 					updateReadOnlyState();
 				});
@@ -274,11 +293,26 @@ void TerminalStripEditorWindow::refreshOverview()
 	{
 		m_overview->setRows({});
 		m_overview->setProjectAvailable(false);
+		m_cable_targets.clear();
+		if (m_cable_catalog)
+		{
+			m_cable_catalog->setSnapshot({});
+			m_cable_catalog->setProjectAvailable(false);
+		}
 		return;
 	}
 	m_overview->setProjectAvailable(true);
 	m_overview->setReadOnly(m_project->isReadOnly());
 	m_overview->setRows(TerminalStripOverviewLoader::rowsForProject(m_project));
+	if (m_cable_catalog)
+	{
+		const CableCatalogLoadResult result = CableCatalogLoader::load(m_project);
+		m_cable_targets = result.live_targets;
+		m_cable_catalog->setProjectAvailable(true);
+		m_cable_catalog->setReadOnly(m_project->isReadOnly());
+		m_cable_catalog->setLoadFailed(!result.ok);
+		m_cable_catalog->setSnapshot(result.snapshot);
+	}
 }
 
 void TerminalStripEditorWindow::showElementInFolio(const QUuid &element_uuid)
@@ -293,6 +327,38 @@ void TerminalStripEditorWindow::showElementInFolio(const QUuid &element_uuid)
 		return;
 	}
 	QetGraphicsItem::showItem(elements.first());
+}
+
+void TerminalStripEditorWindow::showConductorInFolio(
+		const CableNavigationTarget &target)
+{
+	if (!m_project || !target.isValid()
+			|| target.project_uuid != m_project->uuid())
+	{
+		statusBar()->showMessage(
+				tr("Ce câble n’est plus disponible. Rechargez la vue."), 5000);
+		return;
+	}
+	const QPointer<Conductor> conductor = m_cable_targets.value(target.token);
+	if (!conductor || !conductor->diagram()
+			|| conductor->diagram()->uuid() != target.diagram_uuid)
+	{
+		statusBar()->showMessage(
+				tr("Ce câble n’est plus disponible. Rechargez la vue."), 5000);
+		refreshOverview();
+		return;
+	}
+	conductor->diagram()->showMe();
+	conductor->setSelected(true);
+	if (conductor->scene())
+	{
+		for (QGraphicsView *view : conductor->scene()->views())
+		{
+			QRectF area = conductor->sceneBoundingRect();
+			area.adjust(-200, -200, 200, 200);
+			view->fitInView(area, Qt::KeepAspectRatioByExpanding);
+		}
+	}
 }
 
 void TerminalStripEditorWindow::updateReadOnlyState()
@@ -310,5 +376,10 @@ void TerminalStripEditorWindow::updateReadOnlyState()
 	{
 		m_overview->setReadOnly(read_only);
 		m_overview->setProjectAvailable(has_project);
+	}
+	if (m_cable_catalog)
+	{
+		m_cable_catalog->setReadOnly(read_only);
+		m_cable_catalog->setProjectAvailable(has_project);
 	}
 }

@@ -406,6 +406,38 @@ set_tests_properties(
   terminal_strip_overview_large_text_150_test
   PROPERTIES LABELS "terminal-strip;ind-01a;read-only;search;navigation;accessibility;deterministic-scale")
 
+add_executable(
+  cable_catalog_test
+  tst_cablecatalog.cpp
+  ${QET_DIR}/sources/cablecatalog/cablecatalogbuilder.cpp
+  ${QET_DIR}/sources/cablecatalog/cablecatalogbuilder.h
+  ${QET_DIR}/sources/cablecatalog/cablecatalogcsvexporter.cpp
+  ${QET_DIR}/sources/cablecatalog/cablecatalogcsvexporter.h
+  ${QET_DIR}/sources/cablecatalog/cablecatalogtypes.cpp
+  ${QET_DIR}/sources/cablecatalog/cablecatalogtypes.h
+  ${QET_DIR}/sources/TerminalStrip/ui/cablecatalogmodel.cpp
+  ${QET_DIR}/sources/TerminalStrip/ui/cablecatalogmodel.h
+  ${QET_DIR}/sources/TerminalStrip/ui/cablecatalogwidget.cpp
+  ${QET_DIR}/sources/TerminalStrip/ui/cablecatalogwidget.h)
+add_test(
+  NAME cable_catalog_test
+  COMMAND cable_catalog_test)
+add_test(
+  NAME cable_catalog_keyboard_test
+  COMMAND cable_catalog_test widgetNavigationAndKeyboardContract)
+add_test(
+  NAME cable_catalog_large_volume_test
+  COMMAND cable_catalog_test largeFixtureStaysDeterministic)
+add_test(
+  NAME cable_catalog_large_text_150_test
+  COMMAND cable_catalog_test fitsLogicalDesktopAt150Percent)
+set_tests_properties(
+  cable_catalog_test
+  cable_catalog_keyboard_test
+  cable_catalog_large_volume_test
+  cable_catalog_large_text_150_test
+  PROPERTIES LABELS "cable-catalog;ind-01b;read-only;diagnostics;search;navigation;accessibility;deterministic-scale")
+
 target_link_libraries(
   ${PROJECT_NAME}
   PRIVATE
@@ -608,6 +640,19 @@ target_include_directories(
 
 target_link_libraries(
   terminal_strip_overview_test
+  PRIVATE
+  Qt::Test
+  Qt::Widgets)
+
+target_include_directories(
+  cable_catalog_test
+  PRIVATE
+  ${QET_DIR}/sources
+  ${QET_DIR}/sources/cablecatalog
+  ${QET_DIR}/sources/TerminalStrip/ui)
+
+target_link_libraries(
+  cable_catalog_test
   PRIVATE
   Qt::Test
   Qt::Widgets)

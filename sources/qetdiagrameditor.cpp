@@ -572,7 +572,10 @@ void QETDiagramEditor::setUpActions()
 		}
 	});
 
-	m_terminal_strip_dialog = new QAction(QET::Icons::TerminalStrip, tr("Gestionnaire de borniers (DEV)"), this);
+	m_terminal_strip_dialog = new QAction(
+			QET::Icons::TerminalStrip, tr("Borniers et câbles…"), this);
+	m_terminal_strip_dialog->setStatusTip(
+			tr("Consulte et gère les borniers et les données de câble du projet courant"));
 	connect(m_terminal_strip_dialog, &QAction::triggered, this, [=]()
 	{
 		if (auto project = this->currentProject())
@@ -2038,7 +2041,7 @@ void QETDiagramEditor::slot_updateActions()
 	m_add_nomenclature            -> setEnabled(editable_project);
 	m_csv_export                  -> setEnabled(editable_project);
 	m_project_export_conductor_num-> setEnabled(opened_project);
-	m_terminal_strip_dialog       -> setEnabled(editable_project);
+	m_terminal_strip_dialog       -> setEnabled(pv != nullptr);
 	m_project_export_wiring_list  -> setEnabled(opened_project);
 	m_terminal_numbering          -> setEnabled(editable_project);
 #ifdef QET_EXPORT_PROJECT_DB

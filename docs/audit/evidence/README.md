@@ -37,7 +37,13 @@ Avant le démarrage de la phase de développement, les scénarios marqués **À 
 
 ## Couverture
 
-Les parcours démarrage, projet, folios, composants, recherche, propriétés, nomenclature, impression/export, préférences et affichage ont été observés au moins partiellement. Les parcours câbles, E/S d'automate, bornier complet, pneumatique, hydraulique et process restent **À rejouer** sur des projets représentatifs fournis par l'utilisateur.
+Les parcours démarrage, projet, folios, composants, recherche, propriétés,
+nomenclature, impression/export, préférences et affichage ont été observés au
+moins partiellement. La vue initiale Borniers et câbles est maintenant raccordée
+et couverte par un état vide réel plus une vue peuplée déterministe. La
+qualification complète des câbles et borniers, les E/S d'automate, le
+pneumatique, l'hydraulique et le process restent **À rejouer** sur des projets
+représentatifs fournis par l'utilisateur.
 
 ## Incrément UX-05D — 14 juillet 2026
 
@@ -69,3 +75,12 @@ sont visibles avec leur discipline et leur nombre de folios, sans débordement
 horizontal. Le parcours Windows complet a aussi vérifié qu'un exemple s'ouvre
 comme copie **Modifié** et que son premier `Ctrl+S` propose `sansnom.qet` au
 lieu du fichier source livré.
+
+## Incrément IND-01A — 15 juillet 2026
+
+Le dossier
+[`ind-01a-terminal-cable-overview`](ind-01a-terminal-cable-overview/) contient
+la capture reproductible de la nouvelle vue consolidée avec six bornes
+déterministes. Le parcours Windows dans l’application complète vérifie en plus
+le libellé **Borniers et câbles…**, l’ouverture du gestionnaire, son état vide
+réel sur `ArduinoLCD.qet`, le focus `Ctrl+F` et le rechargement `F5`.

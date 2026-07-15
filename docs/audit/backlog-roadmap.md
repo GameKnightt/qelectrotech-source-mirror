@@ -215,6 +215,12 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
 ### IND-01 — Unifier le parcours borniers et câbles
 
 - **Preuve :** E09, E14 ; GitHub #405 et #409.
+- **État du fork :** IND-01A livré. Le menu **Borniers et câbles…** ouvre une
+  vue consolidée en lecture seule des bornes affectées et indépendantes, avec
+  recherche sans accent, filtres, tri naturel, états explicites et navigation
+  vers le folio. Les conducteurs, câbles et âmes/couleurs sont agrégés depuis
+  les propriétés existantes, sans changement de format. Voir
+  `docs/audit/implementation/ind-01a-terminal-cable-overview.md`.
 - **Utilisateurs touchés :** tableautiers, automaticiens, maintenance.
 - **Fréquence :** centrale dans les projets concernés.
 - **Impact :** données éclatées et sorties incomplètes.
@@ -223,6 +229,9 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
 - **Dépendances :** TerminalStrip, conducteurs, câbles, nomenclature, fabricant.
 - **Compatibilité amont :** privilégier métadonnées existantes et schéma additif.
 - **Critères d'acceptation :** un point d'entrée stable, table complète, tri/multi-sélection, destinations, ponts, réserves, câbles groupés, aperçu avant génération et export déterministe.
+- **Incréments suivants :** IND-01B, modèle et validation des identités de câble ;
+  IND-01C, édition groupée, aperçu avant génération et export déterministe. La
+  multi-sélection, les réserves et la qualification métier restent à livrer.
 
 ### DIST-01 — Signer et fiabiliser l'installateur Windows
 

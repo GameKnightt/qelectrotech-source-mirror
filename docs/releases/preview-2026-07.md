@@ -16,6 +16,8 @@ version officielle grâce à son profil de configuration portable isolé.
 - centre d’export unifié avec écritures atomiques et erreurs explicites ;
 - édition groupée des conducteurs avec aperçu, tableau, collage TSV, recopie
   vers le bas, colonnes persistantes et export CSV de revue ;
+- vue consolidée **Borniers et câbles** avec recherche, filtres, tri naturel,
+  agrégation des conducteurs et navigation vers le folio ;
 - sauvegarde et récupération renforcées, statut **Modifié/Sauvegardé** fidèle à
   l’écriture réelle et historique Undo conservé ;
 - reconstruction transactionnelle de la base SQLite du projet ;
@@ -25,9 +27,9 @@ version officielle grâce à son profil de configuration portable isolé.
 
 - application complète compilée en Release sous Windows 11, Qt 5 et MSYS2
   UCRT64 ;
-- 39/39 tests CTest réussis en série ;
-- 12/12 contrats clavier sur la plateforme Windows native ;
-- 18/18 contrats Windows natifs à 150 % ;
+- 43/43 tests CTest réussis en série ;
+- 14/14 contrats clavier sur la plateforme Windows native ;
+- 21/21 contrats Windows natifs à 150 % ;
 - commande `qelectrotech.exe --version` vérifiée sans démarrage graphique ;
 - paquet portable vérifié avec ses dépendances, ses ressources, ses quatre
   exemples curatés et un manifeste SHA-256 ; le ZIP est réextrait avec
@@ -58,6 +60,10 @@ Avant une version stable, il reste notamment à terminer l’inventaire des
 licences tierces, la signature, les essais sur une machine Windows propre et la
 qualification de projets métier représentatifs en automatisme, pneumatique,
 hydraulique et process.
+
+La première vue Borniers et câbles est fonctionnelle sans changement de format.
+Elle ne constitue pas encore un modèle complet de câble ni une validation
+métier des plans de câblage ; ces extensions sont prévues dans IND-01B/IND-01C.
 
 Les détails et preuves sont disponibles dans le
 [README du fork](../../README.md), l’[audit](../audit/qet-audit.md) et l’[index

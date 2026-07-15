@@ -25,6 +25,8 @@ version officielle grâce à son profil de configuration portable isolé.
 - sauvegarde et récupération renforcées, statut **Modifié/Sauvegardé** fidèle à
   l’écriture réelle et historique Undo conservé ;
 - reconstruction transactionnelle de la base SQLite du projet ;
+- duplication de folios sans collision d’identifiants, avec liens croisés
+  préservés et une étape Annuler/Rétablir atomique ;
 - dialogues Windows adaptatifs et contrats clavier / grande police à 150 %.
 
 ## Validation

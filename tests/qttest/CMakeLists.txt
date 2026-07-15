@@ -76,6 +76,9 @@ add_executable(
 add_test(
   NAME diagram_duplicate_uuid_remapper_test
   COMMAND diagram_duplicate_uuid_remapper_test)
+set_tests_properties(
+  diagram_duplicate_uuid_remapper_test
+  PROPERTIES LABELS "data-01;uuid;database;stress")
 
 add_executable(
   config_dialog_ux_test
@@ -458,6 +461,7 @@ target_link_libraries(
   diagram_duplicate_uuid_remapper_test
   PRIVATE
   Qt::Test
+  Qt::Sql
   Qt::Xml)
 
 target_include_directories(

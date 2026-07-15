@@ -14,7 +14,9 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
 
 ### DATA-01 — Garantir l'unicité après duplication de folio
 
-- **État :** implémenté et validé dans le commit `1fdeb0c98`.
+  - **État :** implémenté dans `1fdeb0c98`, puis renforcé par une commande
+    Annuler/Rétablir, la synchronisation modèle/vue et un stress de 100
+    duplications avec contraintes SQLite.
 - **Preuve :** GitHub #532 ; erreur de contrainte `UNIQUE` SQLite et composants manquants du sommaire signalés.
 - **Utilisateurs touchés :** tous les projeteurs dupliquant des folios modèles.
 - **Fréquence :** régulière dans les projets répétitifs.

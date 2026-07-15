@@ -431,7 +431,14 @@ jobs:
           $7z      = "C:\Program Files\7-Zip\7z.exe"
 
           New-Item -ItemType Directory -Force -Path "$env:GITHUB_WORKSPACE\dist" | Out-Null
-          & $7z a -tzip -mx=5 -mmt=on $dst "$src\*"
+          # Force the ZIP UTF-8 filename flag. Without it, Expand-Archive on
+          # Windows decodes legacy CP437 bytes with the active ANSI code page
+          # and corrupts accented collection filenames.
+          & $7z a -tzip -mx=5 -mmt=on -mcu=on $dst "$src\*"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          & "$env:GITHUB_WORKSPACE\packaging\windows\test-portable-archive.ps1" `
+            -ArchivePath $dst
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
           $sizeMB = [math]::Round((Get-Item $dst).Length / 1MB, 1)

@@ -20,10 +20,21 @@ msi_url       = os.environ.get("MSI_URL", "")
 
 msi_block = ""
 if msi_url:
+    msi_is_unsigned = "unsigned" in msi_url.lower()
+    msi_title = (
+        "Windows Installer .msi (unsigned)"
+        if msi_is_unsigned
+        else "Windows Installer .msi"
+    )
+    msi_detail = (
+        ".msi &mdash; enterprise deployment; Windows will show a publisher warning"
+        if msi_is_unsigned
+        else ".msi &mdash; signed package for enterprise / GPO deployment"
+    )
     msi_block = f"""
 <a class="btn btn-msi" href="{msi_url}">
 <span class="btn-icon">&#11015;</span>
-<span class="btn-text">Windows Installer .msi<small>.msi &mdash; for enterprise / GPO deployment</small></span>
+<span class="btn-text">{msi_title}<small>{msi_detail}</small></span>
 </a>"""
 
 html = f"""<!DOCTYPE html>

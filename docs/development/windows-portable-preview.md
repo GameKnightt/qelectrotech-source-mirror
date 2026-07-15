@@ -71,3 +71,13 @@ Cette sortie reste une préversion interne. Une distribution publique exige en
 plus un inventaire de toutes les licences tierces, la mise à disposition des
 sources correspondantes et une validation sur une machine ou une Windows
 Sandbox sans MSYS2 installé.
+
+## Paquets publiés par la CI
+
+Le workflow principal publie l'installateur NSIS `.exe` recommandé et l'archive
+portable `.zip`. Le workflow WiX produit également un `.msi`. Si les identifiants
+SignPath sont configurés, ce MSI est signé. Sinon, la compilation et la
+publication continuent avec un nom se terminant par `-unsigned.msi` ; cette
+indication est également affichée sur la page de téléchargement et Windows
+présentera un avertissement d'éditeur. Le workflow ne doit jamais présenter un
+paquet non signé comme signé.

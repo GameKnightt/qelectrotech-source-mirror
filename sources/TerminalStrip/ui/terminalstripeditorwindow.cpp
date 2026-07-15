@@ -35,13 +35,21 @@
 #include "terminalstripoverviewwidget.h"
 #include "terminalstriptreedockwidget.h"
 #include "../../cablecatalog/cablecatalogloader.h"
+#include "../../SearchAndReplace/conductorbulkeditadapter.h"
+#include "../../SearchAndReplace/conductorchangeplan.h"
+#include "../../SearchAndReplace/ui/conductorbulkeditdialog.h"
+#include "../../SearchAndReplace/ui/conductorchangepreviewdialog.h"
 #include "../../diagram.h"
 #include "../../qetgraphicsitem/conductor.h"
 
 #include <QGraphicsView>
 #include <QGuiApplication>
+#include <QMessageBox>
 #include <QScreen>
+#include <QSet>
 #include <QTabWidget>
+#include <QTimer>
+#include <QUndoStack>
 
 QPointer<TerminalStripEditorWindow> TerminalStripEditorWindow::window_;
 
@@ -92,6 +100,11 @@ TerminalStripEditorWindow::TerminalStripEditorWindow(QETProject *project, QWidge
 	m_workspace_tabs->setAccessibleName(tr("Borniers et câbles"));
 	m_workspace_tabs->addTab(m_overview, tr("&Bornes"));
 	m_workspace_tabs->addTab(m_cable_catalog, tr("&Câbles"));
+	m_overview_refresh_timer = new QTimer(this);
+	m_overview_refresh_timer->setSingleShot(true);
+	m_overview_refresh_timer->setInterval(120);
+	connect(m_overview_refresh_timer, &QTimer::timeout,
+			this, &TerminalStripEditorWindow::refreshOverview);
 
 	connect(m_tree_dock, &TerminalStripTreeDockWidget::currentStripChanged, this, &TerminalStripEditorWindow::currentStripChanged);
 
@@ -106,6 +119,8 @@ TerminalStripEditorWindow::TerminalStripEditorWindow(QETProject *project, QWidge
 			this, &TerminalStripEditorWindow::refreshOverview);
 	connect(m_cable_catalog, &CableCatalogWidget::showConductorRequested,
 			this, &TerminalStripEditorWindow::showConductorInFolio);
+	connect(m_cable_catalog, &CableCatalogWidget::editConductorsRequested,
+			this, &TerminalStripEditorWindow::editCableConductors);
 	setProject(project);
 	ui->m_stacked_widget->setCurrentIndex(OVERVIEW_PAGE);
 }
@@ -126,6 +141,7 @@ void TerminalStripEditorWindow::setProject(QETProject *project)
 {
 	if (m_project_destroy_connection) disconnect(m_project_destroy_connection);
 	if (m_project_read_only_connection) disconnect(m_project_read_only_connection);
+	if (m_project_undo_connection) disconnect(m_project_undo_connection);
     m_project = project;
     m_tree_dock->setProject(project);
     m_free_terminal_editor->setProject(project);
@@ -146,6 +162,12 @@ void TerminalStripEditorWindow::setProject(QETProject *project)
 		m_project_read_only_connection = connect(
 				m_project, &QETProject::readOnlyChanged,
 				this, [this](QETProject *, bool) { updateReadOnlyState(); });
+		m_project_undo_connection = connect(
+				m_project->undoStack(), &QUndoStack::indexChanged,
+				this, [this]() {
+					if (m_overview_refresh_timer)
+						m_overview_refresh_timer->start();
+				});
 		setWindowTitle(tr("Borniers et câbles — %1").arg(
 				m_project->title().isEmpty()
 						? tr("Projet sans titre")
@@ -348,6 +370,12 @@ void TerminalStripEditorWindow::showConductorInFolio(
 		refreshOverview();
 		return;
 	}
+	focusConductor(conductor);
+}
+
+void TerminalStripEditorWindow::focusConductor(Conductor *conductor)
+{
+	if (!conductor || !conductor->diagram()) return;
 	conductor->diagram()->showMe();
 	conductor->setSelected(true);
 	if (conductor->scene())
@@ -359,6 +387,145 @@ void TerminalStripEditorWindow::showConductorInFolio(
 			view->fitInView(area, Qt::KeepAspectRatioByExpanding);
 		}
 	}
+}
+
+void TerminalStripEditorWindow::editCableConductors(
+		const QVector<CableNavigationTarget> &targets)
+{
+	if (!m_project || m_project->isReadOnly() || targets.isEmpty()) return;
+
+	QList<Conductor *> conductors;
+	QSet<Conductor *> seen;
+	for (const CableNavigationTarget &target : targets)
+	{
+		if (!target.isValid() || target.project_uuid != m_project->uuid())
+		{
+			statusBar()->showMessage(
+					tr("La sélection de câbles n’est plus disponible. Rechargez la vue."),
+					5000);
+			refreshOverview();
+			return;
+		}
+		const QPointer<Conductor> conductor = m_cable_targets.value(target.token);
+		if (!conductor || !conductor->diagram()
+				|| conductor->diagram()->uuid() != target.diagram_uuid)
+		{
+			statusBar()->showMessage(
+					tr("Un conducteur sélectionné n’est plus disponible. Rechargez la vue."),
+					5000);
+			refreshOverview();
+			return;
+		}
+		if (!seen.contains(conductor))
+		{
+			seen.insert(conductor);
+			conductors.append(conductor);
+		}
+	}
+	if (conductors.isEmpty()) return;
+
+	const auto exact_scope = ConductorChangePlan::ExpansionScope::ExactConductors;
+	const ConductorChangePlan scope_plan = ConductorChangePlan::build(
+			m_project,
+			conductors,
+			ConductorChangePlan::Transform(
+					[](const ConductorProperties &before) { return before; }),
+			exact_scope);
+	const ConductorChangePlan::Result scope_result = scope_plan.buildResult();
+	if (!scope_result.canApply() && !scope_result.isNoOp())
+	{
+		QMessageBox::warning(
+				this,
+				tr("Modification indisponible"),
+				ConductorChangePlan::resultMessage(scope_result));
+		return;
+	}
+
+	ConductorBulkEditDialog editor_dialog(
+			conductorBulkEditRows(scope_plan),
+			ConductorBulkEditModel::Mode::ExactConductors,
+			this);
+	connect(
+			&editor_dialog,
+			&ConductorBulkEditDialog::targetActivated,
+			this,
+			[this, &scope_plan](quintptr target_key) {
+				focusConductor(scope_plan.conductorForKey(target_key));
+			});
+	if (editor_dialog.exec() != QDialog::Accepted) return;
+	const ConductorChangePlan::Result scope_revalidation =
+			scope_plan.revalidate();
+	if (!scope_revalidation.canApply())
+	{
+		QMessageBox::warning(
+				this,
+				tr("Sélection devenue indisponible"),
+				ConductorChangePlan::resultMessage(scope_revalidation));
+		refreshOverview();
+		return;
+	}
+
+	const ConductorChangePlan plan = ConductorChangePlan::build(
+			m_project,
+			conductors,
+			ConductorChangePlan::TargetTransform(
+					[&editor_dialog](
+							Conductor *conductor,
+							const ConductorProperties &before) {
+						return editor_dialog.propertiesForTarget(
+								reinterpret_cast<quintptr>(conductor), before);
+					}),
+			exact_scope);
+	const ConductorChangePlan::Result build_result = plan.buildResult();
+	if (!build_result.canApply())
+	{
+		const bool no_changes = build_result.isNoOp();
+		if (no_changes)
+		{
+			QMessageBox::information(
+					this,
+					tr("Aucune modification de conducteur"),
+					ConductorChangePlan::resultMessage(build_result));
+		}
+		else
+		{
+			QMessageBox::warning(
+					this,
+					tr("Aperçu impossible"),
+					ConductorChangePlan::resultMessage(build_result));
+		}
+		return;
+	}
+
+	ConductorChangePreviewDialog preview_dialog(plan.previewData(), this);
+	connect(
+			&preview_dialog,
+			&ConductorChangePreviewDialog::targetActivated,
+			this,
+			[this, &plan](quintptr target_key) {
+				focusConductor(plan.conductorForKey(target_key));
+			});
+	if (preview_dialog.exec() != QDialog::Accepted) return;
+
+	const ConductorChangePlan::Result apply_result = plan.applyAtomically(
+			tr("Modifier %n conducteur(s) depuis le catalogue de câbles",
+				nullptr,
+				plan.changedConductorCount()));
+	if (!apply_result.canApply())
+	{
+		QMessageBox::warning(
+				this,
+				tr("Modifications non appliquées"),
+				ConductorChangePlan::resultMessage(apply_result));
+		return;
+	}
+
+	refreshOverview();
+	statusBar()->showMessage(
+			tr("%n conducteur(s) modifié(s). Utilisez Ctrl+Z pour annuler.",
+				nullptr,
+				plan.changedConductorCount()),
+			7000);
 }
 
 void TerminalStripEditorWindow::updateReadOnlyState()

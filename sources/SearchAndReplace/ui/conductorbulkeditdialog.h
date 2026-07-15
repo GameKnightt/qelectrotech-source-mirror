@@ -29,6 +29,10 @@ class ConductorBulkEditDialog final : public QDialog
 		explicit ConductorBulkEditDialog(
 			QVector<ConductorBulkEditModel::Row> rows,
 			QWidget *parent = nullptr);
+		ConductorBulkEditDialog(
+			QVector<ConductorBulkEditModel::Row> rows,
+			ConductorBulkEditModel::Mode mode,
+			QWidget *parent = nullptr);
 
 		ConductorBulkEditModel *draftModel() const;
 		QTableView *draftTable() const;
@@ -85,6 +89,8 @@ class ConductorBulkEditDialog final : public QDialog
 		QPushButton *m_verify_button = nullptr;
 		QPushButton *m_reset_button = nullptr;
 		bool m_restoring_column_layout = false;
+		ConductorBulkEditModel::Mode m_mode =
+			ConductorBulkEditModel::Mode::ElectricalPotentials;
 };
 
 #endif // CONDUCTORBULKEDITDIALOG_H

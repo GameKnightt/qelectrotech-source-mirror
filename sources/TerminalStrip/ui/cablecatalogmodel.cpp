@@ -351,6 +351,29 @@ CableCatalogEntry CableCatalogModel::entryAt(int row) const
 			? m_snapshot.entries.at(row) : CableCatalogEntry();
 }
 
+QVector<CableNavigationTarget> CableCatalogModel::navigationTargetsForIndex(
+		const QModelIndex &index) const
+{
+	QVector<CableNavigationTarget> targets;
+	const CableCatalogEntry *entry = entryForIndex(index);
+	if (!entry) return targets;
+
+	if (const CableConductorSnapshot *member = memberForIndex(index))
+	{
+		if (member->navigation_target.isValid())
+			targets.append(member->navigation_target);
+		return targets;
+	}
+
+	targets.reserve(entry->members.size());
+	for (const CableConductorSnapshot &member : entry->members)
+	{
+		if (member.navigation_target.isValid())
+			targets.append(member.navigation_target);
+	}
+	return targets;
+}
+
 QString CableCatalogModel::normalizedSearch(const QString &text)
 {
 	QString value = text.normalized(QString::NormalizationForm_D).toCaseFolded();

@@ -92,18 +92,19 @@ la CI Windows Qt 5.
 Le parcours réel sous Windows 11 a aussi été exécuté sur un projet public de
 50 folios : ouverture sans crash, détection de `C1`, `c1`, `C2`, `C10` et
 `C20`, recherche `C20`, remise à zéro par Échap et navigation par Entrée vers
-le conducteur sélectionné. La matrice finale réussit 47/47 tests, 12/12 tests
-grande police hors écran, 16/16 contrats natifs et 24/24 contrats natifs à
+le conducteur sélectionné. La matrice actuelle réussit 48/48 tests, 12/12 tests
+grande police hors écran, 17/17 contrats natifs et 25/25 contrats natifs à
 150 %.
 
-## Limites et suite IND-01C
+## Limites et prolongement IND-01C
 
 Le champ historique `m_wire_color` peut représenter une couleur ou un repère
 d’âme ; aucune unicité absolue n’est donc imposée. Les renvois, épissures et
 câbles hybrides exigent encore des projets métier anonymisés pour affiner les
 règles.
 
-IND-01C pourra ajouter la correction groupée avec aperçu et Undo atomique. Elle
-devra modifier uniquement les conducteurs explicitement sélectionnés : propager
-une référence de câble à tout un potentiel électrique pourrait traverser
-plusieurs câbles physiques.
+IND-01C est désormais livré : la correction groupée passe par un brouillon, un
+aperçu et une commande Undo atomique. Elle modifie uniquement les conducteurs
+explicitement sélectionnés ; une référence de câble n’est jamais propagée à
+tout un potentiel électrique. Voir
+[`ind-01c-exact-conductor-edit.md`](ind-01c-exact-conductor-edit.md).

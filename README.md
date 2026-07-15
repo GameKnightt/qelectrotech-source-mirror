@@ -57,6 +57,11 @@ des informations câble/âme et navigation vers le folio.*
 *Catalogue hiérarchique couvrant tous les folios, diagnostics prudents,
 navigation vers le conducteur et export CSV.*
 
+![Éditeur exact des conducteurs du câble C20](docs/audit/evidence/ind-01c/02-exact-conductor-editor.png)
+
+*Sélection exacte depuis le catalogue, modification de la couleur et de la
+référence de câble, aperçu avant application et Undo atomique.*
+
 ## Ce que le fork ajoute
 
 | Domaine | Changements disponibles |
@@ -68,7 +73,7 @@ navigation vers le conducteur et export CSV.*
 | Propriétés | Inspecteur contextuel, sélection et édition des conducteurs plus prévisibles |
 | Exports | Centre d’export unifié, erreurs visibles, export PDF/PNG/SVG et données métier protégés contre les faux succès |
 | Conducteurs | Aperçu avant application, édition tabulaire groupée, collage TSV, recopie vers le bas, colonnes configurables et export CSV de revue |
-| Borniers et câbles | Point d’entrée stabilisé, vue consolidée des bornes, catalogue câble → conducteurs, diagnostics, recherche, filtres, navigation vers le folio et export CSV |
+| Borniers et câbles | Point d’entrée stabilisé, vue consolidée des bornes, catalogue câble → conducteurs, diagnostics, recherche, filtres, navigation, export CSV et édition exacte multi-sélection protégée par aperçu/Undo |
 
 Le détail technique, les critères d’acceptation et les limites de chaque lot sont
 réunis dans l’[index des implémentations](docs/audit/implementation/README.md).
@@ -96,7 +101,8 @@ Windows sont inclus dans le paquet.
 2. Passez entre les profils **Essentiel** et **Classique**.
 3. Naviguez entre les folios et recherchez un composant.
 4. Ouvrez **Projet > Borniers et câbles…**, vérifiez les onglets **Bornes** et
-   **Câbles**, puis essayez la recherche et l’export du catalogue.
+   **Câbles**, sélectionnez un câble et utilisez **Modifier les conducteurs…**
+   (`Alt+M`) ; le brouillon ne doit contenir que la sélection explicite.
 5. Ouvrez le centre d’export.
 6. Utilisez la recherche avancée puis **Modifier les conducteurs en tableau…**.
 7. Modifiez une copie du projet : le statut doit passer à **Modifié**.
@@ -123,8 +129,10 @@ Les changements de données sont protégés par Undo lorsque le parcours le perm
 Validation de cette préversion :
 
 - compilation de l’application complète sous Windows 11 / Qt 5 / UCRT64 ;
-- **47/47 tests CTest** réussis en série ;
-- **16/16** parcours clavier Windows natifs et **24/24** contrôles natifs à
+- **48/48 tests CTest** réussis en série ;
+- **13/13** contrats IND-01C, dont la portée exacte, la multi-sélection et le
+  brouillon Câble/Couleur ;
+- **17/17** parcours clavier Windows natifs et **25/25** contrôles natifs à
   150 % réussis ;
 - ouverture CLI d’un projet public de 50 folios : 618 éléments et 671
   conducteurs détectés ;
@@ -141,8 +149,9 @@ Validation de cette préversion :
   propre encore requis avant une publication stable ;
 - le catalogue utilise les champs historiques libres de QElectroTech : ses
   diagnostics assistent la revue sans certifier la conformité électrique ;
-- l’édition groupée des câbles, les E/S automate, le pneumatique, l’hydraulique
-  et le process exigent encore des projets anonymisés représentatifs ;
+- les réserves et destinations structurées de câbles, les E/S automate, le
+  pneumatique, l’hydraulique et le process exigent encore des projets
+  anonymisés représentatifs ;
 - thème sombre, contraste élevé et certains scénarios à 200 % restent à
   compléter.
 
@@ -164,9 +173,9 @@ Validation de cette préversion :
   licences et les tests de compatibilité de formats.
 - **Ensuite :** poursuivre la refonte progressive des parcours, les modèles
   paramétrables, les propriétés et les exports.
-- **Fonctions industrielles :** poursuivre Borniers et câbles avec l’édition
-  groupée protégée par aperçu/Undo, puis E/S automate, désignation IEC 81346,
-  routage intelligent et bus.
+- **Fonctions industrielles :** l’édition exacte des conducteurs de câble avec
+  aperçu/Undo est livrée ; poursuivre avec réserves et destinations structurées,
+  puis E/S automate, désignation IEC 81346, routage intelligent et bus.
 - **Architecture :** convergence Qt 6/KF6, automatisation CLI/API et
   intégrations externes.
 

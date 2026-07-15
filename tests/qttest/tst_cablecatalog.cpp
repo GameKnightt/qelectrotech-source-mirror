@@ -13,6 +13,7 @@
 #include <QFileInfo>
 #include <QFont>
 #include <QGuiApplication>
+#include <QItemSelectionModel>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPalette>
@@ -98,6 +99,26 @@ const CableCatalogEntry *entry(const CableCatalogSnapshot &snapshot,
 	return nullptr;
 }
 
+QModelIndex cableIndex(QAbstractItemModel *model, const QString &reference)
+{
+	if (!model) return {};
+	for (int row = 0; row < model->rowCount(); ++row)
+	{
+		const QModelIndex index = model->index(row, CableCatalogModel::Cable);
+		if (index.data().toString() == reference) return model->index(row, 0);
+	}
+	return {};
+}
+
+QStringList targetTokens(const QVector<CableNavigationTarget> &targets)
+{
+	QStringList tokens;
+	for (const CableNavigationTarget &target : targets)
+		tokens.append(QString::number(target.token));
+	tokens.sort();
+	return tokens;
+}
+
 }
 
 class CableCatalogTest : public QObject
@@ -105,16 +126,26 @@ class CableCatalogTest : public QObject
 	Q_OBJECT
 
 	private slots:
+		void initTestCase();
 		void builderIsDeterministicAndConservative();
 		void modelContractIsHierarchicalAndReadOnly();
+		void modelExposesExactTargetsForParentAndChild();
 		void filtersComposeAndSearchIgnoresAccents();
 		void widgetNavigationAndKeyboardContract();
+		void multiSelectionParentAndChildIsDeduplicated();
+		void editActionHonorsReadOnlyAndAvailability();
 		void emptyNoMatchAndUnavailableStatesAreDistinct();
 		void csvExportIsUtf8AndStable();
 		void largeFixtureStaysDeterministic();
 		void fitsLogicalDesktopAt150Percent();
 		void rendersEvidence();
 };
+
+void CableCatalogTest::initTestCase()
+{
+	qRegisterMetaType<QVector<CableNavigationTarget>>(
+			"QVector<CableNavigationTarget>");
+}
 
 void CableCatalogTest::builderIsDeterministicAndConservative()
 {
@@ -183,6 +214,28 @@ void CableCatalogTest::modelContractIsHierarchicalAndReadOnly()
 	}
 }
 
+void CableCatalogTest::modelExposesExactTargetsForParentAndChild()
+{
+	CableCatalogModel model;
+	model.setSnapshot(CableCatalogBuilder::build(fixtureSources()));
+	const QModelIndex c2 = cableIndex(&model, QStringLiteral("C2"));
+	QVERIFY(c2.isValid());
+
+	const QVector<CableNavigationTarget> parent_targets =
+		model.navigationTargetsForIndex(c2);
+	QCOMPARE(parent_targets.size(), 3);
+	QCOMPARE(targetTokens(parent_targets),
+		QStringList({QStringLiteral("2"), QStringLiteral("3"), QStringLiteral("4")}));
+
+	const QModelIndex first_child = model.index(0, 0, c2);
+	QVERIFY(first_child.isValid());
+	const QVector<CableNavigationTarget> child_targets =
+		model.navigationTargetsForIndex(first_child);
+	QCOMPARE(child_targets.size(), 1);
+	QCOMPARE(child_targets.first().token, quint64(2));
+	QVERIFY(model.navigationTargetsForIndex({}).isEmpty());
+}
+
 void CableCatalogTest::filtersComposeAndSearchIgnoresAccents()
 {
 	CableCatalogModel model;
@@ -216,6 +269,7 @@ void CableCatalogTest::widgetNavigationAndKeyboardContract()
 	widget.show();
 	QVERIFY(QTest::qWaitForWindowExposed(&widget));
 	QSignalSpy activated(&widget, &CableCatalogWidget::showConductorRequested);
+	QSignalSpy edited(&widget, &CableCatalogWidget::editConductorsRequested);
 	QSignalSpy reloaded(&widget, &CableCatalogWidget::reloadRequested);
 	QTest::keyClick(&widget, Qt::Key_F, Qt::ControlModifier);
 	auto *search = widget.findChild<QLineEdit *>(QStringLiteral("cableCatalogSearch"));
@@ -224,13 +278,109 @@ void CableCatalogTest::widgetNavigationAndKeyboardContract()
 	QTRY_COMPARE(widget.proxyModel()->rowCount(), 1);
 	QTest::keyClick(search, Qt::Key_Down);
 	QVERIFY(widget.treeView()->hasFocus());
+	QTest::keyClick(widget.treeView(), Qt::Key_M, Qt::AltModifier);
+	QCOMPARE(edited.count(), 1);
+	QCOMPARE(
+		qvariant_cast<QVector<CableNavigationTarget>>(
+			edited.at(0).at(0)).size(),
+		2);
 	QTest::keyClick(widget.treeView(), Qt::Key_Return);
 	QCOMPARE(activated.count(), 1);
+	QCOMPARE(edited.count(), 1);
 	QVERIFY(activated.at(0).at(0).value<CableNavigationTarget>().isValid());
 	QTest::keyClick(widget.treeView(), Qt::Key_F5);
 	QCOMPARE(reloaded.count(), 1);
 	QTest::keyClick(widget.treeView(), Qt::Key_Escape);
 	QTRY_COMPARE(widget.proxyModel()->rowCount(), 6);
+}
+
+void CableCatalogTest::multiSelectionParentAndChildIsDeduplicated()
+{
+	CableCatalogWidget widget;
+	widget.setSnapshot(CableCatalogBuilder::build(fixtureSources()));
+	widget.resize(1100, 680);
+	widget.show();
+	QVERIFY(QTest::qWaitForWindowExposed(&widget));
+	QCOMPARE(widget.treeView()->selectionMode(),
+		QAbstractItemView::ExtendedSelection);
+
+	const QModelIndex c2 = cableIndex(
+		widget.proxyModel(), QStringLiteral("C2"));
+	QVERIFY(c2.isValid());
+	widget.treeView()->expand(c2);
+	const QModelIndex child = widget.proxyModel()->index(0, 0, c2);
+	QVERIFY(child.isValid());
+
+	auto selection = widget.treeView()->selectionModel();
+	widget.treeView()->setCurrentIndex(child);
+	selection->select(
+		c2, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+	selection->select(
+		child, QItemSelectionModel::Select | QItemSelectionModel::Rows);
+
+	const QVector<CableNavigationTarget> targets = widget.selectedTargets();
+	QCOMPARE(targets.size(), 3);
+	QCOMPARE(targetTokens(targets),
+		QStringList({QStringLiteral("2"), QStringLiteral("3"), QStringLiteral("4")}));
+
+	auto edit_button = widget.findChild<QPushButton *>(
+		QStringLiteral("cableCatalogEditConductors"));
+	QVERIFY(edit_button);
+	QVERIFY(edit_button->isEnabled());
+	QVERIFY(!edit_button->accessibleName().isEmpty());
+	QVERIFY(edit_button->accessibleDescription().contains(QStringLiteral("3")));
+
+	QSignalSpy edited(&widget, &CableCatalogWidget::editConductorsRequested);
+	QTest::mouseClick(edit_button, Qt::LeftButton);
+	QCOMPARE(edited.count(), 1);
+	const QVector<CableNavigationTarget> emitted =
+		qvariant_cast<QVector<CableNavigationTarget>>(edited.at(0).at(0));
+	QCOMPARE(targetTokens(emitted), targetTokens(targets));
+}
+
+void CableCatalogTest::editActionHonorsReadOnlyAndAvailability()
+{
+	CableCatalogWidget widget;
+	widget.setSnapshot(CableCatalogBuilder::build(fixtureSources()));
+	widget.resize(1100, 680);
+	widget.show();
+	QVERIFY(QTest::qWaitForWindowExposed(&widget));
+	const QModelIndex c2 = cableIndex(
+		widget.proxyModel(), QStringLiteral("C2"));
+	QVERIFY(c2.isValid());
+	widget.treeView()->selectionModel()->select(
+		c2, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+	widget.treeView()->setCurrentIndex(c2);
+
+	auto edit_button = widget.findChild<QPushButton *>(
+		QStringLiteral("cableCatalogEditConductors"));
+	QVERIFY(edit_button);
+	QSignalSpy edited(&widget, &CableCatalogWidget::editConductorsRequested);
+	QVERIFY(edit_button->isEnabled());
+
+	widget.setReadOnly(true);
+	QVERIFY(!edit_button->isEnabled());
+	QVERIFY(edit_button->accessibleDescription().contains(
+		QStringLiteral("lecture seule")));
+	QTest::keyClick(widget.treeView(), Qt::Key_M, Qt::AltModifier);
+	QCOMPARE(edited.count(), 0);
+
+	widget.setReadOnly(false);
+	QVERIFY(edit_button->isEnabled());
+	QTest::keyClick(widget.treeView(), Qt::Key_M, Qt::AltModifier);
+	QCOMPARE(edited.count(), 1);
+
+	widget.setLoadFailed(true);
+	QVERIFY(!edit_button->isEnabled());
+	widget.setLoadFailed(false);
+	widget.setProjectAvailable(false);
+	QVERIFY(!edit_button->isEnabled());
+	widget.setProjectAvailable(true);
+	QVERIFY(edit_button->isEnabled());
+
+	widget.treeView()->selectionModel()->clearSelection();
+	QVERIFY(widget.selectedTargets().isEmpty());
+	QVERIFY(!edit_button->isEnabled());
 }
 
 void CableCatalogTest::emptyNoMatchAndUnavailableStatesAreDistinct()
@@ -305,6 +455,7 @@ void CableCatalogTest::fitsLogicalDesktopAt150Percent()
 		QStringLiteral("cableCatalogHealthFilter"),
 		QStringLiteral("cableCatalogDiagnosticFilter"),
 		QStringLiteral("cableCatalogTree"),
+		QStringLiteral("cableCatalogEditConductors"),
 		QStringLiteral("cableCatalogShowInFolio")})
 	{
 		QWidget *control = widget.findChild<QWidget *>(name);

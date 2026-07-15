@@ -31,6 +31,11 @@ class ConductorChangePlan final
 		Q_DECLARE_TR_FUNCTIONS(ConductorChangePlan)
 
 	public:
+		enum class ExpansionScope {
+			ElectricalPotential,
+			ExactConductors
+		};
+
 		enum class Code {
 			Ok,
 			NoChanges,
@@ -87,7 +92,17 @@ class ConductorChangePlan final
 		static ConductorChangePlan build(
 			QETProject *project,
 			const QList<Conductor *> &roots,
+			const Transform &transform,
+			ExpansionScope expansionScope);
+		static ConductorChangePlan build(
+			QETProject *project,
+			const QList<Conductor *> &roots,
 			const TargetTransform &transform);
+		static ConductorChangePlan build(
+			QETProject *project,
+			const QList<Conductor *> &roots,
+			const TargetTransform &transform,
+			ExpansionScope expansionScope);
 
 		Result buildResult() const;
 		Result revalidate() const;
@@ -102,6 +117,7 @@ class ConductorChangePlan final
 		int requestedCount() const;
 		int changedConductorCount() const;
 		int potentialCount() const;
+		ExpansionScope expansionScope() const;
 		const QVector<PreviewEntry> &previewEntries() const;
 		ConductorChangePreviewData previewData() const;
 		Conductor *conductorForKey(quintptr key) const;
@@ -117,6 +133,7 @@ class ConductorChangePlan final
 		QVector<QPointer<Conductor>> m_requested;
 		QVector<PreviewEntry> m_entries;
 		QVector<PotentialSnapshot> m_potentials;
+		ExpansionScope m_expansion_scope = ExpansionScope::ElectricalPotential;
 		Result m_build_result;
 };
 

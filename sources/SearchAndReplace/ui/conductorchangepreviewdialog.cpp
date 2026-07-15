@@ -45,6 +45,9 @@ ConductorChangePreviewDialog::ConductorChangePreviewDialog(
 	QWidget *parent) :
 	QDialog(parent)
 {
+	const bool exact_scope =
+		data.scope == ConductorChangePreviewData::Scope::ExactConductors;
+
 	setObjectName(QStringLiteral("conductorChangePreviewDialog"));
 	setWindowTitle(tr("Vérifier les modifications de conducteurs"));
 	setWindowModality(Qt::WindowModal);
@@ -65,10 +68,13 @@ ConductorChangePreviewDialog::ConductorChangePreviewDialog(
 	title->setAccessibleName(title->text());
 	main_layout->addWidget(title);
 
-	auto description = new QLabel(
-		tr("Les conducteurs reliés au même potentiel peuvent se trouver sur plusieurs folios. "
-		   "L’aperçu ci-dessous correspond exactement à l’opération concernant les conducteurs. "
-		   "Les autres catégories sélectionnées restent des opérations distinctes dans l’historique d’annulation."),
+	auto description = new QLabel(exact_scope
+		? tr("Seuls les conducteurs explicitement sélectionnés sont inclus. "
+			 "Les autres branches de leurs potentiels électriques restent inchangées. "
+			 "L’aperçu ci-dessous correspond exactement à l’opération qui sera ajoutée à l’historique d’annulation.")
+		: tr("Les conducteurs reliés au même potentiel peuvent se trouver sur plusieurs folios. "
+			 "L’aperçu ci-dessous correspond exactement à l’opération concernant les conducteurs. "
+			 "Les autres catégories sélectionnées restent des opérations distinctes dans l’historique d’annulation."),
 		this);
 	description->setWordWrap(true);
 	description->setAccessibleName(description->text());
@@ -89,8 +95,8 @@ ConductorChangePreviewDialog::ConductorChangePreviewDialog(
 		tr("folios concernés"),
 		this), 1, 0);
 	cards->addWidget(summaryCard(
-		QString::number(data.potentialCount),
-		tr("potentiels concernés"),
+		QString::number(exact_scope ? data.groupCount : data.potentialCount),
+		exact_scope ? tr("conducteurs concernés") : tr("potentiels concernés"),
 		this), 1, 1);
 	main_layout->addLayout(cards);
 
@@ -108,10 +114,12 @@ ConductorChangePreviewDialog::ConductorChangePreviewDialog(
 	m_scope_notice = new QLabel(this);
 	m_scope_notice->setObjectName(QStringLiteral("conductorChangeScopeNotice"));
 	m_scope_notice->setWordWrap(true);
-	m_scope_notice->setText(data.consideredCount > data.requestedCount
-		? tr("Portée étendue : %1 conducteur(s) associé(s) aux mêmes potentiels sont inclus pour conserver la cohérence électrique.")
-			.arg(data.consideredCount - data.requestedCount)
-		: tr("La portée réelle correspond à la sélection demandée."));
+	m_scope_notice->setText(exact_scope
+		? tr("Portée exacte : aucune branche du même potentiel n’est ajoutée automatiquement à la sélection.")
+		: data.consideredCount > data.requestedCount
+			? tr("Portée étendue : %1 conducteur(s) associé(s) aux mêmes potentiels sont inclus pour conserver la cohérence électrique.")
+				.arg(data.consideredCount - data.requestedCount)
+			: tr("La portée réelle correspond à la sélection demandée."));
 	m_scope_notice->setAccessibleName(m_scope_notice->text());
 	main_layout->addWidget(m_scope_notice);
 

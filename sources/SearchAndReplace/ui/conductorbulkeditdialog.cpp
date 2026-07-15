@@ -56,23 +56,42 @@ QString columnLayoutKey(const QString &name)
 ConductorBulkEditDialog::ConductorBulkEditDialog(
 	QVector<ConductorBulkEditModel::Row> rows,
 	QWidget *parent) :
+	ConductorBulkEditDialog(
+		std::move(rows),
+		ConductorBulkEditModel::Mode::ElectricalPotentials,
+		parent)
+{
+}
+
+ConductorBulkEditDialog::ConductorBulkEditDialog(
+	QVector<ConductorBulkEditModel::Row> rows,
+	ConductorBulkEditModel::Mode mode,
+	QWidget *parent) :
 	QDialog(parent)
 {
+	m_mode = mode;
+	const bool exact_conductors =
+		m_mode == ConductorBulkEditModel::Mode::ExactConductors;
 	setObjectName(QStringLiteral("conductorBulkEditDialog"));
-	setWindowTitle(tr("Modifier les conducteurs en tableau"));
+	setWindowTitle(exact_conductors
+		? tr("Modifier les conducteurs sélectionnés")
+		: tr("Modifier les conducteurs en tableau"));
 	setWindowModality(Qt::WindowModal);
 	setSizeGripEnabled(true);
 	setMinimumSize(720, 430);
 	resize(1080, 640);
 	setAccessibleName(windowTitle());
-	setAccessibleDescription(tr(
-		"Éditeur de brouillon par potentiel pour la fonction, la tension ou le protocole, la couleur et la section des conducteurs."));
+	setAccessibleDescription(exact_conductors
+		? tr("Éditeur de brouillon limité aux conducteurs sélectionnés pour la référence de câble et l’âme ou couleur.")
+		: tr("Éditeur de brouillon par potentiel pour la fonction, la tension ou le protocole, la couleur et la section des conducteurs."));
 
 	auto main_layout = new QVBoxLayout(this);
 	main_layout->setContentsMargins(20, 18, 20, 16);
 	main_layout->setSpacing(10);
 
-	auto title = new QLabel(tr("Préparer les modifications par potentiel"), this);
+	auto title = new QLabel(exact_conductors
+		? tr("Préparer les modifications")
+		: tr("Préparer les modifications par potentiel"), this);
 	QFont title_font = title->font();
 	title_font.setPointSize(qMax(title_font.pointSize() + 3, 13));
 	title_font.setBold(true);
@@ -80,8 +99,9 @@ ConductorBulkEditDialog::ConductorBulkEditDialog(
 	title->setAccessibleName(title->text());
 	main_layout->addWidget(title);
 
-	auto description = new QLabel(
-		tr("Une ligne regroupe tous les segments d’un même potentiel, y compris sur plusieurs folios. "
+	auto description = new QLabel(exact_conductors
+		? tr("Une ligne correspond à un conducteur explicitement sélectionné. Modifiez la référence de câble et l’âme ou couleur ; le projet ne changera qu’après vérification et confirmation.")
+		: tr("Une ligne regroupe tous les segments d’un même potentiel, y compris sur plusieurs folios. "
 		   "Modifiez directement les quatre dernières colonnes ou collez un tableau depuis un tableur avec Ctrl+V."),
 		this);
 	description->setWordWrap(true);
@@ -89,16 +109,19 @@ ConductorBulkEditDialog::ConductorBulkEditDialog(
 	description->setAccessibleName(description->text());
 	main_layout->addWidget(description);
 
-	m_model = new ConductorBulkEditModel(std::move(rows), this);
+	m_model = new ConductorBulkEditModel(std::move(rows), m_mode, this);
 	m_table = new QTableView(this);
 	m_table->setObjectName(QStringLiteral("conductorBulkEditTable"));
 	m_table->setModel(m_model);
-	m_table->setAccessibleName(tr("Brouillon des propriétés de conducteurs par potentiel"));
-	m_table->setAccessibleDescription(tr(
-		"Les colonnes folio, potentiel et segments sont en lecture seule. "
-		"Les colonnes fonction, tension ou protocole, couleur et section sont modifiables. "
-		"Utilisez Colonnes pour adapter la vue et faites glisser les en-têtes pour les réordonner. "
-		"Sélectionnez au moins deux lignes et utilisez Recopier vers le bas ou Ctrl+D pour harmoniser une plage."));
+	m_table->setAccessibleName(exact_conductors
+		? tr("Brouillon des conducteurs sélectionnés")
+		: tr("Brouillon des propriétés de conducteurs par potentiel"));
+	m_table->setAccessibleDescription(exact_conductors
+		? tr("Les colonnes folio et conducteur sont en lecture seule. Les colonnes câble et âme ou couleur sont modifiables. La portée reste limitée aux conducteurs sélectionnés.")
+		: tr("Les colonnes folio, potentiel et segments sont en lecture seule. "
+		   "Les colonnes fonction, tension ou protocole, couleur et section sont modifiables. "
+		   "Utilisez Colonnes pour adapter la vue et faites glisser les en-têtes pour les réordonner. "
+		   "Sélectionnez au moins deux lignes et utilisez Recopier vers le bas ou Ctrl+D pour harmoniser une plage."));
 	m_table->setAlternatingRowColors(true);
 	m_table->setSelectionBehavior(QAbstractItemView::SelectItems);
 	m_table->setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -122,7 +145,7 @@ ConductorBulkEditDialog::ConductorBulkEditDialog(
 	m_table->horizontalHeader()->setSectionResizeMode(
 		ConductorBulkEditModel::SegmentCountColumn, QHeaderView::ResizeToContents);
 	for (int column = ConductorBulkEditModel::FunctionColumn;
-		 column <= ConductorBulkEditModel::WireSectionColumn;
+		 column <= ConductorBulkEditModel::CableColumn;
 		 ++column) {
 		m_table->horizontalHeader()->setSectionResizeMode(column, QHeaderView::Stretch);
 	}
@@ -153,12 +176,21 @@ ConductorBulkEditDialog::ConductorBulkEditDialog(
 			QStringLiteral("conductorBulkColumn_%1")
 				.arg(descriptor.key));
 		action->setCheckable(true);
-		action->setChecked(descriptor.defaultVisible);
+		const bool available = !descriptor.editable
+			|| m_model->isColumnEditable(descriptor.column);
+		const bool exact_visible =
+			descriptor.column == ConductorBulkEditModel::FolioColumn
+			|| descriptor.column == ConductorBulkEditModel::PotentialColumn
+			|| descriptor.column == ConductorBulkEditModel::WireColorColumn
+			|| descriptor.column == ConductorBulkEditModel::CableColumn;
+		action->setChecked(available
+			&& (exact_conductors ? exact_visible : descriptor.defaultVisible));
 		action->setData(descriptor.column);
-		action->setEnabled(!descriptor.mandatory);
+		action->setEnabled(available && !descriptor.mandatory);
 		if (descriptor.mandatory) {
-			action->setToolTip(tr(
-				"Cette colonne reste visible pour identifier chaque potentiel."));
+			action->setToolTip(exact_conductors
+				? tr("Cette colonne reste visible pour identifier chaque conducteur.")
+				: tr("Cette colonne reste visible pour identifier chaque potentiel."));
 		}
 		m_column_actions[descriptor.column] = action;
 		connect(action, &QAction::toggled, this,
@@ -210,8 +242,9 @@ ConductorBulkEditDialog::ConductorBulkEditDialog(
 	main_layout->addLayout(table_actions);
 	main_layout->addWidget(m_table, 1);
 
-	auto help = new QLabel(
-		tr("Astuce : si « Valeurs multiples » est affiché, laissez la cellule intacte pour conserver les différences existantes. "
+	auto help = new QLabel(exact_conductors
+		? tr("Une cellule laissée intacte conserve la valeur actuelle. Une cellule vidée volontairement efface uniquement la propriété des conducteurs sélectionnés. Aucun autre segment du potentiel n’est modifié.")
+		: tr("Astuce : si « Valeurs multiples » est affiché, laissez la cellule intacte pour conserver les différences existantes. "
 		   "Une cellule vidée volontairement effacera la propriété sur tout le potentiel. "
 		   "Pour harmoniser plusieurs lignes, sélectionnez une plage puis utilisez Recopier vers le bas (Ctrl+D) ; "
 		   "la première ligne sert de référence. La disposition des colonnes est mémorisée sur cet ordinateur."),
@@ -287,7 +320,7 @@ ConductorBulkEditDialog::ConductorBulkEditDialog(
 			m_fill_down_action->toolTip());
 	});
 	connect(m_table, &QTableView::doubleClicked, this, [this](const QModelIndex &index) {
-		if (index.column() >= ConductorBulkEditModel::FunctionColumn) return;
+		if (m_model->isColumnEditable(index.column())) return;
 		const quintptr key = m_model->targetKeyForRow(index.row());
 		if (key != 0) emit targetActivated(key);
 	});
@@ -297,7 +330,17 @@ ConductorBulkEditDialog::ConductorBulkEditDialog(
 	connect(paste_shortcut, &QShortcut::activated,
 		this, &ConductorBulkEditDialog::pasteClipboard);
 
-	loadColumnLayout();
+	if (exact_conductors) {
+		applyColumnLayout(
+			ConductorBulkEditModel::defaultColumnOrder(),
+			{ConductorBulkEditModel::FolioColumn,
+			 ConductorBulkEditModel::PotentialColumn,
+			 ConductorBulkEditModel::WireColorColumn,
+			 ConductorBulkEditModel::CableColumn},
+			false);
+	} else {
+		loadColumnLayout();
+	}
 	updateState();
 	if (m_model->rowCount() > 0) {
 		const QVector<int> editable_columns = visibleEditableColumns();
@@ -381,7 +424,8 @@ bool ConductorBulkEditDialog::exportReviewToFile(const QString &filePath)
 		ConductorBulkEditModel::FunctionColumn,
 		ConductorBulkEditModel::TensionProtocolColumn,
 		ConductorBulkEditModel::WireColorColumn,
-		ConductorBulkEditModel::WireSectionColumn});
+		ConductorBulkEditModel::WireSectionColumn,
+		ConductorBulkEditModel::CableColumn});
 	const int hidden_changed = qMax(0, total_changed - result.changedCellCount);
 	if (!result.success) {
 		setStatusMessage(
@@ -478,7 +522,7 @@ bool ConductorBulkEditDialog::selectedFillRange(
 			return header->visualIndex(first) < header->visualIndex(second);
 		});
 	for (int column : selected_columns) {
-		if (!ConductorBulkEditModel::isEditableColumn(column)) {
+		if (!m_model->isColumnEditable(column)) {
 			if (errorMessage) {
 				*errorMessage = tr(
 					"Sélectionnez uniquement des colonnes éditables visibles.");
@@ -493,7 +537,7 @@ bool ConductorBulkEditDialog::selectedFillRange(
 	for (int visual = first_visual; visual <= last_visual; ++visual) {
 		const int column = header->logicalIndex(visual);
 		if (column < 0 || m_table->isColumnHidden(column)) continue;
-		if (!ConductorBulkEditModel::isEditableColumn(column)
+		if (!m_model->isColumnEditable(column)
 			|| !selected_columns.contains(column)) {
 			if (errorMessage) {
 				*errorMessage = tr(
@@ -541,7 +585,7 @@ QVector<int> ConductorBulkEditDialog::visibleEditableColumns(
 		if (logical == startLogicalColumn) started = true;
 		if (started
 			&& !m_table->isColumnHidden(logical)
-			&& ConductorBulkEditModel::isEditableColumn(logical)) {
+			&& m_model->isColumnEditable(logical)) {
 			columns.append(logical);
 		}
 	}
@@ -648,6 +692,7 @@ void ConductorBulkEditDialog::applyColumnLayout(
 
 void ConductorBulkEditDialog::persistColumnLayout() const
 {
+	if (m_mode == ConductorBulkEditModel::Mode::ExactConductors) return;
 	QStringList order_keys;
 	QStringList visible_keys;
 	auto header = m_table->horizontalHeader();
@@ -671,6 +716,17 @@ void ConductorBulkEditDialog::persistColumnLayout() const
 
 void ConductorBulkEditDialog::resetColumnLayout()
 {
+	if (m_mode == ConductorBulkEditModel::Mode::ExactConductors) {
+		applyColumnLayout(
+			ConductorBulkEditModel::defaultColumnOrder(),
+			{ConductorBulkEditModel::FolioColumn,
+			 ConductorBulkEditModel::PotentialColumn,
+			 ConductorBulkEditModel::WireColorColumn,
+			 ConductorBulkEditModel::CableColumn},
+			false);
+		updateState();
+		return;
+	}
 	QVector<int> visible_columns;
 	for (const auto &descriptor :
 		 ConductorBulkEditModel::columnDescriptors()) {
@@ -877,14 +933,18 @@ void ConductorBulkEditDialog::updateState()
 			.arg(m_model->firstValidationError());
 		palette.setColor(QPalette::WindowText, QColor(180, 35, 35));
 	} else if (changes) {
-		text = tr("Brouillon valide : %1 potentiel(s), %2 segment(s) à vérifier avant application.")
-			.arg(m_model->changedPotentialCount())
-			.arg(m_model->changedSegmentCount());
+		text = m_mode == ConductorBulkEditModel::Mode::ExactConductors
+			? tr("Brouillon valide : %1 conducteur(s) sélectionné(s) à vérifier avant application.")
+				.arg(m_model->changedSegmentCount())
+			: tr("Brouillon valide : %1 potentiel(s), %2 segment(s) à vérifier avant application.")
+				.arg(m_model->changedPotentialCount())
+				.arg(m_model->changedSegmentCount());
 		QVector<int> hidden_editable_columns;
 		for (int column = ConductorBulkEditModel::FunctionColumn;
-			 column <= ConductorBulkEditModel::WireSectionColumn;
+			 column <= ConductorBulkEditModel::CableColumn;
 			 ++column) {
-			if (m_table->isColumnHidden(column)) {
+			if (m_model->isColumnEditable(column)
+				&& m_table->isColumnHidden(column)) {
 				hidden_editable_columns.append(column);
 			}
 		}
@@ -899,7 +959,9 @@ void ConductorBulkEditDialog::updateState()
 		text = tr("Aucune modification préparée. Le projet reste inchangé.");
 		palette.setColor(QPalette::WindowText, this->palette().color(QPalette::Text));
 	} else {
-		text = tr("Aucun potentiel disponible dans la sélection.");
+		text = m_mode == ConductorBulkEditModel::Mode::ExactConductors
+			? tr("Aucun conducteur disponible dans la sélection.")
+			: tr("Aucun potentiel disponible dans la sélection.");
 		palette.setColor(QPalette::WindowText, QColor(180, 35, 35));
 	}
 	m_status->setPalette(palette);

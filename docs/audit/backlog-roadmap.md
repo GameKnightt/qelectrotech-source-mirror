@@ -215,13 +215,16 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
 ### IND-01 — Unifier le parcours borniers et câbles
 
 - **Preuve :** E09, E14 ; GitHub #405 et #409.
-- **État du fork :** IND-01A et IND-01B livrés. Le menu **Borniers et câbles…**
+- **État du fork :** IND-01A, IND-01B et IND-01C livrés. Le menu **Borniers et câbles…**
   réunit la vue des bornes affectées et indépendantes et un catalogue
   hiérarchique câble → conducteurs couvrant tous les folios. Recherche, filtres,
-  diagnostics prudents, navigation et export CSV sont disponibles sans
-  changement de format. Voir
+  diagnostics prudents, navigation, export CSV et édition exacte de la
+  multi-sélection sont disponibles sans changement de format. L’édition limite
+  le brouillon aux propriétés Câble/Couleur, passe par un aperçu et s’applique
+  dans une commande Undo atomique. Voir
   `docs/audit/implementation/ind-01a-terminal-cable-overview.md` et
-  `docs/audit/implementation/ind-01b-cable-catalog.md`.
+  `docs/audit/implementation/ind-01b-cable-catalog.md` ainsi que
+  `docs/audit/implementation/ind-01c-exact-conductor-edit.md`.
 - **Utilisateurs touchés :** tableautiers, automaticiens, maintenance.
 - **Fréquence :** centrale dans les projets concernés.
 - **Impact :** données éclatées et sorties incomplètes.
@@ -230,9 +233,9 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
 - **Dépendances :** TerminalStrip, conducteurs, câbles, nomenclature, fabricant.
 - **Compatibilité amont :** privilégier métadonnées existantes et schéma additif.
 - **Critères d'acceptation :** un point d'entrée stable, table complète, tri/multi-sélection, destinations, ponts, réserves, câbles groupés, aperçu avant génération et export déterministe.
-- **Incrément suivant :** IND-01C, édition groupée avec sélection exacte des
-  conducteurs, aperçu avant application et Undo atomique. La multi-sélection,
-  les réserves et la qualification métier restent à livrer.
+- **Incrément suivant :** structurer réserves, destinations et identités de câble
+  sur la base de projets métier anonymisés. La qualification métier reste à
+  mener avant d’ajouter un objet `Cable` persistant ou de nouvelles contraintes.
 
 ### DIST-01 — Signer et fiabiliser l'installateur Windows
 

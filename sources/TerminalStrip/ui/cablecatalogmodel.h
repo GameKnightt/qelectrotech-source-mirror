@@ -68,6 +68,8 @@ class CableCatalogModel final : public QAbstractItemModel
 		void setSnapshot(CableCatalogSnapshot snapshot);
 		CableCatalogSnapshot snapshot() const;
 		CableCatalogEntry entryAt(int row) const;
+		QVector<CableNavigationTarget> navigationTargetsForIndex(
+				const QModelIndex &index) const;
 
 		static QString normalizedSearch(const QString &text);
 

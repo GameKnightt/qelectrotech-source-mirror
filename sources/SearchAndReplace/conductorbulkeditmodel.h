@@ -21,6 +21,11 @@ class ConductorBulkEditModel final : public QAbstractTableModel
 	Q_OBJECT
 
 	public:
+		enum class Mode {
+			ElectricalPotentials,
+			ExactConductors
+		};
+
 		enum Column {
 			FolioColumn,
 			PotentialColumn,
@@ -29,6 +34,7 @@ class ConductorBulkEditModel final : public QAbstractTableModel
 			TensionProtocolColumn,
 			WireColorColumn,
 			WireSectionColumn,
+			CableColumn,
 			ColumnCount
 		};
 
@@ -61,10 +67,15 @@ class ConductorBulkEditModel final : public QAbstractTableModel
 			Cell tensionProtocol;
 			Cell wireColor;
 			Cell wireSection;
+			Cell cable;
 		};
 
 		explicit ConductorBulkEditModel(
 			QVector<Row> rows,
+			QObject *parent = nullptr);
+		ConductorBulkEditModel(
+			QVector<Row> rows,
+			Mode mode,
 			QObject *parent = nullptr);
 
 		int rowCount(const QModelIndex &parent = QModelIndex()) const override;
@@ -125,6 +136,8 @@ class ConductorBulkEditModel final : public QAbstractTableModel
 		ConductorProperties propertiesForTarget(
 			quintptr targetKey,
 			const ConductorProperties &before) const;
+		Mode mode() const;
+		bool isColumnEditable(int column) const;
 
 		static bool isEditableColumn(int column);
 		static QVector<ColumnDescriptor> columnDescriptors();
@@ -141,6 +154,7 @@ class ConductorBulkEditModel final : public QAbstractTableModel
 
 		QVector<Row> m_rows;
 		QHash<quintptr, int> m_target_rows;
+		Mode m_mode = Mode::ElectricalPotentials;
 };
 
 #endif // CONDUCTORBULKEDITMODEL_H

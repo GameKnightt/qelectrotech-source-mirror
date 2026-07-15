@@ -23,7 +23,8 @@ bool rowChanges(const ConductorBulkEditModel::Row &row)
 	return row.function.changes()
 		|| row.tensionProtocol.changes()
 		|| row.wireColor.changes()
-		|| row.wireSection.changes();
+		|| row.wireSection.changes()
+		|| row.cable.changes();
 }
 
 }
@@ -31,8 +32,20 @@ bool rowChanges(const ConductorBulkEditModel::Row &row)
 ConductorBulkEditModel::ConductorBulkEditModel(
 	QVector<Row> rows,
 	QObject *parent) :
+	ConductorBulkEditModel(
+		std::move(rows),
+		Mode::ElectricalPotentials,
+		parent)
+{
+}
+
+ConductorBulkEditModel::ConductorBulkEditModel(
+	QVector<Row> rows,
+	Mode mode,
+	QObject *parent) :
 	QAbstractTableModel(parent),
-	m_rows(std::move(rows))
+	m_rows(std::move(rows)),
+	m_mode(mode)
 {
 	rebuildTargetIndex();
 }
@@ -110,6 +123,7 @@ QVariant ConductorBulkEditModel::headerData(
 		case TensionProtocolColumn: return tr("Tension / protocole");
 		case WireColorColumn: return tr("Couleur");
 		case WireSectionColumn: return tr("Section");
+		case CableColumn: return tr("Câble");
 		default: return {};
 	}
 }
@@ -117,7 +131,7 @@ QVariant ConductorBulkEditModel::headerData(
 Qt::ItemFlags ConductorBulkEditModel::flags(const QModelIndex &index) const
 {
 	Qt::ItemFlags item_flags = QAbstractTableModel::flags(index);
-	if (index.isValid() && isEditableColumn(index.column())) {
+	if (index.isValid() && isColumnEditable(index.column())) {
 		item_flags |= Qt::ItemIsEditable;
 	}
 	return item_flags;
@@ -129,7 +143,7 @@ bool ConductorBulkEditModel::setData(
 	int role)
 {
 	if (role != Qt::EditRole || !index.isValid()
-		|| !isEditableColumn(index.column())) return false;
+		|| !isColumnEditable(index.column())) return false;
 	Cell *draft_cell = cell(index.row(), index.column());
 	if (!draft_cell) return false;
 	draft_cell->value = value.toString();
@@ -184,7 +198,7 @@ bool ConductorBulkEditModel::pasteTsv(
 	QVector<int> checked_columns;
 	checked_columns.reserve(logicalColumns.size());
 	for (int column : logicalColumns) {
-		if (!isEditableColumn(column) || checked_columns.contains(column)) {
+		if (!isColumnEditable(column) || checked_columns.contains(column)) {
 			if (errorMessage) {
 				*errorMessage = tr(
 					"Le collage doit utiliser des colonnes éditables visibles et distinctes.");
@@ -283,7 +297,7 @@ bool ConductorBulkEditModel::canFillDown(
 	QVector<int> checked_columns;
 	checked_columns.reserve(logicalColumns.size());
 	for (int column : logicalColumns) {
-		if (!isEditableColumn(column) || checked_columns.contains(column)) {
+		if (!isColumnEditable(column) || checked_columns.contains(column)) {
 			if (errorMessage) {
 				*errorMessage = tr(
 					"La sélection doit rester dans des colonnes éditables visibles et distinctes.");
@@ -389,7 +403,8 @@ void ConductorBulkEditModel::resetDraft()
 			&row.function,
 			&row.tensionProtocol,
 			&row.wireColor,
-			&row.wireSection};
+			&row.wireSection,
+			&row.cable};
 		for (Cell *draft_cell : cells) {
 			draft_cell->value = draft_cell->initialValue;
 			draft_cell->edited = false;
@@ -397,7 +412,7 @@ void ConductorBulkEditModel::resetDraft()
 	}
 	emit dataChanged(
 		index(0, FunctionColumn),
-		index(m_rows.size() - 1, WireSectionColumn));
+		index(m_rows.size() - 1, CableColumn));
 }
 
 bool ConductorBulkEditModel::hasChanges() const
@@ -414,7 +429,7 @@ int ConductorBulkEditModel::invalidCellCount() const
 {
 	int count = 0;
 	for (int row = 0; row < m_rows.size(); ++row) {
-		for (int column = FunctionColumn; column <= WireSectionColumn; ++column) {
+		for (int column = FunctionColumn; column <= CableColumn; ++column) {
 			const Cell *draft_cell = cell(row, column);
 			if (draft_cell && draft_cell->edited
 				&& !validationError(draft_cell->value).isEmpty()) ++count;
@@ -454,7 +469,7 @@ int ConductorBulkEditModel::changedSegmentCount() const
 QString ConductorBulkEditModel::firstValidationError() const
 {
 	for (int row = 0; row < m_rows.size(); ++row) {
-		for (int column = FunctionColumn; column <= WireSectionColumn; ++column) {
+		for (int column = FunctionColumn; column <= CableColumn; ++column) {
 			const Cell *draft_cell = cell(row, column);
 			const QString error = draft_cell && draft_cell->edited
 				? validationError(draft_cell->value)
@@ -502,12 +517,26 @@ ConductorProperties ConductorBulkEditModel::propertiesForTarget(
 	}
 	if (row.wireColor.changes()) after.m_wire_color = row.wireColor.value;
 	if (row.wireSection.changes()) after.m_wire_section = row.wireSection.value;
+	if (row.cable.changes()) after.m_cable = row.cable.value;
 	return after;
+}
+
+ConductorBulkEditModel::Mode ConductorBulkEditModel::mode() const
+{
+	return m_mode;
+}
+
+bool ConductorBulkEditModel::isColumnEditable(int column) const
+{
+	if (m_mode == Mode::ExactConductors) {
+		return column == WireColorColumn || column == CableColumn;
+	}
+	return column >= FunctionColumn && column <= WireSectionColumn;
 }
 
 bool ConductorBulkEditModel::isEditableColumn(int column)
 {
-	return column >= FunctionColumn && column <= WireSectionColumn;
+	return column >= FunctionColumn && column <= CableColumn;
 }
 
 QVector<ConductorBulkEditModel::ColumnDescriptor>
@@ -520,7 +549,8 @@ ConductorBulkEditModel::columnDescriptors()
 		{FunctionColumn, QStringLiteral("function"), true, true, false},
 		{TensionProtocolColumn, QStringLiteral("tension_protocol"), true, true, false},
 		{WireColorColumn, QStringLiteral("wire_color"), true, true, false},
-		{WireSectionColumn, QStringLiteral("wire_section"), true, true, false}
+		{WireSectionColumn, QStringLiteral("wire_section"), true, true, false},
+		{CableColumn, QStringLiteral("cable"), true, false, false}
 	};
 }
 
@@ -580,6 +610,7 @@ const ConductorBulkEditModel::Cell *ConductorBulkEditModel::cell(
 		case TensionProtocolColumn: return &draft_row.tensionProtocol;
 		case WireColorColumn: return &draft_row.wireColor;
 		case WireSectionColumn: return &draft_row.wireSection;
+		case CableColumn: return &draft_row.cable;
 		default: return nullptr;
 	}
 }

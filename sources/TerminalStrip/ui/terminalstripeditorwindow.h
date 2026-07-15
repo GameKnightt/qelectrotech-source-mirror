@@ -35,6 +35,7 @@ class CableCatalogWidget;
 class Conductor;
 class QAbstractButton;
 class QTabWidget;
+class QTimer;
 
 namespace Ui {
 	class TerminalStripEditorWindow;
@@ -92,12 +93,15 @@ class TerminalStripEditorWindow : public QMainWindow
 		void refreshOverview();
 		void showElementInFolio(const QUuid &element_uuid);
 		void showConductorInFolio(const CableNavigationTarget &target);
+		void editCableConductors(
+			const QVector<CableNavigationTarget> &targets);
 		void updateReadOnlyState();
 
 	private:
 		void addTreeDockWidget();
 		void currentStripChanged(TerminalStrip *strip);
 		void updateUi();
+		void focusConductor(Conductor *conductor);
 
 	private:
 		Ui::TerminalStripEditorWindow *ui{nullptr};
@@ -108,9 +112,11 @@ class TerminalStripEditorWindow : public QMainWindow
 		TerminalStripOverviewWidget *m_overview {nullptr};
 		CableCatalogWidget *m_cable_catalog {nullptr};
 		QTabWidget *m_workspace_tabs {nullptr};
+		QTimer *m_overview_refresh_timer {nullptr};
 		QHash<quint64, QPointer<Conductor>> m_cable_targets;
 		QMetaObject::Connection m_project_destroy_connection;
 		QMetaObject::Connection m_project_read_only_connection;
+		QMetaObject::Connection m_project_undo_connection;
 };
 
 #endif // TERMINALSTRIPEDITORWINDOW_H

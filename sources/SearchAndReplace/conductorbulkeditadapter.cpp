@@ -66,6 +66,7 @@ QVector<ConductorBulkEditModel::Row> conductorBulkEditRows(
 		QStringList tensions;
 		QStringList colors;
 		QStringList sections;
+		QStringList cables;
 
 		for (const ConductorChangePlan::PreviewEntry *entry : group.value())
 		{
@@ -78,6 +79,7 @@ QVector<ConductorBulkEditModel::Row> conductorBulkEditRows(
 			tensions.append(entry->before.m_tension_protocol);
 			colors.append(entry->before.m_wire_color);
 			sections.append(entry->before.m_wire_section);
+			cables.append(entry->before.m_cable);
 		}
 
 		if (row.targetKeys.isEmpty()) continue;
@@ -93,6 +95,7 @@ QVector<ConductorBulkEditModel::Row> conductorBulkEditRows(
 		row.tensionProtocol = commonCell(tensions);
 		row.wireColor = commonCell(colors);
 		row.wireSection = commonCell(sections);
+		row.cable = commonCell(cables);
 		rows.append(row);
 	}
 	return rows;

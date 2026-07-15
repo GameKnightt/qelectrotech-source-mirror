@@ -26,7 +26,28 @@
 #include <QUndoStack>
 #include <QtTest>
 
+#include <type_traits>
+
 namespace {
+
+using ExactTransformBuild = ConductorChangePlan (*)(
+	QETProject *,
+	const QList<Conductor *> &,
+	const ConductorChangePlan::Transform &,
+	ConductorChangePlan::ExpansionScope);
+
+using ExactTargetTransformBuild = ConductorChangePlan (*)(
+	QETProject *,
+	const QList<Conductor *> &,
+	const ConductorChangePlan::TargetTransform &,
+	ConductorChangePlan::ExpansionScope);
+
+static_assert(std::is_same_v<
+	decltype(static_cast<ExactTransformBuild>(&ConductorChangePlan::build)),
+	ExactTransformBuild>);
+static_assert(std::is_same_v<
+	decltype(static_cast<ExactTargetTransformBuild>(&ConductorChangePlan::build)),
+	ExactTargetTransformBuild>);
 
 ConductorChangePreviewData previewData(int row_count = 3, bool changes = true)
 {
@@ -106,6 +127,7 @@ class ConductorChangePreviewTest : public QObject
 		void executionGateCreatesSingleUndoTransaction();
 		void executionGateHandlesNoOpAndApplicationFailure();
 		void showsScopeAndAccessibleContract();
+		void exactScopePreviewNeverClaimsPotentialExpansion();
 		void cancelLeavesDialogRejected();
 		void escapeLeavesDialogRejected();
 		void applyIsEnabledOnlyForChanges();
@@ -353,6 +375,45 @@ void ConductorChangePreviewTest::showsScopeAndAccessibleContract()
 	QVERIFY(summary->text().contains(QStringLiteral("2")));
 	QVERIFY(!summary->accessibleName().isEmpty());
 	QVERIFY(!notice->accessibleName().isEmpty());
+}
+
+void ConductorChangePreviewTest::exactScopePreviewNeverClaimsPotentialExpansion()
+{
+	ConductorChangePreviewData data = previewData(3);
+	data.requestedCount = 3;
+	data.consideredCount = 3;
+	data.affectedCount = 2;
+	data.unchangedCount = 1;
+	data.potentialCount = 0;
+	data.groupCount = 3;
+	data.scope = ConductorChangePreviewData::Scope::ExactConductors;
+
+	ConductorChangePreviewDialog dialog(data);
+	auto notice = dialog.findChild<QLabel *>(
+		QStringLiteral("conductorChangeScopeNotice"));
+	QVERIFY(notice);
+	QVERIFY(notice->text().contains(QStringLiteral("Portée exacte")));
+	QVERIFY(notice->text().contains(QStringLiteral("aucune branche")));
+	QVERIFY(!notice->text().contains(QStringLiteral("Portée étendue")));
+	QVERIFY(!notice->accessibleName().isEmpty());
+
+	bool exact_count_exposed = false;
+	bool exact_description_exposed = false;
+	for (QLabel *label : dialog.findChildren<QLabel *>())
+	{
+		if (label->accessibleName().contains(
+				QStringLiteral("conducteurs concernés"))
+			&& label->accessibleName().contains(QStringLiteral("3"))) {
+			exact_count_exposed = true;
+		}
+		if (label->text().contains(
+				QStringLiteral("explicitement sélectionnés"))) {
+			exact_description_exposed = true;
+		}
+	}
+	QVERIFY(exact_count_exposed);
+	QVERIFY(exact_description_exposed);
+	QVERIFY(dialog.applyButton()->isEnabled());
 }
 
 void ConductorChangePreviewTest::cancelLeavesDialogRejected()

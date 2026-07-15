@@ -93,3 +93,11 @@ catalogue hiérarchique avec câbles sains, diagnostics et conducteurs enfants.
 La validation couvre aussi l’export CSV, les filtres combinés, le clavier,
 10 000 conducteurs, la grande police à 150 % et la navigation dans
 l’application Windows complète.
+
+## Incrément IND-01C — 15 juillet 2026
+
+Le dossier [`ind-01c`](ind-01c/) contient les captures natives du câble `C20`
+sélectionné puis de l’éditeur exact limité à ses deux conducteurs. La validation
+associe sélection parent/enfant, déduplication, portée sans expansion au
+potentiel, aperçu, application atomique, Undo et contrats Windows à 100 % et
+150 %.

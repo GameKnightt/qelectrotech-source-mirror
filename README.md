@@ -45,6 +45,13 @@ enregistrées ; le premier Ctrl+S passe par Enregistrer sous.*
 *Windows 11, projet public `industrial.qet`, édition par potentiel et disposition
 de colonnes personnalisable et persistante.*
 
+### Borniers et câbles
+
+![Vue consolidée Borniers et câbles](docs/audit/evidence/ind-01a-terminal-cable-overview/01-overview-populated.png)
+
+*Table en lecture seule, recherche sans accent, filtres, tri naturel, contrôle
+des informations câble/âme et navigation vers le folio.*
+
 ## Ce que le fork ajoute
 
 | Domaine | Changements disponibles |
@@ -56,6 +63,7 @@ de colonnes personnalisable et persistante.*
 | Propriétés | Inspecteur contextuel, sélection et édition des conducteurs plus prévisibles |
 | Exports | Centre d’export unifié, erreurs visibles, export PDF/PNG/SVG et données métier protégés contre les faux succès |
 | Conducteurs | Aperçu avant application, édition tabulaire groupée, collage TSV, recopie vers le bas, colonnes configurables et export CSV de revue |
+| Borniers et câbles | Point d’entrée stabilisé, vue consolidée des bornes affectées et indépendantes, recherche et filtres, agrégation des conducteurs/câbles et navigation vers le folio |
 
 Le détail technique, les critères d’acceptation et les limites de chaque lot sont
 réunis dans l’[index des implémentations](docs/audit/implementation/README.md).
@@ -82,12 +90,13 @@ Windows sont inclus dans le paquet.
    projet doit être indiqué **Modifié** et `Ctrl+S` doit ouvrir Enregistrer sous.
 2. Passez entre les profils **Essentiel** et **Classique**.
 3. Naviguez entre les folios et recherchez un composant.
-4. Ouvrez le centre d’export.
-5. Utilisez la recherche avancée puis **Modifier les conducteurs en tableau…**.
-6. Modifiez une copie du projet : le statut doit passer à **Modifié**.
-7. Enregistrez avec `Ctrl+S` : le statut ne doit revenir à **Sauvegardé**
+4. Ouvrez **Projet > Borniers et câbles…** et vérifiez la vue d’ensemble.
+5. Ouvrez le centre d’export.
+6. Utilisez la recherche avancée puis **Modifier les conducteurs en tableau…**.
+7. Modifiez une copie du projet : le statut doit passer à **Modifié**.
+8. Enregistrez avec `Ctrl+S` : le statut ne doit revenir à **Sauvegardé**
    qu’après la fin réelle de l’écriture.
-8. Vérifiez que Undo/Redo reste disponible après la sauvegarde.
+9. Vérifiez que Undo/Redo reste disponible après la sauvegarde.
 
 Consultez le [guide de la préversion portable](docs/development/windows-portable-preview.md)
 pour le packaging et les contrôles de manifeste.
@@ -108,8 +117,8 @@ Les changements de données sont protégés par Undo lorsque le parcours le perm
 Validation de cette préversion :
 
 - compilation de l’application complète sous Windows 11 / Qt 5 / UCRT64 ;
-- **39/39 tests CTest** réussis en série ;
-- **12/12** parcours clavier Windows natifs et **18/18** contrôles natifs à
+- **43/43 tests CTest** réussis en série ;
+- **14/14** parcours clavier Windows natifs et **21/21** contrôles natifs à
   150 % réussis ;
 - ouverture CLI d’un projet public de 50 folios : 618 éléments et 671
   conducteurs détectés ;
@@ -124,8 +133,9 @@ Validation de cette préversion :
 - parité Linux, macOS et Qt 6 non revendiquée pour cette distribution ;
 - inventaire final des licences tierces, signature et test sur machine Windows
   propre encore requis avant une publication stable ;
-- borniers, câbles, E/S automate, pneumatique, hydraulique et process doivent
-  encore être validés sur des projets métier anonymisés représentatifs ;
+- la vue initiale Borniers et câbles est validée, mais ses règles métier
+  avancées ainsi que les E/S automate, le pneumatique, l’hydraulique et le
+  process exigent encore des projets anonymisés représentatifs ;
 - thème sombre, contraste élevé et certains scénarios à 200 % restent à
   compléter.
 
@@ -147,8 +157,9 @@ Validation de cette préversion :
   licences et les tests de compatibilité de formats.
 - **Ensuite :** poursuivre la refonte progressive des parcours, les modèles
   paramétrables, les propriétés et les exports.
-- **Fonctions industrielles :** borniers et câbles, E/S automate, désignation
-  IEC 81346, routage intelligent et bus.
+- **Fonctions industrielles :** poursuivre Borniers et câbles avec un modèle de
+  câble et l’édition groupée, puis E/S automate, désignation IEC 81346, routage
+  intelligent et bus.
 - **Architecture :** convergence Qt 6/KF6, automatisation CLI/API et
   intégrations externes.
 

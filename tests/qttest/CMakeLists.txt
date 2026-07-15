@@ -378,6 +378,34 @@ set_tests_properties(
   folio_navigator_large_text_150_test
   PROPERTIES LABELS "folio-navigation;deterministic-scale")
 
+add_executable(
+  terminal_strip_overview_test
+  tst_terminalstripoverview.cpp
+  ${QET_DIR}/sources/TerminalStrip/ui/terminalstripoverviewmodel.cpp
+  ${QET_DIR}/sources/TerminalStrip/ui/terminalstripoverviewmodel.h
+  ${QET_DIR}/sources/TerminalStrip/ui/terminalstripoverviewwidget.cpp
+  ${QET_DIR}/sources/TerminalStrip/ui/terminalstripoverviewwidget.h)
+add_test(
+  NAME terminal_strip_overview_test
+  COMMAND terminal_strip_overview_test)
+add_test(
+  NAME terminal_strip_overview_keyboard_test
+  COMMAND terminal_strip_overview_test keyboardContract)
+add_test(
+  NAME terminal_strip_overview_non_mutation_test
+  COMMAND terminal_strip_overview_test
+    modelColumnsRolesAndFlagsAreReadOnly
+    readOnlyInteractionsDoNotMutateRows)
+add_test(
+  NAME terminal_strip_overview_large_text_150_test
+  COMMAND terminal_strip_overview_test fitsLogicalDesktopAt150Percent)
+set_tests_properties(
+  terminal_strip_overview_test
+  terminal_strip_overview_keyboard_test
+  terminal_strip_overview_non_mutation_test
+  terminal_strip_overview_large_text_150_test
+  PROPERTIES LABELS "terminal-strip;ind-01a;read-only;search;navigation;accessibility;deterministic-scale")
+
 target_link_libraries(
   ${PROJECT_NAME}
   PRIVATE
@@ -569,6 +597,17 @@ target_include_directories(
 
 target_link_libraries(
   folio_navigator_test
+  PRIVATE
+  Qt::Test
+  Qt::Widgets)
+
+target_include_directories(
+  terminal_strip_overview_test
+  PRIVATE
+  ${QET_DIR}/sources/TerminalStrip/ui)
+
+target_link_libraries(
+  terminal_strip_overview_test
   PRIVATE
   Qt::Test
   Qt::Widgets)

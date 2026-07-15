@@ -32,6 +32,10 @@ reste la source de vérité pour les priorités futures.
 - [UX-05D — Colonnes configurables](ux-05d-column-layout.md)
 - [UX-05E — Export CSV de revue](ux-05e-conductor-review-export.md)
 
+## Fonctions industrielles
+
+- [IND-01A — Vue consolidée Borniers et câbles](ind-01a-terminal-cable-overview.md)
+
 ## Références
 
 - [Audit complet](../qet-audit.md)

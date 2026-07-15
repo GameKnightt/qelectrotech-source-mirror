@@ -22,16 +22,24 @@
 #include "../../qetapp.h"
 #include "../../qetdiagrameditor.h"
 #include "../../qetproject.h"
+#include "../../elementprovider.h"
+#include "../../qetgraphicsitem/element.h"
+#include "../../qetgraphicsitem/qetgraphicsitem.h"
 #include "../realterminal.h"
 #include "../terminalstrip.h"
 #include "terminalstripcreatordialog.h"
 #include "terminalstripeditor.h"
 #include "terminalstripeditorwindow.h"
+#include "terminalstripoverviewloader.h"
+#include "terminalstripoverviewwidget.h"
 #include "terminalstriptreedockwidget.h"
+
+#include <QGuiApplication>
+#include <QScreen>
 
 QPointer<TerminalStripEditorWindow> TerminalStripEditorWindow::window_;
 
-static const int EMPTY_PAGE = 0;
+static const int OVERVIEW_PAGE = 0;
 static const int FREE_TERMINAL_PAGE = 1;
 static const int TERMINAL_STRIP_PAGE = 2;
 /**
@@ -55,6 +63,12 @@ TerminalStripEditorWindow::TerminalStripEditorWindow(QETProject *project, QWidge
     m_project(project)
 {
 	ui->setupUi(this);
+	setMinimumSize(640, 360);
+	if (QScreen *screen = this->screen())
+	{
+		const QSize available = screen->availableGeometry().size();
+		resize(qMin(1180, available.width()), qMin(760, available.height()));
+	}
     if (auto diagram_editor = QETApp::diagramEditor(project)) {
         ui->m_tool_bar->addSeparator();
         ui->m_tool_bar->addAction(diagram_editor->undo);
@@ -65,12 +79,19 @@ TerminalStripEditorWindow::TerminalStripEditorWindow(QETProject *project, QWidge
 
 	m_free_terminal_editor = new FreeTerminalEditor(m_project, this);
 	m_terminal_strip_editor = new TerminalStripEditor{m_project, this};
+	m_overview = new TerminalStripOverviewWidget(this);
 
 	connect(m_tree_dock, &TerminalStripTreeDockWidget::currentStripChanged, this, &TerminalStripEditorWindow::currentStripChanged);
 
-	ui->m_stacked_widget->insertWidget(EMPTY_PAGE, new QWidget(ui->m_stacked_widget));
+	ui->m_stacked_widget->insertWidget(OVERVIEW_PAGE, m_overview);
 	ui->m_stacked_widget->insertWidget(FREE_TERMINAL_PAGE, m_free_terminal_editor);
 	ui->m_stacked_widget->insertWidget(TERMINAL_STRIP_PAGE, m_terminal_strip_editor);
+	connect(m_overview, &TerminalStripOverviewWidget::reloadRequested,
+			this, &TerminalStripEditorWindow::refreshOverview);
+	connect(m_overview, &TerminalStripOverviewWidget::showElementRequested,
+			this, &TerminalStripEditorWindow::showElementInFolio);
+	setProject(project);
+	ui->m_stacked_widget->setCurrentIndex(OVERVIEW_PAGE);
 }
 
 /**
@@ -87,10 +108,36 @@ TerminalStripEditorWindow::~TerminalStripEditorWindow()
  */
 void TerminalStripEditorWindow::setProject(QETProject *project)
 {
+	if (m_project_destroy_connection) disconnect(m_project_destroy_connection);
+	if (m_project_read_only_connection) disconnect(m_project_read_only_connection);
     m_project = project;
     m_tree_dock->setProject(project);
     m_free_terminal_editor->setProject(project);
     m_terminal_strip_editor->setProject(project);
+	if (m_project)
+	{
+		m_project_destroy_connection = connect(
+				m_project, &QObject::destroyed, this, [this]() {
+					m_project.clear();
+					m_overview->setRows({});
+					m_overview->setProjectAvailable(false);
+					ui->m_stacked_widget->setCurrentIndex(OVERVIEW_PAGE);
+					updateReadOnlyState();
+				});
+		m_project_read_only_connection = connect(
+				m_project, &QETProject::readOnlyChanged,
+				this, [this](QETProject *, bool) { updateReadOnlyState(); });
+		setWindowTitle(tr("Borniers et câbles — %1").arg(
+				m_project->title().isEmpty()
+						? tr("Projet sans titre")
+						: m_project->title()));
+	}
+	else
+	{
+		setWindowTitle(tr("Borniers et câbles"));
+	}
+	refreshOverview();
+	updateReadOnlyState();
 }
 
 void TerminalStripEditorWindow::setCurrentStrip(TerminalStrip *strip) {
@@ -123,7 +170,7 @@ void TerminalStripEditorWindow::updateUi()
 {
 	ui->m_remove_terminal->setEnabled(m_tree_dock->currentIsStrip());
 
-	ui->m_stacked_widget->setCurrentIndex(EMPTY_PAGE);
+	ui->m_stacked_widget->setCurrentIndex(OVERVIEW_PAGE);
 
 	if (auto real_terminal = m_tree_dock->currentRealTerminal())
 	{
@@ -182,6 +229,7 @@ void TerminalStripEditorWindow::on_m_reload_triggered() {
 	m_tree_dock->reload();
 	m_terminal_strip_editor->reload();
 	m_free_terminal_editor->reload();
+	refreshOverview();
 }
 
 /**
@@ -215,5 +263,52 @@ void TerminalStripEditorWindow::on_m_button_box_clicked(QAbstractButton *button)
 
 
 void TerminalStripEditorWindow::on_m_stacked_widget_currentChanged(int arg1) {
-	ui->m_button_box->setHidden(arg1 == EMPTY_PAGE);
+	ui->m_button_box->setHidden(arg1 == OVERVIEW_PAGE);
+	updateReadOnlyState();
+}
+
+void TerminalStripEditorWindow::refreshOverview()
+{
+	if (!m_overview) return;
+	if (!m_project)
+	{
+		m_overview->setRows({});
+		m_overview->setProjectAvailable(false);
+		return;
+	}
+	m_overview->setProjectAvailable(true);
+	m_overview->setReadOnly(m_project->isReadOnly());
+	m_overview->setRows(TerminalStripOverviewLoader::rowsForProject(m_project));
+}
+
+void TerminalStripEditorWindow::showElementInFolio(const QUuid &element_uuid)
+{
+	if (!m_project || element_uuid.isNull()) return;
+	const QList<Element *> elements = ElementProvider(m_project).fromUuids({element_uuid});
+	if (elements.isEmpty() || !elements.first())
+	{
+		statusBar()->showMessage(
+				tr("Cette borne n’est plus disponible. Rechargez la vue."), 5000);
+		refreshOverview();
+		return;
+	}
+	QetGraphicsItem::showItem(elements.first());
+}
+
+void TerminalStripEditorWindow::updateReadOnlyState()
+{
+	const bool has_project = !m_project.isNull();
+	const bool read_only = has_project && m_project->isReadOnly();
+	const bool editable = has_project && !read_only;
+	ui->m_add_terminal_strip->setEnabled(editable);
+	ui->m_remove_terminal->setEnabled(
+			editable && m_tree_dock && m_tree_dock->currentIsStrip());
+	ui->m_button_box->setEnabled(editable);
+	if (m_terminal_strip_editor) m_terminal_strip_editor->setEnabled(editable);
+	if (m_free_terminal_editor) m_free_terminal_editor->setEnabled(editable);
+	if (m_overview)
+	{
+		m_overview->setReadOnly(read_only);
+		m_overview->setProjectAvailable(has_project);
+	}
 }

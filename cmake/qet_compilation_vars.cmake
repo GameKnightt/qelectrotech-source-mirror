@@ -604,6 +604,12 @@ set(QET_SRC_FILES
   ${QET_DIR}/sources/TerminalStrip/ui/terminalstriplayouteditor.h
   ${QET_DIR}/sources/TerminalStrip/ui/terminalstripmodel.cpp
   ${QET_DIR}/sources/TerminalStrip/ui/terminalstripmodel.h
+  ${QET_DIR}/sources/TerminalStrip/ui/terminalstripoverviewloader.cpp
+  ${QET_DIR}/sources/TerminalStrip/ui/terminalstripoverviewloader.h
+  ${QET_DIR}/sources/TerminalStrip/ui/terminalstripoverviewmodel.cpp
+  ${QET_DIR}/sources/TerminalStrip/ui/terminalstripoverviewmodel.h
+  ${QET_DIR}/sources/TerminalStrip/ui/terminalstripoverviewwidget.cpp
+  ${QET_DIR}/sources/TerminalStrip/ui/terminalstripoverviewwidget.h
   ${QET_DIR}/sources/TerminalStrip/ui/terminalstriptreedockwidget.cpp
   ${QET_DIR}/sources/TerminalStrip/ui/terminalstriptreedockwidget.h
   ${QET_DIR}/sources/TerminalStrip/ui/ConfigPage/terminalstripprojectconfigpage.cpp

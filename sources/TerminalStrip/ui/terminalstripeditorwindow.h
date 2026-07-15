@@ -27,6 +27,7 @@ class TerminalStripTreeDockWidget;
 class TerminalStrip;
 class FreeTerminalEditor;
 class TerminalStripEditor;
+class TerminalStripOverviewWidget;
 class QAbstractButton;
 
 namespace Ui {
@@ -82,6 +83,9 @@ class TerminalStripEditorWindow : public QMainWindow
 		void on_m_reload_triggered();
 		void on_m_button_box_clicked(QAbstractButton *button);
 		void on_m_stacked_widget_currentChanged(int arg1);
+		void refreshOverview();
+		void showElementInFolio(const QUuid &element_uuid);
+		void updateReadOnlyState();
 
 	private:
 		void addTreeDockWidget();
@@ -94,6 +98,9 @@ class TerminalStripEditorWindow : public QMainWindow
 		TerminalStripTreeDockWidget *m_tree_dock{nullptr};
 		FreeTerminalEditor *m_free_terminal_editor {nullptr};
 		TerminalStripEditor *m_terminal_strip_editor {nullptr};
+		TerminalStripOverviewWidget *m_overview {nullptr};
+		QMetaObject::Connection m_project_destroy_connection;
+		QMetaObject::Connection m_project_read_only_connection;
 };
 
 #endif // TERMINALSTRIPEDITORWINDOW_H

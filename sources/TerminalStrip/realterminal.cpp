@@ -160,6 +160,12 @@ QString RealTerminal::Xref() const
  * @return
  */
 QString RealTerminal::cable() const {
+	if (m_element)
+	{
+		for (Conductor *conductor : m_element->conductors()) {
+			if (conductor) return conductor->properties().m_cable;
+		}
+	}
 	return QString();
 }
 
@@ -168,6 +174,12 @@ QString RealTerminal::cable() const {
  * @return
  */
 QString RealTerminal::cableWire() const {
+	if (m_element)
+	{
+		for (Conductor *conductor : m_element->conductors()) {
+			if (conductor) return conductor->properties().m_wire_color;
+		}
+	}
 	return QString();
 }
 

@@ -580,6 +580,14 @@ set(QET_SRC_FILES
 
   ${QET_DIR}/sources/TerminalStrip/physicalterminal.cpp
   ${QET_DIR}/sources/TerminalStrip/physicalterminal.h
+  ${QET_DIR}/sources/cablecatalog/cablecatalogbuilder.cpp
+  ${QET_DIR}/sources/cablecatalog/cablecatalogbuilder.h
+  ${QET_DIR}/sources/cablecatalog/cablecatalogcsvexporter.cpp
+  ${QET_DIR}/sources/cablecatalog/cablecatalogcsvexporter.h
+  ${QET_DIR}/sources/cablecatalog/cablecatalogloader.cpp
+  ${QET_DIR}/sources/cablecatalog/cablecatalogloader.h
+  ${QET_DIR}/sources/cablecatalog/cablecatalogtypes.cpp
+  ${QET_DIR}/sources/cablecatalog/cablecatalogtypes.h
   ${QET_DIR}/sources/TerminalStrip/realterminal.cpp
   ${QET_DIR}/sources/TerminalStrip/realterminal.h
   ${QET_DIR}/sources/TerminalStrip/terminalstripbridge.cpp
@@ -604,6 +612,10 @@ set(QET_SRC_FILES
   ${QET_DIR}/sources/TerminalStrip/ui/terminalstriplayouteditor.h
   ${QET_DIR}/sources/TerminalStrip/ui/terminalstripmodel.cpp
   ${QET_DIR}/sources/TerminalStrip/ui/terminalstripmodel.h
+  ${QET_DIR}/sources/TerminalStrip/ui/cablecatalogmodel.cpp
+  ${QET_DIR}/sources/TerminalStrip/ui/cablecatalogmodel.h
+  ${QET_DIR}/sources/TerminalStrip/ui/cablecatalogwidget.cpp
+  ${QET_DIR}/sources/TerminalStrip/ui/cablecatalogwidget.h
   ${QET_DIR}/sources/TerminalStrip/ui/terminalstripoverviewloader.cpp
   ${QET_DIR}/sources/TerminalStrip/ui/terminalstripoverviewloader.h
   ${QET_DIR}/sources/TerminalStrip/ui/terminalstripoverviewmodel.cpp

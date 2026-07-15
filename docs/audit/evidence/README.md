@@ -84,3 +84,12 @@ la capture reproductible de la nouvelle vue consolidée avec six bornes
 déterministes. Le parcours Windows dans l’application complète vérifie en plus
 le libellé **Borniers et câbles…**, l’ouverture du gestionnaire, son état vide
 réel sur `ArduinoLCD.qet`, le focus `Ctrl+F` et le rechargement `F5`.
+
+## Incrément IND-01B — 15 juillet 2026
+
+Le dossier
+[`ind-01b-cable-diagnostics`](ind-01b-cable-diagnostics/) contient le rendu du
+catalogue hiérarchique avec câbles sains, diagnostics et conducteurs enfants.
+La validation couvre aussi l’export CSV, les filtres combinés, le clavier,
+10 000 conducteurs, la grande police à 150 % et la navigation dans
+l’application Windows complète.

@@ -35,6 +35,7 @@ reste la source de vérité pour les priorités futures.
 ## Fonctions industrielles
 
 - [IND-01A — Vue consolidée Borniers et câbles](ind-01a-terminal-cable-overview.md)
+- [IND-01B — Catalogue et diagnostics des câbles](ind-01b-cable-catalog.md)
 
 ## Références
 

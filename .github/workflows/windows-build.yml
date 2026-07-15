@@ -26,6 +26,10 @@ jobs:
           fetch-depth: 0
           lfs: false
 
+      - name: Verify repository checkout contracts
+        shell: pwsh
+        run: .\scripts\check-repository-contracts.ps1
+
       - name: Install MSYS2 test toolchain
         uses: msys2/setup-msys2@v2
         with:

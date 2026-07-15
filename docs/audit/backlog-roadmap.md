@@ -65,14 +65,15 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
 
 ### DEV-01 — Rendre le clone Windows reproductible
 
+- **État :** implémenté ; validation CI et clone NTFS neuf requis avant clôture.
 - **Preuve :** quota LFS épuisé sur `doc/QElectroTech.qch` ; collision `ChangeLog.MD`/`ChangeLog.md`.
 - **Utilisateurs touchés :** contributeurs Windows et CI.
 - **Fréquence :** à chaque nouvel environnement.
 - **Impact :** impossibilité de démarrer.
 - **Effort :** S à M, avec coordination amont.
 - **Risque :** faible pour le produit, moyen pour l'historique Git.
-- **Dépendances :** hébergement LFS, documentation, convention de noms.
-- **Compatibilité amont :** proposer d'abord un correctif amont minimal.
+- **Dépendances :** documentation et convention de noms ; plus aucune dépendance LFS au checkout courant.
+- **Compatibilité amont :** changelog canonique et historique intégralement préservés ; aucun format produit modifié.
 - **Critères d'acceptation :** clone neuf avec sous-modules sur NTFS sans fichier modifié au checkout et sans téléchargement indisponible.
 
 ### DEV-02 — Documenter et automatiser le build Windows actuel

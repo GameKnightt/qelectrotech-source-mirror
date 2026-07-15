@@ -97,7 +97,8 @@ Validation finale du 14 juillet 2026 :
 - suite complète en série : `35/35` tests réussis ;
 - plateforme Windows native : `1/1` test clavier réussi ;
 - plateforme Windows native à 150 % : `2/2` tests réussis ;
-- `git diff --check` hors collision historique `ChangeLog.MD` : réussite.
+- `git diff --check` : réussite ; la collision historique de changelogs est
+  désormais traitée par DEV-01.
 
 ## Validation Windows 11 réelle
 

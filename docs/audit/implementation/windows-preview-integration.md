@@ -66,16 +66,14 @@ manifeste SHA-256. Sa procédure est documentée dans
 essais internes tant que l’inventaire complet des licences tierces et un test
 sur une machine sans MSYS2 ne sont pas terminés.
 
-## Contraintes de dépôt observées
+## Contraintes de dépôt résolues par DEV-01
 
-Le dépôt contient trois chemins ne différant que par la casse (`ChangeLog`,
-`ChangeLog.MD` et `ChangeLog.md`). Un worktree Windows ne peut pas matérialiser
-ces trois fichiers simultanément sans apparaître modifié. Aucune modification
-intentionnelle de ces chemins n’est intégrée à cette branche.
-
-Le budget Git LFS du dépôt est dépassé pour `doc/QElectroTech.qch` (environ
-530 Mo). Le worktree a donc été créé avec le smudge LFS désactivé ; ce fichier
-d’aide n’est requis ni pour la compilation de l’application ni pour les tests.
+La préversion initiale avait confirmé deux blocages de contribution sous
+Windows : la collision de casse entre `ChangeLog.MD` et `ChangeLog.md`, puis le
+pointeur Git LFS de 530 Mo vers une aide Qt Creator générée. DEV-01 déplace les
+deux historiques Markdown sous des noms distincts dans `docs/history/`, conserve
+le `ChangeLog` installé et retire l’artefact `.qch` du checkout. Un clone normal
+ne nécessite donc plus de désactiver Git LFS et ne doit plus apparaître modifié.
 
 ## Porte d’entrée vers la modernisation visuelle
 

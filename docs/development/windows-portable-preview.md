@@ -81,3 +81,9 @@ publication continuent avec un nom se terminant par `-unsigned.msi` ; cette
 indication est également affichée sur la page de téléchargement et Windows
 présentera un avertissement d'éditeur. Le workflow ne doit jamais présenter un
 paquet non signé comme signé.
+
+Le déploiement GitHub Pages est optionnel. Il n'est exécuté que si Pages est
+activé dans les paramètres du dépôt avec **GitHub Actions** comme source et si
+la variable de dépôt `QET_DEPLOY_PAGES` vaut `true`. Sans cette configuration,
+les paquets Nightly restent publiés normalement et l'étape Pages est ignorée au
+lieu de faire échouer le workflow MSI.

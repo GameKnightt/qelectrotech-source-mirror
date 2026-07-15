@@ -20,6 +20,9 @@
 
 #include "../conductorproperties.h"
 #include "../titleblockproperties.h"
+#include "advancedreplacestruct.h"
+#include "conductorchangeplan.h"
+#include "conductorpropertytransform.h"
 
 #include <QDate>
 
@@ -29,19 +32,6 @@ class IndependentTextItem;
 class Conductor;
 class QLineEdit;
 class QCheckBox;
-
-struct advancedReplaceStruct
-{
-		//Who :
-		// 0 == diagram
-		// 1 == element
-		// 2 == conductor
-		// 3 == independant text
-	int who = -1;
-	QString what;
-	QString search;
-	QString replace;
-};
 
 /**
 	@brief The SearchAndReplaceWorker class
@@ -61,6 +51,12 @@ class SearchAndReplaceWorker
 		void replaceIndiText(IndependentTextItem *text);
 		void replaceConductor(QList <Conductor *> list);
 		void replaceConductor(Conductor *conductor);
+		ConductorChangePlan conductorChangePlan(
+				const QList<Conductor *> &list,
+				bool includePropertyPatch = true,
+				bool includeAdvancedReplacement = false) const;
+		ConductorChangePlan::Result applyConductorChangePlan(
+				const ConductorChangePlan &plan) const;
 		void replaceAdvanced (
 				QList<Diagram *> diagrams = QList<Diagram *>(),
 				QList<Element *> elements = QList<Element *>(),
@@ -70,7 +66,7 @@ class SearchAndReplaceWorker
 					conductors = QList<Conductor *>());
 		
 		static QString eraseText()
-			{return QString("XXXXXXXXXXXXXXXXXXX");}
+			{return conductorPropertyEraseText();}
 		static QDate eraseDate() {return QDate(1900, 1, 1);}
 		static void setupLineEdit(QLineEdit *l,
 					  QCheckBox *cb,
@@ -86,7 +82,6 @@ class SearchAndReplaceWorker
 	private:
 		TitleBlockProperties replaceAdvanced (Diagram *diagram);
 		DiagramContext       replaceAdvanced (Element *element);
-		ConductorProperties  replaceAdvanced (Conductor *conductor);
 		
 		TitleBlockProperties m_titleblock_properties;
 		DiagramContext m_element_context;

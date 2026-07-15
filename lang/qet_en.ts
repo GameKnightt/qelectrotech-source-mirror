@@ -7067,6 +7067,83 @@ Unbridge and/or remove the levels from the affected terminals so that they can b
         <comment>status bar tip</comment>
         <translation>Activates the previous project</translation>
     </message>
+    <message>
+        <location filename="../sources/qetdiagrameditor.cpp" line="1971"/>
+        <source>Projet récent indisponible</source>
+        <translation>Recent project unavailable</translation>
+    </message>
+    <message>
+        <location filename="../sources/qetdiagrameditor.cpp" line="1974"/>
+        <source>Ce projet est introuvable ou son emplacement est momentanément indisponible.</source>
+        <translation>This project cannot be found or its location is temporarily unavailable.</translation>
+    </message>
+    <message>
+        <location filename="../sources/qetdiagrameditor.cpp" line="1978"/>
+        <source>Conserver dans la liste</source>
+        <translation>Keep in list</translation>
+    </message>
+    <message>
+        <location filename="../sources/qetdiagrameditor.cpp" line="1979"/>
+        <source>Oublier de la liste</source>
+        <translation>Remove from list</translation>
+    </message>
+    <message>
+        <location filename="../sources/qetdiagrameditor.cpp" line="186"/>
+        <source>Projets et folios</source>
+        <comment>dock title</comment>
+        <translation>Projects and folios</translation>
+    </message>
+    <message>
+        <location filename="../sources/qetdiagrameditor.cpp" line="243"/>
+        <source>Composants</source>
+        <translation>Components</translation>
+    </message>
+    <message>
+        <location filename="../sources/qetdiagrameditor.cpp" line="284"/>
+        <source>Historique</source>
+        <comment>dock title</comment>
+        <translation>History</translation>
+    </message>
+    <message>
+        <location filename="../sources/qetdiagrameditor.cpp" line="319"/>
+        <source>Numérotation automatique</source>
+        <translation>Automatic numbering</translation>
+    </message>
+    <message>
+        <location filename="../sources/qetdiagrameditor.cpp" line="855"/>
+        <source>Réinitialiser la disposition</source>
+        <translation>Reset layout</translation>
+    </message>
+    <message>
+        <location filename="../sources/qetdiagrameditor.cpp" line="945"/>
+        <source>Projet et édition</source>
+        <translation>Project and editing</translation>
+    </message>
+    <message>
+        <location filename="../sources/qetdiagrameditor.cpp" line="951"/>
+        <source>Folio et câblage</source>
+        <translation>Folio and wiring</translation>
+    </message>
+    <message>
+        <location filename="../sources/qetdiagrameditor.cpp" line="1171"/>
+        <source>Panneaux</source>
+        <translation>Panels</translation>
+    </message>
+    <message>
+        <location filename="../sources/qetdiagrameditor.cpp" line="1172"/>
+        <source>Afficher les panneaux</source>
+        <translation>Show panels</translation>
+    </message>
+    <message>
+        <location filename="../sources/qetdiagrameditor.cpp" line="1179"/>
+        <source>Barres d&apos;outils</source>
+        <translation>Toolbars</translation>
+    </message>
+    <message>
+        <location filename="../sources/qetdiagrameditor.cpp" line="1180"/>
+        <source>Afficher les barres d&apos;outils</source>
+        <translation>Show toolbars</translation>
+    </message>
 </context>
 <context>
     <name>QETElementEditor</name>
@@ -15043,6 +15120,114 @@ Maximum length : %2px
         <location filename="../sources/SearchAndReplace/ui/replaceadvanceddialog.ui" line="92"/>
         <source>Quoi :</source>
         <translation>What:</translation>
+    </message>
+</context>
+<context>
+    <name>StartCenterWidget</name>
+    <message>
+        <location filename="../sources/ui/startcenterwidget.cpp" line="66"/>
+        <source>Centre de démarrage</source>
+        <translation>Start center</translation>
+    </message>
+    <message>
+        <location filename="../sources/ui/startcenterwidget.cpp" line="107"/>
+        <source>QElectroTech</source>
+        <translation>QElectroTech</translation>
+    </message>
+    <message>
+        <location filename="../sources/ui/startcenterwidget.cpp" line="113"/>
+        <source>Bienvenue dans QElectroTech</source>
+        <translation>Welcome to QElectroTech</translation>
+    </message>
+    <message>
+        <location filename="../sources/ui/startcenterwidget.cpp" line="121"/>
+        <source>Commencez un nouveau schéma ou reprenez un projet récent.</source>
+        <translation>Start a new schematic or resume a recent project.</translation>
+    </message>
+    <message>
+        <location filename="../sources/ui/startcenterwidget.cpp" line="137"/>
+        <source>Commencer</source>
+        <translation>Get started</translation>
+    </message>
+    <message>
+        <location filename="../sources/ui/startcenterwidget.cpp" line="143"/>
+        <source>Nouveau projet</source>
+        <translation>New project</translation>
+    </message>
+    <message>
+        <location filename="../sources/ui/startcenterwidget.cpp" line="145"/>
+        <source>Créer un projet vide avec un premier folio.</source>
+        <translation>Create an empty project with its first folio.</translation>
+    </message>
+    <message>
+        <location filename="../sources/ui/startcenterwidget.cpp" line="148"/>
+        <source>Créer un nouveau projet</source>
+        <translation>Create a new project</translation>
+    </message>
+    <message>
+        <location filename="../sources/ui/startcenterwidget.cpp" line="155"/>
+        <source>Ouvrir un projet…</source>
+        <translation>Open a project…</translation>
+    </message>
+    <message>
+        <location filename="../sources/ui/startcenterwidget.cpp" line="157"/>
+        <source>Choisir un fichier QElectroTech existant.</source>
+        <translation>Choose an existing QElectroTech file.</translation>
+    </message>
+    <message>
+        <location filename="../sources/ui/startcenterwidget.cpp" line="160"/>
+        <source>Ouvrir un projet existant</source>
+        <translation>Open an existing project</translation>
+    </message>
+    <message>
+        <location filename="../sources/ui/startcenterwidget.cpp" line="169"/>
+        <source>Vous pouvez aussi déposer un fichier .qet dans cette fenêtre.</source>
+        <translation>You can also drop a .qet file onto this window.</translation>
+    </message>
+    <message>
+        <location filename="../sources/ui/startcenterwidget.cpp" line="180"/>
+        <source>Projets récents</source>
+        <translation>Recent projects</translation>
+    </message>
+    <message>
+        <location filename="../sources/ui/startcenterwidget.cpp" line="186"/>
+        <source>Liste des projets récents</source>
+        <translation>Recent projects list</translation>
+    </message>
+    <message>
+        <location filename="../sources/ui/startcenterwidget.cpp" line="189"/>
+        <source>Activez un projet avec Entrée ou un double-clic.</source>
+        <translation>Press Enter or double-click to open a project.</translation>
+    </message>
+    <message>
+        <location filename="../sources/ui/startcenterwidget.cpp" line="193"/>
+        <source>Projet</source>
+        <translation>Project</translation>
+    </message>
+    <message>
+        <location filename="../sources/ui/startcenterwidget.cpp" line="193"/>
+        <source>Emplacement</source>
+        <translation>Location</translation>
+    </message>
+    <message>
+        <location filename="../sources/ui/startcenterwidget.cpp" line="208"/>
+        <source>Aucun projet récent. Les projets que vous ouvrez apparaîtront ici.</source>
+        <translation>No recent projects. Projects you open will appear here.</translation>
+    </message>
+    <message>
+        <location filename="../sources/ui/startcenterwidget.cpp" line="222"/>
+        <source>Oublier de la liste</source>
+        <translation>Remove from list</translation>
+    </message>
+    <message>
+        <location filename="../sources/ui/startcenterwidget.cpp" line="225"/>
+        <source>Retire le projet de l'historique sans supprimer son fichier.</source>
+        <translation>Removes the project from history without deleting its file.</translation>
+    </message>
+    <message>
+        <location filename="../sources/ui/startcenterwidget.cpp" line="229"/>
+        <source>Ouvrir</source>
+        <translation>Open</translation>
     </message>
 </context>
 </TS>

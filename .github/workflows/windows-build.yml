@@ -1,6 +1,10 @@
 name: Windows Build
 
 on:
+  push:
+    branches:
+      - master
+  pull_request:
   schedule:
     - cron: '0 2 * * 1'   # Every Monday at 2:00 UTC
   workflow_dispatch:       # Manual trigger available at any time
@@ -10,14 +14,99 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-windows:
+  test-windows:
+    name: Windows Qt 5 tests
     runs-on: windows-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
         with:
           submodules: recursive
           fetch-depth: 0
+          lfs: false
+
+      - name: Install MSYS2 test toolchain
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          cache: true
+          install: >-
+            git
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-qt5-base
+            mingw-w64-ucrt-x86_64-qt5-svg
+            mingw-w64-ucrt-x86_64-qt5-tools
+            mingw-w64-ucrt-x86_64-qt5-translations
+            mingw-w64-ucrt-x86_64-sqlite3
+            mingw-w64-ucrt-x86_64-pkg-config
+
+      - name: Configure and run tests
+        shell: msys2 {0}
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+          cmake -S . -B build-tests -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_PREFIX_PATH=/ucrt64 \
+            -DQt5_DIR=/ucrt64/lib/cmake/Qt5 \
+            -DQT_VERSION_MAJOR=5 \
+            -DCMAKE_DISABLE_FIND_PACKAGE_Qt6=ON \
+            -DBUILD_WITH_KF5=OFF \
+            -DBUILD_TESTING=ON \
+            -DPACKAGE_TESTS=ON \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DSQLite3_INCLUDE_DIR=/ucrt64/include \
+            -DSQLite3_LIBRARY=/ucrt64/lib/libsqlite3.dll.a
+          cmake --build build-tests --parallel "$(nproc)" --target \
+            C_unittests \
+            qt_unittests \
+            diagram_duplicate_uuid_remapper_test \
+            config_dialog_ux_test \
+            project_save_status_test \
+            workspace_profile_test \
+            start_center_test \
+            export_integrity_test \
+            project_database_atomicity_test \
+            export_center_test \
+            properties_editor_dock_test \
+            elements_collection_search_test \
+            conductor_interaction_test \
+            conductor_change_preview_test \
+            conductor_bulk_edit_test \
+            ordered_index_cache_test \
+            folio_navigator_test \
+            qelectrotech
+          ctest --test-dir build-tests --output-on-failure
+          QT_SCALE_FACTOR=1.5 ctest --test-dir build-tests \
+            -R '^(config_dialog_ux_test|project_save_status_large_text_150_test|workspace_shell_large_text_150_test|start_center_large_text_150_test|export_center_test|properties_editor_dock_test|conductor_change_preview_large_text_150_test|conductor_bulk_edit_large_text_150_test|conductor_bulk_edit_csv_test)$' --output-on-failure --no-tests=error
+          QT_QPA_PLATFORM=windows ctest --test-dir build-tests \
+            -R '^(project_save_status_keyboard_test|workspace_shell_home_test|workspace_shell_focus_test|start_center_keyboard_test|start_center_lifecycle_test|export_center_test|properties_editor_dock_test|conductor_change_preview_keyboard_test|conductor_bulk_edit_keyboard_test|conductor_bulk_edit_active_editor_test|conductor_bulk_edit_csv_test)$' --output-on-failure --no-tests=error
+          QT_QPA_PLATFORM=windows QT_SCALE_FACTOR=1.5 ctest --test-dir build-tests \
+            -R '^(project_save_status_keyboard_test|project_save_status_large_text_150_test|workspace_shell_home_test|workspace_shell_focus_test|workspace_shell_large_text_150_test|start_center_keyboard_test|start_center_large_text_150_test|start_center_lifecycle_test|export_center_test|properties_editor_dock_test|conductor_change_preview_keyboard_test|conductor_change_preview_large_text_150_test|conductor_bulk_edit_keyboard_test|conductor_bulk_edit_active_editor_test|conductor_bulk_edit_large_text_150_test|conductor_bulk_edit_csv_test)$' --output-on-failure --no-tests=error
+
+  build-windows:
+    name: Windows Qt 5 release and portable
+    needs: test-windows
+    if: >-
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/master') ||
+      (github.event_name == 'pull_request' && github.head_ref == 'codex/fork-integration')
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          fetch-depth: 0
+          lfs: false
 
       - name: Install MSYS2
         uses: msys2/setup-msys2@v2
@@ -37,9 +126,6 @@ jobs:
             mingw-w64-ucrt-x86_64-qt5-translations
             mingw-w64-ucrt-x86_64-sqlite3
             mingw-w64-ucrt-x86_64-pkg-config
-            mingw-w64-ucrt-x86_64-kwidgetsaddons
-            mingw-w64-ucrt-x86_64-kcoreaddons
-            mingw-w64-ucrt-x86_64-extra-cmake-modules
             mingw-w64-ucrt-x86_64-nsis
             mingw-w64-ucrt-x86_64-angleproject
 
@@ -109,7 +195,9 @@ jobs:
             -DQt5_DIR=/ucrt64/lib/cmake/Qt5 \
             -DQT_VERSION_MAJOR=5 \
             -DCMAKE_DISABLE_FIND_PACKAGE_Qt6=ON \
+            -DBUILD_WITH_KF5=OFF \
             -DBUILD_TESTING=OFF \
+            -DPACKAGE_TESTS=OFF \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -DCMAKE_CXX_FLAGS="-DQET_EXPORT_PROJECT_DB" \
             -DCMAKE_C_COMPILER_LAUNCHER=/ucrt64/bin/ccache \
@@ -139,6 +227,23 @@ jobs:
           echo "Exe found: $EXE ($SIZE bytes)"
           [ "$SIZE" -gt 100000 ] || { echo "ERROR: exe too small"; exit 1; }
 
+      - name: Build and verify isolated portable preview
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $output = Join-Path $env:GITHUB_WORKSPACE 'portable_preview'
+          .\packaging\windows\deploy-portable.ps1 `
+            -BuildDir .\build `
+            -SourceDir . `
+            -OutputDir $output `
+            -Msys2Root (Join-Path $env:RUNNER_TEMP 'msys64')
+
+          $manifest = Join-Path $output 'manifest-sha256.txt'
+          if (-not (Test-Path -LiteralPath $manifest -PathType Leaf)) {
+            throw 'Portable deployment did not produce manifest-sha256.txt'
+          }
+          Write-Host "Portable preview verified: $output"
+
       - name: Deploy — copy exe + windeployqt + DLLs
         shell: msys2 {0}
         run: |
@@ -157,7 +262,7 @@ jobs:
             --release \
             --no-translations \
             --no-compiler-runtime \
-            ./QElectroTech.exe || true
+            ./QElectroTech.exe
 
           echo "=== 3-pass transitive DLL scan ==="
           set +e
@@ -202,21 +307,21 @@ jobs:
           cp "$GITHUB_WORKSPACE/build-aux/windows/lang_extra_missing.nsh" "$NSIS_ROOT/"
           cp -r "$GITHUB_WORKSPACE/build-aux/windows/nsis_base/." "$NSIS_ROOT/"
 
-          curl -fsSL \
-            "https://raw.githubusercontent.com/qelectrotech/qelectrotech-source-mirror/refs/heads/master/misc/Lancer%20QET.bat" \
-            -o "$FILES/Lancer QET.bat"
-          cp -r "$GITHUB_WORKSPACE/elements"    "$FILES/elements"    || true
-          cp -r "$GITHUB_WORKSPACE/titleblocks" "$FILES/titleblocks" || true
-          cp -r "$GITHUB_WORKSPACE/examples"    "$FILES/examples"    || true
-          cp -r "$GITHUB_WORKSPACE/fonts"       "$FILES/fonts"       || true
+          cp "$GITHUB_WORKSPACE/misc/Lancer QET.bat" "$FILES/Lancer QET.bat"
+          cp -r "$GITHUB_WORKSPACE/elements"    "$FILES/elements"
+          cp -r "$GITHUB_WORKSPACE/titleblocks" "$FILES/titleblocks"
+          cp -r "$GITHUB_WORKSPACE/examples"    "$FILES/examples"
+          cp -r "$GITHUB_WORKSPACE/fonts"       "$FILES/fonts"
 
-          cp -r "$GITHUB_WORKSPACE/lang"        "$FILES/lang"        || true
-          find "$GITHUB_WORKSPACE/build" -name "*.qm" -exec cp {} "$FILES/lang/" \; 2>/dev/null || true
+          cp -r "$GITHUB_WORKSPACE/lang"        "$FILES/lang"
+          find "$GITHUB_WORKSPACE/build" -name "*.qm" -exec cp {} "$FILES/lang/" \;
           echo "=== .qm files in files/lang/ ==="
-          ls "$FILES/lang/"*.qm 2>/dev/null | wc -l || echo "0 .qm files"
+          QM_COUNT=$(find "$FILES/lang" -maxdepth 1 -name '*.qm' | wc -l)
+          echo "$QM_COUNT .qm files"
+          [ "$QM_COUNT" -gt 0 ] || { echo "ERROR: no compiled translations"; exit 1; }
 
           for f in LICENSE ChangeLog CREDIT README ELEMENTS.LICENSE; do
-            cp "$GITHUB_WORKSPACE/$f" "$FILES/$f" 2>/dev/null || true
+            cp "$GITHUB_WORKSPACE/$f" "$FILES/$f"
           done
 
           echo "=== Verification of key files in files/ ==="
@@ -224,12 +329,12 @@ jobs:
                    qet_uninstall_file_associations.reg register_filetypes.bat "Lancer QET.bat"; do
             [ -f "$FILES/$f" ] \
               && echo "  OK      : $f" \
-              || echo "  MISSING: $f"
+              || { echo "  MISSING: $f"; exit 1; }
           done
           for d in ico elements lang titleblocks fonts examples bin; do
             [ -d "$FILES/$d" ] \
               && echo "  OK      : $d/" \
-              || echo "  MISSING: $d/"
+              || { echo "  MISSING: $d/"; exit 1; }
           done
 
       - name: Extract version for installer name
@@ -321,7 +426,7 @@ jobs:
           $version = "${{ steps.qet_version.outputs.base_version }}"
           $head    = "${{ steps.qet_version.outputs.head }}"
           $zipName = "qelectrotech-${version}+git${head}-x86-win64-readytouse.zip"
-          $src     = "$env:GITHUB_WORKSPACE\nsis_root\files"
+          $src     = "$env:GITHUB_WORKSPACE\portable_preview"
           $dst     = "$env:GITHUB_WORKSPACE\dist\$zipName"
           $7z      = "C:\Program Files\7-Zip\7z.exe"
 
@@ -361,7 +466,10 @@ jobs:
   deploy-pages:
     needs: build-windows
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request'
+    if: >-
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/master')
     permissions:
       contents: write
 

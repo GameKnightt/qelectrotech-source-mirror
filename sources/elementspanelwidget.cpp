@@ -23,6 +23,7 @@
 #include "qeticons.h"
 #include "qetproject.h"
 #include "titleblock/templatedeleter.h"
+#include "utils/diagramduplicateuuidremapper.h"
 #include <QFileInfo>
 #include <QMessageBox>
 #include "qetgraphicsitem/element.h"
@@ -610,19 +611,15 @@ void ElementsPanelWidget::duplicateDiagram()
 	QETProject *project = diagrams_to_duplicate.first()->project();
 	if (!project || project->isReadOnly()) return;
 
+	QVector<Diagram *> source_diagrams;
+	QVector<QDomDocument> cloned_documents;
+	source_diagrams.reserve(diagrams_to_duplicate.size());
+	cloned_documents.reserve(diagrams_to_duplicate.size());
+
 	for (Diagram *source_diagram : diagrams_to_duplicate) {
-
-		Diagram *new_diagram = project->addNewDiagram();
-		if (!new_diagram) continue;
-
-		QString template_name = source_diagram->border_and_titleblock.titleBlockTemplateName();
-		new_diagram->setTitleBlockTemplate(template_name);
-
-		TitleBlockProperties tbp = source_diagram->border_and_titleblock.exportTitleBlock();
-		new_diagram->border_and_titleblock.importTitleBlock(tbp);
-
-		BorderProperties bp = source_diagram->border_and_titleblock.exportBorder();
-		new_diagram->border_and_titleblock.importBorder(bp);
+		if (!source_diagram || source_diagram->project() != project) {
+			continue;
+		}
 
 		for (QGraphicsItem *item : source_diagram->items()) {
 			if (Element *elmt = dynamic_cast<Element *>(item)) {
@@ -630,22 +627,95 @@ void ElementsPanelWidget::duplicateDiagram()
 			}
 		}
 
-		QDomDocument doc = source_diagram->toXml();
-		QDomElement diagram_elmt = doc.documentElement();
+		cloned_documents.append(source_diagram->toXml());
+		source_diagrams.append(source_diagram);
 
 		for (QGraphicsItem *item : source_diagram->items()) {
 			if (Element *elmt = dynamic_cast<Element *>(item)) {
 				source_diagram->restoreText(elmt);
 			}
 		}
+	}
 
-		new_diagram->fromXml(diagram_elmt, QPointF(0, 0), false, nullptr);
+	if (cloned_documents.isEmpty()) return;
 
+	QString remap_error;
+	if (!DiagramDuplicateUuidRemapper::remapDocuments(
+			cloned_documents, nullptr, &remap_error)) {
+		qWarning() << "ElementsPanelWidget::duplicateDiagram():" << remap_error;
+		QMessageBox::warning(
+			this,
+			tr("Duplication impossible"),
+			tr("Les folios sélectionnés contiennent des identifiants "
+			   "d'éléments invalides ou ambigus. La duplication a été "
+			   "annulée pour préserver l'intégrité du projet."));
+		return;
+	}
+
+	QVector<Diagram *> imported_diagrams;
+	bool import_failed = false;
+	for (int index = 0; index < source_diagrams.size(); ++index) {
+		Diagram *source_diagram = source_diagrams.at(index);
+		Diagram *new_diagram = project->addNewDiagram();
+		if (!new_diagram) {
+			import_failed = true;
+			continue;
+		}
+
+		const QString template_name =
+			source_diagram->border_and_titleblock.titleBlockTemplateName();
+		new_diagram->setTitleBlockTemplate(template_name);
+
+		const TitleBlockProperties tbp =
+			source_diagram->border_and_titleblock.exportTitleBlock();
+		new_diagram->border_and_titleblock.importTitleBlock(tbp);
+
+		const BorderProperties bp =
+			source_diagram->border_and_titleblock.exportBorder();
+		new_diagram->border_and_titleblock.importBorder(bp);
+
+		QDomElement diagram_element = cloned_documents[index].documentElement();
+		if (!new_diagram->fromXml(
+				diagram_element, QPointF(0, 0), false, nullptr)) {
+			project->removeDiagram(new_diagram);
+			import_failed = true;
+			continue;
+		}
+		imported_diagrams.append(new_diagram);
+	}
+
+	if (import_failed) {
+		for (Diagram *new_diagram : imported_diagrams) {
+			project->removeDiagram(new_diagram);
+		}
+		elements_panel->reload();
+		QMessageBox::warning(
+			this,
+			tr("Duplication impossible"),
+			tr("Les folios n'ont pas tous pu être dupliqués. "
+			   "L'opération a été annulée pour préserver les références."));
+		return;
+	}
+
+	// Cross-folio links can only be resolved after every clone is present in
+	// the project. Refreshing earlier would consume pending UUIDs before their
+	// duplicated target exists.
+	for (Diagram *new_diagram : imported_diagrams) {
 		for (QGraphicsItem *item : new_diagram->items()) {
 			if (Element *elmt = dynamic_cast<Element *>(item)) {
 				new_diagram->restoreText(elmt);
 			}
 		}
+		new_diagram->refreshContents();
+	}
+	const auto update_result = project->dataBase()->updateDB();
+	if (!update_result.isOk()) {
+		QMessageBox::warning(
+			this,
+			tr("Folios dupliqués, actualisation incomplète"),
+			tr("Les folios ont bien été dupliqués, mais les sommaires et nomenclatures "
+			   "n'ont pas pu être actualisés. Les données précédentes ont été conservées.\n\n%1")
+				.arg(update_result.diagnostic()));
 	}
 
 	elements_panel->reload();

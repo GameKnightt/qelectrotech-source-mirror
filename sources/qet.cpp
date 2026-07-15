@@ -669,6 +669,9 @@ bool QET::compareCanonicalFilePaths(const QString &first, const QString &second)
 bool QET::writeXmlFile(QDomDocument &xml_doc, const QString &filepath, QString *error_message)
 {
 	QSaveFile file(filepath);
+	// Never fall back to overwriting the destination directly.  If the atomic
+	// replacement cannot be committed, the last valid project must stay intact.
+	file.setDirectWriteFallback(false);
 
 	// Note: we do not set QIODevice::Text to avoid generating CRLF end of lines
 	bool file_opening = file.open(QIODevice::WriteOnly);
@@ -694,6 +697,17 @@ bool QET::writeXmlFile(QDomDocument &xml_doc, const QString &filepath, QString *
 #endif
 	out.setGenerateByteOrderMark(false);
 	out << xml_doc.toString(4);
+	out.flush();
+	if (out.status() != QTextStream::Ok || file.error() != QFileDevice::NoError)
+	{
+		if (error_message) {
+			*error_message = QString(QObject::tr(
+						 "Une erreur est survenue lors de l'écriture du fichier %1, erreur %2 rencontrée.",
+						 "error message when attempting to write an XML file")).arg(filepath).arg(file.error());
+		}
+		file.cancelWriting();
+		return false;
+	}
 	if  (!file.commit())
 	{
 		if (error_message) {
@@ -800,12 +814,26 @@ QActionGroup *QET::depthActionGroup(QObject *parent)
 
 bool QET::writeToFile(QDomDocument &xml_doc, QFile *file, QString *error_message)
 {
-	bool opened_here = file->isOpen() ? false : true;
+	if (!file) {
+		if (error_message) {
+			*error_message = QObject::tr("Impossible d'écrire dans un fichier inexistant.");
+		}
+		return false;
+	}
 
 	if (!file->isOpen())
 	{
-		bool open_ = file->open(QIODevice::WriteOnly);
-		if (!open_)
+		// KAutoSaveFile assigns its actual recovery filename and acquires its
+		// lock on the first open.  Initialise it once, then close the handle so
+		// QSaveFile can atomically replace every complete recovery snapshot.
+		if (file->fileName().isEmpty()) {
+			const bool initialized = file->open(
+					QIODevice::WriteOnly | QIODevice::Truncate);
+			if (initialized) {
+				file->close();
+			}
+		}
+		if (file->fileName().isEmpty())
 		{
 			if (error_message)
 			{
@@ -818,10 +846,26 @@ bool QET::writeToFile(QDomDocument &xml_doc, QFile *file, QString *error_message
 			}
 			return false;
 		}
+		return QET::writeXmlFile(xml_doc, file->fileName(), error_message);
+	}
+
+	if (!(file->openMode() & QIODevice::WriteOnly)
+		|| !file->resize(0)
+		|| !file->seek(0))
+	{
+		if (error_message)
+		{
+			QFileInfo info_(*file);
+			*error_message = QString(
+					QObject::tr(
+						"Impossible de préparer le fichier %1 pour l'écriture, erreur %2 rencontrée.",
+						"error message when attempting to write an XML file")
+			).arg(info_.absoluteFilePath()).arg(file->error());
+		}
+		return false;
 	}
 
 	QTextStream out(file);
-	out.seek(0);
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)	// ### Qt 6: remove
 	out.setCodec("UTF-8");
 #else
@@ -832,9 +876,18 @@ bool QET::writeToFile(QDomDocument &xml_doc, QFile *file, QString *error_message
 #endif
 	out.setGenerateByteOrderMark(false);
 	out << xml_doc.toString(4);
-	if (opened_here) {
-		file->close();
+	out.flush();
+	const bool write_ok = out.status() == QTextStream::Ok
+			&& file->error() == QFileDevice::NoError
+			&& file->flush();
+	if (!write_ok && error_message)
+	{
+		QFileInfo info_(*file);
+		*error_message = QString(
+				QObject::tr(
+					"Une erreur est survenue lors de l'écriture du fichier %1, erreur %2 rencontrée.",
+					"error message when attempting to write an XML file")
+		).arg(info_.absoluteFilePath()).arg(file->error());
 	}
-
-	return(true);
+	return write_ok;
 }

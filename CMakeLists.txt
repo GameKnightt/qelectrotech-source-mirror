@@ -29,8 +29,16 @@ include(cmake/copyright_message.cmake)
 set(QET_DIR ${PROJECT_SOURCE_DIR})
 
 # Add sub directories
-option(PACKAGE_TESTS "Build the tests" ON)
-if(PACKAGE_TESTS)
+# BUILD_TESTING is the standard CMake switch provided by CTest. Keep the
+# historical PACKAGE_TESTS switch as a compatibility guard for existing
+# scripts: setting either option to OFF disables the project tests.
+include(CTest)
+option(
+    PACKAGE_TESTS
+    "Build the tests (legacy compatibility switch)"
+    "${BUILD_TESTING}"
+)
+if(BUILD_TESTING AND PACKAGE_TESTS)
     message("Add sub directory tests")
     add_subdirectory(tests)
 endif()
@@ -153,6 +161,19 @@ if(NOT BUILD_WITH_KF5)
         ${PROJECT_NAME}
         PRIVATE
         ${QET_DIR}/sources/ui/nokde
+    )
+endif()
+
+if(BUILD_TESTING AND PACKAGE_TESTS)
+    add_test(
+        NAME cli_version_test
+        COMMAND $<TARGET_FILE:${PROJECT_NAME}> --version
+    )
+    set_tests_properties(
+        cli_version_test
+        PROPERTIES
+        PASS_REGULAR_EXPRESSION "QElectroTech 0\\.100\\.1-dev"
+        LABELS "cli;packaging;smoke"
     )
 endif()
 

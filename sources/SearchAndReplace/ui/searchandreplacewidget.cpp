@@ -20,6 +20,7 @@
 #include "../../QWidgetAnimation/qwidgetanimation.h"
 #include "../../diagram.h"
 #include "../../diagramcontent.h"
+#include "../../diagramview.h"
 #include "../../qetapp.h"
 #include "../../qetdiagrameditor.h"
 #include "../../qetgraphicsitem/conductor.h"
@@ -27,16 +28,25 @@
 #include "../../qetgraphicsitem/element.h"
 #include "../../qetgraphicsitem/elementtextitemgroup.h"
 #include "../../qetgraphicsitem/independenttextitem.h"
+#include "../../qetgraphicsitem/terminal.h"
 #include "../../qeticons.h"
 #include "../../qetinformation.h"
 #include "../../qetproject.h"
+#include "../../projectview.h"
+#include "../conductorbulkeditadapter.h"
+#include "conductorbulkeditdialog.h"
+#include "conductorchangepreviewdialog.h"
 #include "replaceadvanceddialog.h"
 #include "replaceconductordialog.h"
 #include "replaceelementdialog.h"
 #include "replacefoliowidget.h"
 #include "ui_searchandreplacewidget.h"
 
+#include <QMessageBox>
 #include <QSettings>
+#include <QSet>
+
+#include <algorithm>
 
 /**
 	@brief SearchAndReplaceWidget::SearchAndReplaceWidget
@@ -48,6 +58,8 @@ SearchAndReplaceWidget::SearchAndReplaceWidget(QWidget *parent) :
 	ui(new Ui::SearchAndReplaceWidget)
 {
 	ui->setupUi(this);
+	ui->gridLayout_2->setRowMinimumHeight(1, 32);
+	ui->m_advanced_widget->setMinimumHeight(150);
 
 	m_horizontal_animation = new QWidgetAnimation(
 				ui->m_advanced_button_widget,
@@ -1140,9 +1152,36 @@ void SearchAndReplaceWidget::on_m_replace_pb_clicked()
 	if(!qtwi) {
 		return;
 	}
+	const bool replace_conductor_properties =
+		ui->m_conductor_pb->text().endsWith(tr(" [édité]"));
+	const bool replace_conductor_advanced =
+		ui->m_advanced_replace_pb->text().endsWith(tr(" [édité]"))
+		&& m_worker.m_advanced_struct.who == 2;
+	bool conductor_plan_handled = false;
 	if (!m_category_qtwi.contains(qtwi)
 			&& qtwi->checkState(0) == Qt::Checked)
 	{
+		const QPointer<Conductor> current_conductor =
+			m_conductor_hash.value(qtwi);
+		if (current_conductor
+			&& (replace_conductor_properties || replace_conductor_advanced))
+		{
+			conductor_plan_handled = true;
+			const ConductorChangePlan plan = m_worker.conductorChangePlan(
+				{current_conductor.data()},
+				replace_conductor_properties,
+				replace_conductor_advanced);
+			const ConductorChangePlan::Result result =
+				m_worker.applyConductorChangePlan(plan);
+			if (!result.canApply() && !result.isNoOp()) {
+				QMessageBox::warning(
+					this,
+					tr("Modifications non appliquées"),
+					ConductorChangePlan::resultMessage(result));
+				return;
+			}
+		}
+
 		if (ui->m_folio_pb->text().endsWith(tr(" [édité]")) &&
 			m_diagram_hash.keys().contains(qtwi))
 		{
@@ -1170,7 +1209,8 @@ void SearchAndReplaceWidget::on_m_replace_pb_clicked()
 			}
 
 		}
-		else if (ui->m_conductor_pb->text().endsWith(tr(" [édité]")) &&
+		else if (!conductor_plan_handled
+				 && replace_conductor_properties &&
 				 m_conductor_hash.keys().contains(qtwi))
 		{
 			QPointer<Conductor> c = m_conductor_hash.value(qtwi);
@@ -1180,7 +1220,8 @@ void SearchAndReplaceWidget::on_m_replace_pb_clicked()
 		}
 
 			//Replace advanced
-		if (ui->m_advanced_replace_pb->text().endsWith(tr(" [édité]")))
+		if (ui->m_advanced_replace_pb->text().endsWith(tr(" [édité]"))
+			&& !conductor_plan_handled)
 		{
 			QList <Diagram *>dl;
 			QList <Element *>el;
@@ -1234,6 +1275,69 @@ void SearchAndReplaceWidget::on_m_replace_pb_clicked()
 */
 void SearchAndReplaceWidget::on_m_replace_all_pb_clicked()
 {
+	const bool replace_conductor_properties =
+		ui->m_conductor_pb->text().endsWith(tr(" [édité]"));
+	const bool replace_conductor_advanced =
+		ui->m_advanced_replace_pb->text().endsWith(tr(" [édité]"))
+		&& m_worker.m_advanced_struct.who == 2;
+	bool conductor_plan_handled = false;
+	if (replace_conductor_properties || replace_conductor_advanced)
+	{
+		const QList<Conductor *> conductors = selectedConductor();
+		conductor_plan_handled = true;
+		if (!conductors.isEmpty())
+		{
+			const ConductorChangePlan plan =
+				m_worker.conductorChangePlan(
+					conductors,
+					replace_conductor_properties,
+					replace_conductor_advanced);
+			const ConductorChangePlan::Result build_result = plan.buildResult();
+			if (!build_result.canApply())
+			{
+				if (build_result.isNoOp()) {
+					QMessageBox::information(
+						this,
+						tr("Aucune modification de conducteur"),
+						ConductorChangePlan::resultMessage(build_result));
+				} else {
+					QMessageBox::warning(
+						this,
+						tr("Aperçu impossible"),
+						ConductorChangePlan::resultMessage(build_result));
+					return;
+				}
+			}
+			else
+			{
+				ConductorChangePreviewDialog dialog(plan.previewData(), this);
+				connect(
+					&dialog,
+					&ConductorChangePreviewDialog::targetActivated,
+					this,
+					[this, &plan](quintptr target_key) {
+						Conductor *conductor = plan.conductorForKey(target_key);
+						if (!conductor || !conductor->diagram()) return;
+						if (m_last_selected) m_last_selected->setSelected(false);
+						conductor->diagram()->showMe();
+						conductor->setSelected(true);
+						m_last_selected = conductor;
+					});
+				if (dialog.exec() != QDialog::Accepted) return;
+
+				const ConductorChangePlan::Result apply_result =
+					m_worker.applyConductorChangePlan(plan);
+				if (!apply_result.canApply()) {
+					QMessageBox::warning(
+						this,
+						tr("Modifications non appliquées"),
+						ConductorChangePlan::resultMessage(apply_result));
+					return;
+				}
+			}
+		}
+	}
+
 	if (ui->m_folio_pb->text().endsWith(tr(" [édité]"))) {
 		m_worker.replaceDiagram(selectedDiagram());
 	}
@@ -1244,10 +1348,12 @@ void SearchAndReplaceWidget::on_m_replace_all_pb_clicked()
 		m_worker.m_indi_text = ui->m_replace_le->text();
 		m_worker.replaceIndiText(selectedText() );
 	}
-	if (ui->m_conductor_pb->text().endsWith(tr(" [édité]"))) {
+	if (replace_conductor_properties
+		&& !conductor_plan_handled) {
 		m_worker.replaceConductor(selectedConductor());
 	}
-	if (ui->m_advanced_replace_pb->text().endsWith(tr(" [édité]"))) {
+	if (ui->m_advanced_replace_pb->text().endsWith(tr(" [édité]"))
+		&& !(replace_conductor_advanced && conductor_plan_handled)) {
 
 		m_worker.replaceAdvanced(selectedDiagram(),
 					 selectedElement(),
@@ -1343,6 +1449,186 @@ void SearchAndReplaceWidget::on_m_conductor_pb_clicked()
 		m_worker.m_conductor_properties =
 				m_worker.invalidConductorProperties();
 	}
+}
+
+/**
+	@brief SearchAndReplaceWidget::on_m_conductor_bulk_edit_pb_clicked
+	Open a non-destructive spreadsheet-like draft for the checked conductors.
+	One row represents one complete electrical potential.
+*/
+void SearchAndReplaceWidget::on_m_conductor_bulk_edit_pb_clicked()
+{
+	QList<Conductor *> conductors = selectedConductor();
+	const bool has_indexed_conductors = std::any_of(
+		m_conductor_hash.cbegin(),
+		m_conductor_hash.cend(),
+		[](const QPointer<Conductor> &conductor) {
+			return !conductor.isNull();
+		});
+
+	// Some projects expose their diagrams before the advanced-search tree has
+	// indexed the conductor potentials, and an index can retain rows whose
+	// QPointer was invalidated by a folio refresh. Keep an explicit empty
+	// selection when live conductor rows exist, but recover from an empty or
+	// stale index by collecting the project conductors directly.
+	// ConductorChangePlan remains responsible for expanding and deduplicating
+	// complete potentials.
+	if (conductors.isEmpty() && !has_indexed_conductors && m_editor)
+	{
+		ProjectView *project_view = m_editor->currentProjectView();
+		if (!project_view)
+		{
+			const QList<ProjectView *> opened_projects = m_editor->openedProjects();
+			if (opened_projects.size() == 1)
+				project_view = opened_projects.first();
+		}
+		QETProject *project = project_view ? project_view->project() : nullptr;
+
+		QSet<Conductor *> seen;
+		auto append_diagram_conductors = [&conductors, &seen](Diagram *diagram) {
+			if (!diagram) return;
+			for (Conductor *conductor : diagram->conductors())
+			{
+				if (conductor && !seen.contains(conductor))
+				{
+					seen.insert(conductor);
+					conductors.append(conductor);
+				}
+			}
+
+			// Projects created with older QET versions can expose visible
+			// conductors through their terminals before Diagram::conductors()
+			// sees them in the scene item list. The terminal graph is the same
+			// authoritative object graph used by conductor editing operations.
+			for (Element *element : diagram->elements())
+			{
+				if (!element) continue;
+				for (Terminal *terminal : element->terminals())
+				{
+					if (!terminal) continue;
+					for (Conductor *conductor : terminal->conductors())
+					{
+						if (conductor && !seen.contains(conductor))
+						{
+							seen.insert(conductor);
+							conductors.append(conductor);
+						}
+					}
+				}
+			}
+		};
+
+		if (DiagramView *view = project_view ? project_view->currentDiagram() : nullptr) {
+			append_diagram_conductors(view->diagram());
+		}
+		if (project)
+		{
+			for (Diagram *diagram : project->diagrams())
+				append_diagram_conductors(diagram);
+		}
+	}
+
+	if (conductors.isEmpty()) {
+		QMessageBox::information(
+			this,
+			!has_indexed_conductors
+				? tr("Aucun conducteur disponible")
+				: tr("Aucun conducteur sélectionné"),
+			!has_indexed_conductors
+				? tr("Le projet courant ne contient aucun conducteur modifiable.")
+				: tr("Cochez au moins un conducteur visible avant d’ouvrir le tableau."));
+		return;
+	}
+
+	QETProject *project = conductors.first() && conductors.first()->diagram()
+		? conductors.first()->diagram()->project()
+		: nullptr;
+	const ConductorChangePlan scope_plan = ConductorChangePlan::build(
+		project,
+		conductors,
+		ConductorChangePlan::Transform([](const ConductorProperties &before) {
+			return before;
+		}));
+	const ConductorChangePlan::Result scope_result = scope_plan.buildResult();
+	if (!scope_result.canApply() && !scope_result.isNoOp()) {
+		QMessageBox::warning(
+			this,
+			tr("Tableau indisponible"),
+			ConductorChangePlan::resultMessage(scope_result));
+		return;
+	}
+
+	ConductorBulkEditDialog editor_dialog(
+		conductorBulkEditRows(scope_plan), this);
+	connect(
+		&editor_dialog,
+		&ConductorBulkEditDialog::targetActivated,
+		this,
+		[this, &scope_plan](quintptr target_key) {
+			Conductor *conductor = scope_plan.conductorForKey(target_key);
+			if (!conductor || !conductor->diagram()) return;
+			if (m_last_selected) m_last_selected->setSelected(false);
+			conductor->diagram()->showMe();
+			conductor->setSelected(true);
+			m_last_selected = conductor;
+		});
+	if (editor_dialog.exec() != QDialog::Accepted) return;
+
+	const ConductorChangePlan plan = ConductorChangePlan::build(
+		project,
+		conductors,
+		ConductorChangePlan::TargetTransform(
+			[&editor_dialog](
+				Conductor *conductor,
+				const ConductorProperties &before) {
+				return editor_dialog.propertiesForTarget(
+					reinterpret_cast<quintptr>(conductor), before);
+			}));
+	const ConductorChangePlan::Result build_result = plan.buildResult();
+	if (!build_result.canApply()) {
+		if (build_result.isNoOp()) {
+			QMessageBox::information(
+				this,
+				tr("Aucune modification de conducteur"),
+				ConductorChangePlan::resultMessage(build_result));
+		} else {
+			QMessageBox::warning(
+				this,
+				tr("Aperçu impossible"),
+				ConductorChangePlan::resultMessage(build_result));
+		}
+		return;
+	}
+
+	ConductorChangePreviewDialog preview_dialog(plan.previewData(), this);
+	connect(
+		&preview_dialog,
+		&ConductorChangePreviewDialog::targetActivated,
+		this,
+		[this, &plan](quintptr target_key) {
+			Conductor *conductor = plan.conductorForKey(target_key);
+			if (!conductor || !conductor->diagram()) return;
+			if (m_last_selected) m_last_selected->setSelected(false);
+			conductor->diagram()->showMe();
+			conductor->setSelected(true);
+			m_last_selected = conductor;
+		});
+	if (preview_dialog.exec() != QDialog::Accepted) return;
+
+	const ConductorChangePlan::Result apply_result =
+		m_worker.applyConductorChangePlan(plan);
+	if (!apply_result.canApply()) {
+		QMessageBox::warning(
+			this,
+			tr("Modifications non appliquées"),
+			ConductorChangePlan::resultMessage(apply_result));
+		return;
+	}
+
+	const QString search_text = ui->m_search_le->text();
+	on_m_reload_pb_clicked();
+	ui->m_search_le->setText(search_text);
+	search();
 }
 
 /**

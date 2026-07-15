@@ -2007,10 +2007,6 @@ void QETApp::configureQET()
 	// associe le dialogue a un eventuel widget parent
 	if (parent_widget) {
 		cd.setParent(parent_widget, cd.windowFlags());
-		cd.setMaximumWidth(std::min(parent_widget->width(),
-									 (int)(0.94 * MachineInfo::instance()->i_max_available_width())));
-		cd.setMaximumHeight(std::min(parent_widget->height(),
-									  (int)(0.94 * MachineInfo::instance()->i_max_available_height())));
 	}
 
 	// display the dialog then avoid linking it to any parent widget
@@ -2519,6 +2515,11 @@ void QETApp::checkBackupFiles()
 						| QUrl::StripTrailingSlash).path();
 			if (kasf->managedFile() == path) {
 				stale_files.removeOne(kasf);
+				// The project is already open.  Acquire the stale recovery file
+				// before deleting it so its payload and sidecars are cleaned up.
+				kasf->open(QIODevice::ReadWrite);
+				delete kasf;
+				break;
 			}
 		}
 	}
@@ -2529,11 +2530,11 @@ void QETApp::checkBackupFiles()
 
 	QString text;
 	if(stale_files.size() == 1) {
-		text.append(tr("<b>Le fichier de restauration suivant a été trouvé,<br>"
-					   "Voulez-vous l'ouvrir ?</b><br>"));
+		text.append(tr("<b>Une sauvegarde de récupération a été trouvée.</b><br>"
+					   "Choisissez si vous souhaitez la restaurer maintenant, la conserver ou la supprimer.<br>"));
 	} else {
-		text.append(tr("<b>Les fichiers de restauration suivant on été trouvé,<br>"
-					   "Voulez-vous les ouvrir ?</b><br>"));
+		text.append(tr("<b>Des sauvegardes de récupération ont été trouvées.</b><br>"
+					   "Choisissez si vous souhaitez les restaurer maintenant, les conserver ou les supprimer.<br>"));
 	}
 	for(const KAutoSaveFile *kasf : stale_files)
 	{
@@ -2545,14 +2546,23 @@ void QETApp::checkBackupFiles()
 #	endif
 	}
 
-	//Open backup file
-	if (QET::QetMessageBox::question(nullptr,
-					 tr("Fichier de restauration"),
-					 text,
-					 QMessageBox::Ok
-					 |QMessageBox::Cancel
-					 )
-			== QMessageBox::Ok)
+	QMessageBox recovery_dialog(
+			QMessageBox::Question,
+			tr("Fichier de restauration"),
+			text,
+			QMessageBox::NoButton);
+	auto *restore_button = recovery_dialog.addButton(
+			tr("Restaurer"), QMessageBox::AcceptRole);
+	auto *keep_button = recovery_dialog.addButton(
+			tr("Conserver pour plus tard"), QMessageBox::RejectRole);
+	auto *discard_button = recovery_dialog.addButton(
+			tr("Supprimer définitivement"), QMessageBox::DestructiveRole);
+	recovery_dialog.setDefaultButton(keep_button);
+	recovery_dialog.setEscapeButton(keep_button);
+	recovery_dialog.exec();
+
+	// Open recovered projects only after an explicit restore decision.
+	if (recovery_dialog.clickedButton() == restore_button)
 	{
 		//If there are open editors, find those that are visible
 		if (diagramEditors().count())
@@ -2566,12 +2576,21 @@ void QETApp::checkBackupFiles()
 			editor->openBackupFiles(stale_files);
 		}
 	}
-	else //Clear backup file
+	else if (recovery_dialog.clickedButton() == discard_button)
 	{
-		//Remove the stale files
+		// Permanently remove recovery files only after an explicit destructive
+		// choice.  If locking one fails, deleting the wrapper preserves it.
 		for (KAutoSaveFile *stale : stale_files)
 		{
 			stale->open(QIODevice::ReadWrite);
+			delete stale;
+		}
+	}
+	else
+	{
+		// The default action (including Escape/window close) keeps every
+		// recovery artifact for the next application start.
+		for (KAutoSaveFile *stale : stale_files) {
 			delete stale;
 		}
 	}

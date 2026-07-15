@@ -107,6 +107,8 @@ set(QET_RES_FILES
   ${QET_DIR}/sources/ui/configpage/generalconfigurationpage.ui
   )
 set(QET_SRC_FILES
+	${QET_DIR}/sources/conductorpropertiesresolver.cpp
+	${QET_DIR}/sources/conductorpropertiesresolver.h
   ${QET_DIR}/sources/cli_export.cpp
   ${QET_DIR}/sources/cli_export.h
   ${QET_DIR}/sources/pdf_links.cpp
@@ -177,6 +179,12 @@ set(QET_SRC_FILES
   ${QET_DIR}/sources/newelementwizard.h
   ${QET_DIR}/sources/projectview.cpp
   ${QET_DIR}/sources/projectview.h
+  ${QET_DIR}/sources/ui/projectsavestatuscontroller.cpp
+  ${QET_DIR}/sources/ui/projectsavestatuscontroller.h
+  ${QET_DIR}/sources/ui/projectsavestatuswidget.cpp
+  ${QET_DIR}/sources/ui/projectsavestatuswidget.h
+  ${QET_DIR}/sources/ui/workspaceprofilecontroller.cpp
+  ${QET_DIR}/sources/ui/workspaceprofilecontroller.h
   ${QET_DIR}/sources/qetapp.cpp
   ${QET_DIR}/sources/qetapp.h
   ${QET_DIR}/sources/qetarguments.cpp
@@ -243,6 +251,8 @@ set(QET_SRC_FILES
 
   ${QET_DIR}/sources/dataBase/projectdatabase.cpp
   ${QET_DIR}/sources/dataBase/projectdatabase.h
+  ${QET_DIR}/sources/dataBase/projectdatabasewriter.cpp
+  ${QET_DIR}/sources/dataBase/projectdatabasewriter.h
 
   ${QET_DIR}/sources/dataBase/ui/elementquerywidget.cpp
   ${QET_DIR}/sources/dataBase/ui/elementquerywidget.h
@@ -360,8 +370,11 @@ set(QET_SRC_FILES
   ${QET_DIR}/sources/ElementsCollection/elementcollectionhandler.h
   ${QET_DIR}/sources/ElementsCollection/elementcollectionitem.cpp
   ${QET_DIR}/sources/ElementsCollection/elementcollectionitem.h
+  ${QET_DIR}/sources/ElementsCollection/elementcollectionroles.h
   ${QET_DIR}/sources/ElementsCollection/elementscollectionmodel.cpp
   ${QET_DIR}/sources/ElementsCollection/elementscollectionmodel.h
+  ${QET_DIR}/sources/ElementsCollection/elementscollectionsearchmodel.cpp
+  ${QET_DIR}/sources/ElementsCollection/elementscollectionsearchmodel.h
   ${QET_DIR}/sources/ElementsCollection/elementscollectionwidget.cpp
   ${QET_DIR}/sources/ElementsCollection/elementscollectionwidget.h
   ${QET_DIR}/sources/ElementsCollection/elementslocation.cpp
@@ -491,9 +504,29 @@ set(QET_SRC_FILES
   ${QET_DIR}/sources/richtext/richtexteditor_p.h
   ${QET_DIR}/sources/richtext/ui_addlinkdialog.h
 
+  ${QET_DIR}/sources/SearchAndReplace/conductorbulkeditadapter.cpp
+  ${QET_DIR}/sources/SearchAndReplace/conductorbulkeditadapter.h
+  ${QET_DIR}/sources/SearchAndReplace/conductorbulkeditcsvexport.cpp
+  ${QET_DIR}/sources/SearchAndReplace/conductorbulkeditcsvexport.h
+  ${QET_DIR}/sources/SearchAndReplace/conductorbulkeditmodel.cpp
+  ${QET_DIR}/sources/SearchAndReplace/conductorbulkeditmodel.h
+  ${QET_DIR}/sources/SearchAndReplace/conductorchangeplan.cpp
+  ${QET_DIR}/sources/SearchAndReplace/conductorchangeplan.h
+  ${QET_DIR}/sources/SearchAndReplace/conductorchangeexecution.cpp
+  ${QET_DIR}/sources/SearchAndReplace/conductorchangepreviewdata.h
+  ${QET_DIR}/sources/SearchAndReplace/advancedreplacestruct.h
+  ${QET_DIR}/sources/SearchAndReplace/conductorpropertydiff.cpp
+  ${QET_DIR}/sources/SearchAndReplace/conductorpropertydiff.h
+  ${QET_DIR}/sources/SearchAndReplace/conductorpropertytransform.cpp
+  ${QET_DIR}/sources/SearchAndReplace/conductorpropertytransform.h
+  ${QET_DIR}/sources/SearchAndReplace/conductorscopeutils.h
   ${QET_DIR}/sources/SearchAndReplace/searchandreplaceworker.cpp
   ${QET_DIR}/sources/SearchAndReplace/searchandreplaceworker.h
 
+  ${QET_DIR}/sources/SearchAndReplace/ui/conductorbulkeditdialog.cpp
+  ${QET_DIR}/sources/SearchAndReplace/ui/conductorbulkeditdialog.h
+  ${QET_DIR}/sources/SearchAndReplace/ui/conductorchangepreviewdialog.cpp
+  ${QET_DIR}/sources/SearchAndReplace/ui/conductorchangepreviewdialog.h
   ${QET_DIR}/sources/SearchAndReplace/ui/replaceadvanceddialog.cpp
   ${QET_DIR}/sources/SearchAndReplace/ui/replaceadvanceddialog.h
   ${QET_DIR}/sources/SearchAndReplace/ui/replaceconductordialog.cpp
@@ -620,6 +653,8 @@ set(QET_SRC_FILES
   ${QET_DIR}/sources/ui/conductorpropertiesdialog.h
   ${QET_DIR}/sources/ui/conductorpropertieswidget.cpp
   ${QET_DIR}/sources/ui/conductorpropertieswidget.h
+  ${QET_DIR}/sources/ui/conductorpropertieseditor.cpp
+  ${QET_DIR}/sources/ui/conductorpropertieseditor.h
   ${QET_DIR}/sources/ui/configsaveloaderwidget.cpp
   ${QET_DIR}/sources/ui/configsaveloaderwidget.h
   ${QET_DIR}/sources/ui/diagramcontextwidget.cpp
@@ -636,6 +671,16 @@ set(QET_SRC_FILES
   ${QET_DIR}/sources/ui/backupdialog.h
   ${QET_DIR}/sources/ui/dialogwaiting.cpp
   ${QET_DIR}/sources/ui/dialogwaiting.h
+  ${QET_DIR}/sources/ui/exportcenterdialog.cpp
+  ${QET_DIR}/sources/ui/exportcenterdialog.h
+  ${QET_DIR}/sources/ui/startcenterpagecontroller.cpp
+  ${QET_DIR}/sources/ui/startcenterpagecontroller.h
+  ${QET_DIR}/sources/ui/startcenterwidget.cpp
+  ${QET_DIR}/sources/ui/startcenterwidget.h
+  ${QET_DIR}/sources/ui/folionavigatordialog.cpp
+  ${QET_DIR}/sources/ui/folionavigatordialog.h
+  ${QET_DIR}/sources/ui/folionavigatormodel.cpp
+  ${QET_DIR}/sources/ui/folionavigatormodel.h
   ${QET_DIR}/sources/ui/dynamicelementtextitemeditor.cpp
   ${QET_DIR}/sources/ui/dynamicelementtextitemeditor.h
   ${QET_DIR}/sources/ui/dynamicelementtextmodel.cpp
@@ -698,6 +743,8 @@ set(QET_SRC_FILES
   ${QET_DIR}/sources/undocommand/changeelementdatacommand.h
   ${QET_DIR}/sources/undocommand/changeelementinformationcommand.cpp
   ${QET_DIR}/sources/undocommand/changeelementinformationcommand.h
+  ${QET_DIR}/sources/undocommand/changeconductorspropertiescommand.cpp
+  ${QET_DIR}/sources/undocommand/changeconductorspropertiescommand.h
   ${QET_DIR}/sources/undocommand/changetitleblockcommand.cpp
   ${QET_DIR}/sources/undocommand/changetitleblockcommand.h
   ${QET_DIR}/sources/undocommand/deleteqgraphicsitemcommand.cpp
@@ -715,6 +762,13 @@ set(QET_SRC_FILES
 
   ${QET_DIR}/sources/utils/conductorcreator.cpp
   ${QET_DIR}/sources/utils/conductorcreator.h
+  ${QET_DIR}/sources/utils/conductorinteraction.cpp
+  ${QET_DIR}/sources/utils/conductorinteraction.h
+  ${QET_DIR}/sources/utils/exportutils.cpp
+  ${QET_DIR}/sources/utils/exportutils.h
+  ${QET_DIR}/sources/utils/folionavigationindex.cpp
+  ${QET_DIR}/sources/utils/folionavigationindex.h
+  ${QET_DIR}/sources/utils/orderedindexcache.h
   ${QET_DIR}/sources/utils/macosxopenevent.cpp
   ${QET_DIR}/sources/utils/macosxopenevent.h
   ${QET_DIR}/sources/utils/qetsettings.cpp

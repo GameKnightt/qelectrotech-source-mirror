@@ -20,10 +20,12 @@
 #include "qet.h"
 #include "qetapp.h"
 #include "qetproject.h"
+#include "qetversion.h"
 #include "singleapplication.h"
 #include "utils/qetsettings.h"
 
 #include <QApplication>
+#include <QTextStream>
 
 #include <QStyleFactory>
 #include <QtConcurrentRun>
@@ -207,6 +209,19 @@ int main(int argc, char **argv)
 	QCoreApplication::setOrganizationName("QElectroTech");
 	QCoreApplication::setOrganizationDomain("qelectrotech.org");
 	QCoreApplication::setApplicationName("QElectroTech");
+
+	// Packaging and diagnostics need a true one-shot version command. Handle it
+	// before QApplication and SingleApplication so it neither opens a window nor
+	// forwards the request to an already-running graphical instance.
+	for (int i = 1; i < argc; ++i) {
+		if (QString::fromLocal8Bit(argv[i]) == QStringLiteral("--version")) {
+			QTextStream(stdout)
+				<< QStringLiteral("QElectroTech ")
+				<< QetVersion::displayedVersion()
+				<< Qt::endl;
+			return 0;
+		}
+	}
 	//Creation and execution of the application
 	//HighDPI
 #if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)	// ### Qt 6: remove

@@ -39,7 +39,7 @@ class BOMExportDialog : public QDialog
 		~BOMExportDialog() override;
 
 		virtual int exec() override;
-		QString getBom();
+		bool getBom(QString &csv, QString &error_message);
 
 	private slots:
 		void on_m_format_as_bom_clicked(bool checked);

@@ -117,6 +117,7 @@ QETProject::QETProject(KAutoSaveFile *backup, QObject *parent) :
 	m_project_properties_handler{this}
 {
 	m_state = openFile(backup);
+	const bool recovered_from_backup = m_state == ProjectState::Ok;
 		//Failed to open from the backup, try to open the crashed
 	if (m_state != ProjectState::Ok)
 	{
@@ -138,6 +139,11 @@ QETProject::QETProject(KAutoSaveFile *backup, QObject *parent) :
 	setReadOnly(!fi.isWritable());
 
 	init();
+	// A recovered document has never been confirmed by the user as the new
+	// canonical project.  Keep it dirty so closing it always offers to save.
+	if (recovered_from_backup) {
+		setModified(true);
+	}
 }
 
 /**
@@ -167,6 +173,7 @@ QETProject::~QETProject()
 	{
 		delete  diagram;
 		m_diagrams_list.removeOne(diagram);
+		m_diagram_index_cache.invalidate();
 	}
 }
 
@@ -202,7 +209,21 @@ void QETProject::init()
 	m_save_backup_timer.setInterval(BACKUP_INTERVAL);
 	connect(&m_save_backup_timer, &QTimer::timeout, this, &QETProject::writeBackup);
 	m_save_backup_timer.start();
-	writeBackup();
+	connect(&m_backup_watcher, &QFutureWatcher<BackupWriteResult>::finished,
+		this, [this]() {
+			const BackupWriteResult result = m_backup_watcher.result();
+			if (result.operationId != m_backup_operation_id)
+				return;
+			emit recoveryBackupFinished(
+				this,
+				result.operationId,
+				result.ok,
+				result.error,
+				result.backupPath);
+		});
+	// Let the editor register the project and connect the lifecycle signals
+	// before the first asynchronous recovery snapshot starts.
+	QTimer::singleShot(0, this, &QETProject::writeBackup);
 
 	QSettings settings;
 	int autosave_interval = settings.value(QStringLiteral("diagrameditor/autosave-interval"), 0).toInt();
@@ -212,8 +233,8 @@ void QETProject::init()
 		m_autosave_timer.setInterval(ms);
 		connect(&m_autosave_timer, &QTimer::timeout, this, [=]()
 		{
-			if(!this->m_file_path.isEmpty())
-				this->write();
+			if (!this->m_file_path.isEmpty() && this->hasUnsavedChanges())
+				this->write(this->m_file_path, SaveOrigin::Automatic);
 		});
 		m_autosave_timer.start();
 	}
@@ -310,8 +331,9 @@ QList<Diagram *> QETProject::diagrams() const
 */
 int QETProject::folioIndex(const Diagram *diagram) const
 {
-	// QList::indexOf returns -1 if no item matched.
-	return(m_diagrams_list.indexOf(const_cast<Diagram *>(diagram)));
+	return m_diagram_index_cache.indexOf(
+			m_diagrams_list,
+			const_cast<Diagram *>(diagram));
 }
 
 /**
@@ -359,6 +381,7 @@ void QETProject::setFilePath(const QString &filepath)
 	}
 	m_backup_file.setManagedFile(QUrl::fromLocalFile(filepath));
 	m_file_path = filepath;
+	emit recoveryBackupInvalidated(this);
 
 	QFileInfo fi(m_file_path);
 	if (fi.isWritable()) {
@@ -442,7 +465,7 @@ QString QETProject::pathNameTitle() const
 			)
 		).arg(final_title);
 	}
-	if (m_modified) {
+	if (hasUnsavedChanges()) {
 		final_title = QString(
 			tr(
 				"%1 [modifié]",
@@ -1040,9 +1063,41 @@ bool QETProject::close()
 */
 QETResult QETProject::write()
 {
+	return write(m_file_path, SaveOrigin::Manual);
+}
+
+/**
+	@brief QETProject::write
+	Save the project atomically to @p file_path.  The active project path and
+	crash-recovery target change only after the destination has been committed.
+	@param file_path destination project file
+	@return an empty successful result, or an error preserving the current path
+*/
+QETResult QETProject::write(const QString &file_path)
+{
+	return write(file_path, SaveOrigin::Manual);
+}
+
+QETResult QETProject::write(const QString &file_path, SaveOrigin origin)
+{
+	const quint64 operation_id = ++m_save_operation_id;
+	emit canonicalSaveStarted(this, operation_id, origin);
+	const auto finish = [this, operation_id, origin](QETResult result) {
+		emit canonicalSaveFinished(
+			this,
+			operation_id,
+			origin,
+			result.isOk(),
+			result.errorMessage(),
+			result.isOk() ? m_file_path : QString(),
+			hasUnsavedChanges());
+		return result;
+	};
+
 		// this operation requires a filepath
-	if (m_file_path.isEmpty())
-		return(QString("unable to save project to file: no filepath was specified"));
+	if (file_path.isEmpty())
+		return finish(QETResult(
+			QStringLiteral("unable to save project to file: no filepath was specified")));
 
 		// If the project was opened read-only, only refuse when the target
 		// really can't be written: an existing file that is not writable, or a
@@ -1050,37 +1105,49 @@ QETResult QETProject::write()
 		// writable.  A non-existent file reports isWritable() == false, so the
 		// old check wrongly blocked saving a read-only project elsewhere.
 	if (isReadOnly()) {
-		const QFileInfo file_info(m_file_path);
+		const QFileInfo file_info(file_path);
 		const bool can_write = file_info.exists()
 			? file_info.isWritable()
 			: QFileInfo(file_info.absolutePath()).isWritable();
 		if (!can_write)
-			return(QString("the file %1 was opened read-only and thus will not be written").arg(m_file_path));
+			return finish(QETResult(
+				QString("the file %1 was opened read-only and thus will not be written")
+					.arg(file_path)));
 	}
+
+	// These values are part of the file itself.  Stage them in memory for XML
+	// serialization, but restore the complete context if the commit fails.
+	const DiagramContext previous_project_properties = m_project_properties;
+	m_project_properties.addValue("saveddate",     QLocale::system().toString(QDate::currentDate(), QLocale::ShortFormat));
+	m_project_properties.addValue("saveddate-us",  QDate::currentDate().toString("yyyy-MM-dd"));
+	m_project_properties.addValue("saveddate-eu",  QDate::currentDate().toString("dd-MM-yyyy"));
+	m_project_properties.addValue("savedtime",     QDateTime::currentDateTime().toString("HH:mm"));
+	m_project_properties.addValue("savedfilename", QFileInfo(file_path).baseName());
+	m_project_properties.addValue("savedfilepath", file_path);
 
 	QDomDocument xml_project(toXml());
 	QString error_message;
-	if (!QET::writeXmlFile(xml_project, m_file_path, &error_message))
-		return(error_message);
+	if (!QET::writeXmlFile(xml_project, file_path, &error_message)) {
+		m_project_properties = previous_project_properties;
+		return finish(QETResult(error_message));
+	}
+
+	if (file_path != m_file_path) {
+		setFilePath(file_path);
+	}
 
 		// The project has just been written to a writable file (e.g. saved to
 		// a new location with "Save As"), so it is no longer read-only.
 	if (isReadOnly())
 		setReadOnly(false);
 
-		//title block variables should be updated after file save dialog is confirmed, before file is saved.
-	m_project_properties.addValue("saveddate",     QLocale::system().toString(QDate::currentDate(), QLocale::ShortFormat));
-	m_project_properties.addValue("saveddate-us",  QDate::currentDate().toString("yyyy-MM-dd"));
-	m_project_properties.addValue("saveddate-eu",  QDate::currentDate().toString("dd-MM-yyyy"));
-	m_project_properties.addValue("savedtime",     QDateTime::currentDateTime().toString("HH:mm"));
-	m_project_properties.addValue("savedfilename", QFileInfo(filePath()).baseName());
-	m_project_properties.addValue("savedfilepath", filePath());
-
 	emit projectInformationsChanged(this);
 	updateDiagramsFolioData();
 
+	if (m_undo_stack)
+		m_undo_stack->setClean();
 	setModified(false);
-	return(QETResult());
+	return finish(QETResult());
 }
 
 /**
@@ -1350,6 +1417,7 @@ void QETProject::removeDiagram(Diagram *diagram)
 
 	if (m_diagrams_list.removeAll(diagram))
 	{
+		m_diagram_index_cache.invalidate();
 		emit diagramRemoved(this, diagram);
 		diagram->deleteLater();
 	}
@@ -1372,6 +1440,7 @@ void QETProject::diagramOrderChanged(int old_index, int new_index) {
 	if (old_index > diagram_max_index || new_index > diagram_max_index) return;
 
 	m_diagrams_list.move(old_index, new_index);
+	m_diagram_index_cache.invalidate();
 	updateDiagramsFolioData();
 	setModified(true);
 	emit projectDiagramsOrderChanged(this, old_index, new_index);
@@ -1487,7 +1556,11 @@ void QETProject::readProjectXml(QDomDocument &xml_project)
 
 
 	m_data_base.blockSignals(false);
-	m_data_base.updateDB();
+	const auto database_result = m_data_base.updateDB();
+	if (!database_result.isOk()) {
+		qWarning() << "QETProject: derived database refresh failed after loading:"
+				   << database_result.diagnostic();
+	}
 
 	m_state = Ok;
 }
@@ -1535,6 +1608,7 @@ void QETProject::readDiagramsXml(QDomDocument &xml_project)
 					.toElement();
 			auto diagram = new Diagram(this);
 			m_diagrams_list << diagram;
+			m_diagram_index_cache.invalidate();
 
 			connect(&diagram->border_and_titleblock, &BorderTitleBlock::needFolioData,
 					this, &QETProject::updateDiagramsFolioData);
@@ -1850,6 +1924,7 @@ void QETProject::addDiagram(Diagram *diagram, int pos)
 	} else {
 		m_diagrams_list.insert(pos, diagram);
 	}
+	m_diagram_index_cache.invalidate();
 
 	updateDiagramsFolioData();
 }
@@ -1862,21 +1937,27 @@ void QETProject::writeBackup()
 {
 	if (!m_backup_enabled)
 		return;
-#	if QT_VERSION < QT_VERSION_CHECK(6, 0, 0) // ### Qt 6: remove
-		//Don't launch a new backup while the previous one is still writing:
-		//both would write through &m_backup_file on different threads.
+	// Don't launch a new backup while the previous one is still writing: both
+	// would write through &m_backup_file on different threads.
 	if (m_backup_future.isRunning())
 		return;
+
 	QDomDocument xml_project(toXml());
+	const quint64 operation_id = ++m_backup_operation_id;
+	emit recoveryBackupStarted(this, operation_id);
 	m_backup_future = QtConcurrent::run(
-				QET::writeToFile,xml_project,&m_backup_file,nullptr);
-#	else
-#		if TODO_LIST
-#			pragma message("@TODO remove code for QT 6 or later")
-#		endif
-	qDebug() << "Help code for QT 6 or later"
-			 << "QtConcurrent::run its backwards now...function, object, args";
-#	endif
+		[xml_project, backup_file = &m_backup_file, operation_id]() mutable {
+			BackupWriteResult result;
+			result.operationId = operation_id;
+			result.ok = QET::writeToFile(
+				xml_project,
+				backup_file,
+				&result.error);
+			if (result.ok)
+				result.backupPath = backup_file->fileName();
+			return result;
+		});
+	m_backup_watcher.setFuture(m_backup_future);
 }
 
 /**
@@ -1888,6 +1969,17 @@ bool QETProject::projectOptionsWereModified()
 	// unlike similar methods, this method does not compare the content against
 	// expected values; instead, we just check whether we have been set as modified.
 	return(m_modified);
+}
+
+/**
+	@return true when the in-memory project differs from the last successfully
+	committed project file. Embedded templates alone are project content, not
+	evidence of a modification after loading.
+*/
+bool QETProject::hasUnsavedChanges() const
+{
+	return m_modified
+		|| (m_undo_stack && !m_undo_stack->isClean());
 }
 
 /**
@@ -1977,8 +2069,7 @@ bool QETProject::removeTerminalStrip(TerminalStrip *strip) {
 bool QETProject::projectWasModified()
 {
 
-	if ( projectOptionsWereModified()    ||
-		 !m_undo_stack -> isClean()       ||
+	if ( hasUnsavedChanges()             ||
 		 m_titleblocks_collection.templates().count() )
 		return(true);
 

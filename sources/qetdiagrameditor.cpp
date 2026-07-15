@@ -34,11 +34,17 @@
 #include "qetgraphicsitem/dynamicelementtextitem.h"
 #include "qeticons.h"
 #include "qetmessagebox.h"
+#include "qetproject.h"
 #include "recentfiles.h"
 #include "ui/bomexportdialog.h"
+#include "ui/exportcenterdialog.h"
 #include "ui/diagrampropertieseditordockwidget.h"
 #include "ui/backupdialog.h"
 #include "ui/dialogwaiting.h"
+#include "ui/projectsavestatuscontroller.h"
+#include "ui/projectsavestatuswidget.h"
+#include "ui/startcenterpagecontroller.h"
+#include "ui/startcenterwidget.h"
 #include "undocommand/addelementtextcommand.h"
 #include "undocommand/rotateselectioncommand.h"
 #include "undocommand/rotatetextscommand.h"
@@ -51,6 +57,11 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QDir>
+#include <QEventLoop>
+#include <QMessageBox>
+#include <QPushButton>
+#include <QStackedWidget>
+#include <QStyle>
 #ifdef BUILD_WITHOUT_KF5
 #	include "ui/nokde/kautosavefile.h"
 #else
@@ -75,6 +86,7 @@ QETDiagramEditor::QETDiagramEditor(const QStringList &files, QWidget *parent) :
 {
 		//Trivial property use to set the graphics handler size
 	setProperty("graphics_handler_size", 10);
+	setObjectName(QStringLiteral("qetDiagramEditor"));
 
 	activeSubWindowIndex = 0;
 
@@ -83,7 +95,11 @@ QETDiagramEditor::QETDiagramEditor(const QStringList &files, QWidget *parent) :
 	splitter_->setOrientation(Qt::Vertical);
 	splitter_->addWidget(&m_workspace);
 	splitter_->addWidget(&m_search_and_replace_widget);
-	setCentralWidget(splitter_);
+	m_editor_page = splitter_;
+	m_central_pages = new QStackedWidget(this);
+	m_central_pages->setObjectName(QStringLiteral("diagramEditorCentralPages"));
+	m_central_pages->addWidget(m_editor_page);
+	setCentralWidget(m_central_pages);
 	m_search_and_replace_widget.setEditor(this);
 
 	QList<int> s;
@@ -106,6 +122,24 @@ QETDiagramEditor::QETDiagramEditor(const QStringList &files, QWidget *parent) :
 	setWindowTitle(tr("QElectroTech", "window title"));
 	setWindowIcon(QET::Icons::QETLogo);
 	statusBar() -> showMessage(tr("QElectroTech", "status bar message"));
+	m_project_save_status = new ProjectSaveStatusWidget(statusBar());
+	statusBar()->addPermanentWidget(m_project_save_status);
+	m_project_save_controller = new ProjectSaveStatusController(this);
+	connect(
+		m_project_save_controller,
+		&ProjectSaveStatusController::activeSnapshotChanged,
+		this,
+		[this](const ProjectSaveStatusController::Snapshot &snapshot) {
+			m_project_save_status->setState(
+				snapshot.state,
+				snapshot.projectName,
+				snapshot.filePath,
+				snapshot.detail,
+				snapshot.recoveryPath,
+				snapshot.recoveryError);
+			if (snapshot.state == ProjectSaveStatusWidget::State::Saving)
+				m_project_save_status->repaint();
+		});
 
 	setUpElementsPanel();
 	setUpElementsCollectionWidget();
@@ -114,10 +148,9 @@ QETDiagramEditor::QETDiagramEditor(const QStringList &files, QWidget *parent) :
 	setUpAutonumberingWidget();
 
 	setUpActions();
+	setUpStartCenter();
 	setUpToolBar();
 	setUpMenu();
-
-	tabifyDockWidget(qdw_undo, qdw_pa);
 
 		//By default the windows is maximised
 	setMinimumSize(QSize(500, 350));
@@ -133,6 +166,11 @@ QETDiagramEditor::QETDiagramEditor(const QStringList &files, QWidget *parent) :
 		 SLOT(slot_updatePasteAction()));
 
 	readSettings();
+	const bool expects_project = !files.isEmpty();
+	m_start_center_page_controller->setHasOpenProjects(expects_project);
+	if (m_workspace_profile_controller) {
+		m_workspace_profile_controller->setHomeMode(!expects_project);
+	}
 	show();
 
 		//If valid file path is given as arguments
@@ -145,6 +183,7 @@ QETDiagramEditor::QETDiagramEditor(const QStringList &files, QWidget *parent) :
 				++ opened_projects;
 	}
 
+	updateCentralPage();
 	slot_updateActions();
 }
 
@@ -162,7 +201,7 @@ QETDiagramEditor::~QETDiagramEditor()
 void QETDiagramEditor::setUpElementsPanel()
 {
 	//Add the element panel as a QDockWidget
-	qdw_pa = new QDockWidget(tr("Projets", "dock title"), this);
+	qdw_pa = new QDockWidget(tr("Projets et folios", "dock title"), this);
 
 	qdw_pa -> setObjectName   ("projects panel");
 	qdw_pa -> setAllowedAreas (Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
@@ -170,7 +209,7 @@ void QETDiagramEditor::setUpElementsPanel()
 				QDockWidget::DockWidgetClosable
 				|QDockWidget::DockWidgetMovable
 				|QDockWidget::DockWidgetFloatable);
-	qdw_pa -> setMinimumWidth (160);
+	qdw_pa -> setMinimumWidth (180);
 	qdw_pa -> setWidget       (pa = new ElementsPanelWidget(qdw_pa));
 
 	addDockWidget(Qt::LeftDockWidgetArea, qdw_pa);
@@ -191,20 +230,56 @@ void QETDiagramEditor::setUpElementsPanel()
 }
 
 /**
+	Set up the useful empty state shown before a project is opened.
+*/
+void QETDiagramEditor::setUpStartCenter()
+{
+	m_start_center = new StartCenterWidget(
+		m_new_file,
+		m_open_file,
+		QETApp::projectsRecentFiles(),
+		QET::Icons::QETLogo,
+		m_central_pages);
+	m_central_pages->insertWidget(0, m_start_center);
+	m_start_center_page_controller = std::make_unique<StartCenterPageController>(
+		m_central_pages,
+		m_start_center,
+		m_editor_page);
+	connect(
+		m_start_center,
+		&StartCenterWidget::recentProjectRequested,
+		this,
+		&QETDiagramEditor::openStartCenterRecentFile);
+}
+
+/**
 	@brief QETDiagramEditor::setUpElementsCollectionWidget
 	Set up the dock widget of element collection
 */
 void QETDiagramEditor::setUpElementsCollectionWidget()
 {
-	m_qdw_elmt_collection = new QDockWidget(tr("Collections"), this);
+	m_qdw_elmt_collection = new QDockWidget(tr("Composants"), this);
 	m_qdw_elmt_collection->setObjectName("elements_collection_widget");
 	m_qdw_elmt_collection->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+	m_qdw_elmt_collection->setMinimumWidth(260);
 	m_qdw_elmt_collection->setFeatures(
 				QDockWidget::DockWidgetClosable
 				|QDockWidget::DockWidgetMovable
 				|QDockWidget::DockWidgetFloatable);
 
 	m_element_collection_widget = new ElementsCollectionWidget(m_qdw_elmt_collection);
+	connect(m_element_collection_widget,
+		&ElementsCollectionWidget::elementPlacementRequested,
+		this,
+		[this](const QString &location_uri) {
+			ElementsLocation location(location_uri);
+			DiagramView *view = currentDiagramView();
+			if (!view || !view->startAddingElement(location)) {
+				statusBar()->showMessage(
+					tr("Ouvrez un folio modifiable pour placer cet élément."),
+					4000);
+			}
+		});
 	m_qdw_elmt_collection->setWidget(m_element_collection_widget);
 	m_element_collection_widget->expandFirstItems();
 
@@ -224,7 +299,7 @@ void QETDiagramEditor::setUpUndoStack()
 	undo_view -> setStatusTip  (tr("Cliquez sur une action pour revenir en arrière dans l'édition de votre schéma", "Status tip"));
 	undo_view -> setWhatsThis  (tr("Ce panneau liste les différentes actions effectuées sur le folio courant. Cliquer sur une action permet de revenir à l'état du schéma juste après son application.", "\"What's this\" tip"));
 
-	qdw_undo  = new QDockWidget(tr("Annulations", "dock title"), this);
+	qdw_undo  = new QDockWidget(tr("Historique", "dock title"), this);
 	qdw_undo -> setObjectName("diagram_undo");
 
 	qdw_undo -> setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
@@ -246,6 +321,8 @@ void QETDiagramEditor::setUpSelectionPropertiesEditor()
 {
 	m_selection_properties_editor = new DiagramPropertiesEditorDockWidget(this);
 	m_selection_properties_editor -> setObjectName("diagram_properties_editor_dock_widget");
+	m_selection_properties_editor->setWindowTitle(tr("Propriétés"));
+	m_selection_properties_editor->setMinimumWidth(260);
 	addDockWidget(Qt::RightDockWidgetArea, m_selection_properties_editor);
 }
 
@@ -256,6 +333,8 @@ void QETDiagramEditor::setUpSelectionPropertiesEditor()
 void QETDiagramEditor::setUpAutonumberingWidget()
 {
 	m_autonumbering_dock = new AutoNumberingDockWidget(this);
+	m_autonumbering_dock->setObjectName("auto_numbering");
+	m_autonumbering_dock->setWindowTitle(tr("Numérotation automatique"));
 	m_autonumbering_dock -> setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
 	m_autonumbering_dock -> setFeatures(
 				QDockWidget::DockWidgetClosable
@@ -270,6 +349,16 @@ void QETDiagramEditor::setUpAutonumberingWidget()
 */
 void QETDiagramEditor::setUpActions()
 {
+	m_export_center = new QAction(
+		QET::Icons::DocumentExport,
+		tr("Centre d'export…"),
+		this);
+	m_export_center->setObjectName(QStringLiteral("exportCenterAction"));
+	m_export_center->setStatusTip(tr(
+		"Regroupe les exports de documents et de données du projet courant"));
+	connect(m_export_center, &QAction::triggered,
+		this, &QETDiagramEditor::openExportCenter);
+
 		//Export to another file type (jpeg, dxf etc...)
 	m_export_to_images = new QAction(QET::Icons::DocumentExport,  tr("E&xporter"), this);
 	m_export_to_images->setShortcut(Qt::CTRL | Qt::SHIFT | Qt::Key_X);
@@ -417,9 +506,24 @@ void QETDiagramEditor::setUpActions()
 		editProjectProperties(currentProjectView());
 	});
 
+	//Reach a folio directly without expanding the project tree.
+	m_project_folio_navigator = new QAction(
+			QET::Icons::ZoomDraw,
+			tr("Atteindre un folio…"),
+			this);
+	m_project_folio_navigator->setShortcut(Qt::CTRL | Qt::Key_G);
+	m_project_folio_navigator->setStatusTip(tr(
+			"Recherche un folio du projet courant par numéro, titre ou propriété"));
+	connect(m_project_folio_navigator, &QAction::triggered, this, [this]() {
+		if (ProjectView *project_view = currentProjectView()) {
+			project_view->openFolioNavigator();
+		}
+	});
+
 		//Add new folio to current project
 	m_project_add_diagram = new QAction(QET::Icons::DiagramAdd, tr("Ajouter un folio"), this);
 	m_project_add_diagram->setShortcut(Qt::CTRL | Qt::Key_T);
+	m_project_add_diagram->setStatusTip(tr("Ajoute un folio au projet courant"));
 	connect(m_project_add_diagram, &QAction::triggered, [this]() {
 		if (ProjectView *current_project = currentProjectView()) {
 			current_project->project()->addNewDiagram();
@@ -573,28 +677,28 @@ void QETDiagramEditor::setUpActions()
 	connect(m_previous_window, &QAction::triggered, &m_workspace, &QMdiArea::activatePreviousSubWindow);
 
 		//Files action
-	QAction *new_file  = m_file_actions_group.addAction(QET::Icons::ProjectNew,     tr("&Nouveau"));
-	QAction *open_file = m_file_actions_group.addAction(QET::Icons::DocumentOpen,   tr("&Ouvrir"));
+	m_new_file         = m_file_actions_group.addAction(QET::Icons::ProjectNew,     tr("&Nouveau"));
+	m_open_file        = m_file_actions_group.addAction(QET::Icons::DocumentOpen,   tr("&Ouvrir"));
 	m_save_file        = m_file_actions_group.addAction(QET::Icons::DocumentSave,   tr("&Enregistrer"));
 	m_save_file_as     = m_file_actions_group.addAction(QET::Icons::DocumentSaveAs, tr("Enregistrer sous"));
 	m_close_file       = m_file_actions_group.addAction(QET::Icons::ProjectClose,   tr("&Fermer"));
 
-	new_file     ->setShortcut(QKeySequence::New);
-	open_file    ->setShortcut(QKeySequence::Open);
+	m_new_file   ->setShortcut(QKeySequence::New);
+	m_open_file  ->setShortcut(QKeySequence::Open);
 	m_close_file ->setShortcut(QKeySequence::Close);
 	m_save_file    ->setShortcut(QKeySequence::Save);
 	m_save_file_as  ->setShortcut(Qt::CTRL | Qt::SHIFT | Qt::Key_S);
 
-	new_file     ->setStatusTip( tr("Crée un nouveau projet", "status bar tip") );
-	open_file    ->setStatusTip( tr("Ouvre un projet existant", "status bar tip") );
+	m_new_file   ->setStatusTip( tr("Crée un nouveau projet", "status bar tip") );
+	m_open_file  ->setStatusTip( tr("Ouvre un projet existant", "status bar tip") );
 	m_close_file ->setStatusTip( tr("Ferme le projet courant", "status bar tip") );
 	m_save_file    ->setStatusTip( tr("Enregistre le projet courant et tous ses folios", "status bar tip") );
 	m_save_file_as ->setStatusTip( tr("Enregistre le projet courant avec un autre nom de fichier", "status bar tip") );
 
 	connect(m_save_file_as, &QAction::triggered, this, &QETDiagramEditor::saveAs);
 	connect(m_save_file,    &QAction::triggered, this, &QETDiagramEditor::save);
-	connect(new_file,       &QAction::triggered, this, &QETDiagramEditor::newProject);
-	connect(open_file,      &QAction::triggered, this, &QETDiagramEditor::openProject);
+	connect(m_new_file,     &QAction::triggered, this, &QETDiagramEditor::newProject);
+	connect(m_open_file,    &QAction::triggered, this, &QETDiagramEditor::openProject);
 	connect(m_close_file,   &QAction::triggered, [this]() {
 		if (ProjectView *project_view = currentProjectView()) {
 			closeProject(project_view);
@@ -744,6 +848,111 @@ void QETDiagramEditor::setUpActions()
 			this->m_search_and_replace_widget.setHidden(!m_search_and_replace_widget.isHidden());
 		}
 	});
+
+	m_workspace_profile_group = new QActionGroup(this);
+	m_workspace_profile_group->setExclusive(true);
+	m_workspace_essential_action = new QAction(tr("Essentiel"), this);
+	m_workspace_essential_action->setCheckable(true);
+	m_workspace_essential_action->setStatusTip(tr(
+		"Affiche les actions principales dans un espace de travail simplifié"));
+	m_workspace_classic_action = new QAction(tr("Classique"), this);
+	m_workspace_classic_action->setCheckable(true);
+	m_workspace_classic_action->setStatusTip(tr(
+		"Restaure toutes les barres et tous les panneaux historiques"));
+	m_workspace_profile_group->addAction(m_workspace_essential_action);
+	m_workspace_profile_group->addAction(m_workspace_classic_action);
+	connect(m_workspace_essential_action, &QAction::triggered, this, [this]() {
+		applyWorkspaceProfile(
+			WorkspaceProfileController::Profile::Essential, false, true);
+	});
+	connect(m_workspace_classic_action, &QAction::triggered, this, [this]() {
+		applyWorkspaceProfile(
+			WorkspaceProfileController::Profile::Classic, false, true);
+	});
+
+	m_workspace_reset_action = new QAction(tr("Réinitialiser la disposition"), this);
+	m_workspace_reset_action->setStatusTip(tr(
+		"Rétablit la disposition par défaut du profil sans déplacer la fenêtre"));
+	connect(m_workspace_reset_action, &QAction::triggered, this, [this]() {
+		if (!m_workspace_profile_controller) return;
+		QSettings settings;
+		const auto profile = m_workspace_profile_controller->profile();
+		settings.remove(WorkspaceProfileController::stateSettingsKey(profile));
+		settings.setValue(
+			QStringLiteral("diagrameditor/workspace_profile"),
+			WorkspaceProfileController::settingsValue(profile));
+		applyWorkspaceProfile(profile, true, false);
+	});
+}
+
+void QETDiagramEditor::openExportCenter()
+{
+	QETProject *project = currentProject();
+	if (!project) return;
+
+	const ExportCenterDialog::ProjectSummary summary {
+		project->title(),
+		project->diagrams().count(),
+		project->currentDir()
+	};
+	const QList<ExportCenterDialog::Entry> entries {
+		{
+			ExportCenterDialog::Section::Documents,
+			tr("Images, SVG ou DXF"),
+			tr("Choisir les folios, les dimensions, le format et la destination."),
+			tr("Crée un fichier par folio sélectionné."),
+			tr("Ouvrez ou sélectionnez un folio à exporter."),
+			m_export_to_images
+		},
+		{
+			ExportCenterDialog::Section::Documents,
+			tr("Document PDF"),
+			tr("Choisir les folios et vérifier leur mise en page avant l'enregistrement."),
+			tr("Crée un document PDF à partir des folios sélectionnés."),
+			tr("Ouvrez ou sélectionnez un folio à exporter."),
+			m_export_to_pdf
+		},
+		{
+			ExportCenterDialog::Section::Documents,
+			tr("Impression"),
+			tr("Choisir les folios, l'imprimante et les options de mise en page."),
+			tr("Envoie les folios sélectionnés vers l'imprimante choisie."),
+			tr("Ouvrez ou sélectionnez un folio à imprimer."),
+			m_print
+		},
+		{
+			ExportCenterDialog::Section::Data,
+			tr("Nomenclature CSV"),
+			tr("Choisir les colonnes et les options de la nomenclature."),
+			tr("Crée un fichier CSV de nomenclature du projet."),
+			tr("Le projet doit être modifiable pour créer cette nomenclature."),
+			m_csv_export
+		},
+		{
+			ExportCenterDialog::Section::Data,
+			tr("Noms de conducteurs CSV"),
+			tr("Exporter la liste triée des noms de conducteurs utilisés."),
+			tr("Crée un fichier CSV pour la préparation du câblage."),
+			tr("Ouvrez un projet avant de lancer cet export."),
+			m_project_export_conductor_num
+		},
+		{
+			ExportCenterDialog::Section::Data,
+			tr("Plan de câblage CSV"),
+			tr("Exporter les connexions du projet sous forme tabulaire."),
+			tr("Crée un fichier CSV de plan de câblage."),
+			tr("Ouvrez un projet avant de lancer cet export."),
+			m_project_export_wiring_list
+		}
+	};
+
+	QPointer<QAction> selected_action;
+	{
+		ExportCenterDialog dialog(summary, entries, this);
+		if (dialog.exec() != QDialog::Accepted) return;
+		selected_action = dialog.selectedAction();
+	}
+	ExportCenterDialog::triggerActionDeferred(selected_action);
 }
 
 /**
@@ -751,58 +960,121 @@ void QETDiagramEditor::setUpActions()
 */
 void QETDiagramEditor::setUpToolBar()
 {
-	main_tool_bar = new QToolBar(tr("Outils"), this);
+	main_tool_bar = new QToolBar(tr("Projet et édition"), this);
 	main_tool_bar -> setObjectName("toolbar");
 
 	view_tool_bar = new QToolBar(tr("Affichage"), this);
 	view_tool_bar -> setObjectName("display");
 
-	diagram_tool_bar = new QToolBar(tr("Schéma"), this);
+	diagram_tool_bar = new QToolBar(tr("Folio et câblage"), this);
 	diagram_tool_bar -> setObjectName("diagram");
-
-	main_tool_bar -> addActions(m_file_actions_group.actions());
-	main_tool_bar -> addAction(m_print);
-	main_tool_bar -> addAction(m_export_to_pdf);
-	main_tool_bar -> addSeparator();
-	main_tool_bar -> addAction(undo);
-	main_tool_bar -> addAction(redo);
-	main_tool_bar -> addSeparator();
-	main_tool_bar -> addAction(m_cut);
-	main_tool_bar -> addAction(m_copy);
-	main_tool_bar -> addAction(m_paste);
-	main_tool_bar -> addSeparator();
-	main_tool_bar -> addAction(m_delete_selection);
-	main_tool_bar -> addAction(m_rotate_selection);
-
-	// Modes selection / visualisation et zoom
-	view_tool_bar -> addAction(m_mode_selection);
-	view_tool_bar -> addAction(m_mode_visualise);
-	view_tool_bar -> addSeparator();
-	view_tool_bar -> addWidget(new DiagramEditorHandlerSizeWidget(this));
-	view_tool_bar -> addSeparator();
-	view_tool_bar -> addAction(m_draw_grid);
-	view_tool_bar -> addAction(m_draw_guides);
-	view_tool_bar -> addAction (m_grey_background);
-	view_tool_bar -> addSeparator();
-	view_tool_bar -> addActions(m_zoom_action_toolBar);
-
-	diagram_tool_bar -> addAction (m_edit_diagram_properties);
-	diagram_tool_bar -> addAction (m_conductor_reset);
-	diagram_tool_bar -> addAction (m_auto_conductor);
 
 	m_add_item_tool_bar = new QToolBar(tr("Ajouter"), this);
 	m_add_item_tool_bar->setObjectName("adding");
-	m_add_item_tool_bar->addActions(m_add_item_actions_group.actions());
 
-	m_depth_tool_bar = new QToolBar(tr("Profondeur", "toolbar title"));
+	m_depth_tool_bar = new QToolBar(tr("Profondeur", "toolbar title"), this);
 	m_depth_tool_bar->setObjectName("diagram_depth_toolbar");
-	m_depth_tool_bar->addActions(m_depth_action_group->actions());
+
+	const int toolbar_icon_size = style()->pixelMetric(QStyle::PM_ToolBarIconSize);
+	for (QToolBar *toolbar : {
+			main_tool_bar,
+			view_tool_bar,
+			diagram_tool_bar,
+			m_add_item_tool_bar,
+			m_depth_tool_bar}) {
+		toolbar->setIconSize(QSize(toolbar_icon_size, toolbar_icon_size));
+		toolbar->setAccessibleName(toolbar->windowTitle());
+	}
+
+	// QWidgetAction returned by addWidget is kept and reused when profiles
+	// repopulate the toolbars.
+	m_handler_size_action = view_tool_bar->addWidget(
+		new DiagramEditorHandlerSizeWidget(this));
 
 	addToolBar(Qt::TopToolBarArea, main_tool_bar);
 	addToolBar(Qt::TopToolBarArea, view_tool_bar);
 	addToolBar(Qt::TopToolBarArea, diagram_tool_bar);
 	addToolBar(Qt::TopToolBarArea, m_add_item_tool_bar);
 	addToolBar(Qt::TopToolBarArea, m_depth_tool_bar);
+
+	WorkspaceProfileController::Actions actions;
+	actions.classic_main = m_file_actions_group.actions();
+	actions.classic_main << m_print << m_export_to_pdf
+		<< nullptr << undo << redo
+		<< nullptr << m_cut << m_copy << m_paste
+		<< nullptr << m_delete_selection << m_rotate_selection;
+	actions.classic_view = {
+		m_mode_selection,
+		m_mode_visualise,
+		nullptr,
+		m_handler_size_action,
+		nullptr,
+		m_draw_grid,
+		m_draw_guides,
+		m_grey_background,
+		nullptr
+	};
+	actions.classic_view.append(m_zoom_action_toolBar);
+	actions.classic_diagram = {
+		m_edit_diagram_properties,
+		m_conductor_reset,
+		m_auto_conductor
+	};
+	actions.classic_add = m_add_item_actions_group.actions();
+	actions.classic_depth = m_depth_action_group->actions();
+	actions.essential_main = {
+		m_new_file,
+		m_open_file,
+		m_save_file,
+		nullptr,
+		m_export_center,
+		nullptr,
+		undo,
+		redo,
+		nullptr,
+		m_cut,
+		m_copy,
+		m_paste
+	};
+	actions.essential_diagram = {
+		m_project_folio_navigator,
+		m_project_add_diagram,
+		m_edit_diagram_properties,
+		m_auto_conductor
+	};
+	for (QAction *action : {
+		m_new_file,
+		m_open_file,
+		m_save_file,
+		m_export_center}) {
+		action->setPriority(QAction::HighPriority);
+	}
+	for (QAction *action : {
+		undo,
+		redo,
+		m_cut,
+		m_copy,
+		m_paste}) {
+		action->setPriority(QAction::LowPriority);
+	}
+
+	m_workspace_profile_controller = std::make_unique<WorkspaceProfileController>(
+		this,
+		WorkspaceProfileController::Toolbars {
+			main_tool_bar,
+			view_tool_bar,
+			diagram_tool_bar,
+			m_add_item_tool_bar,
+			m_depth_tool_bar
+		},
+		WorkspaceProfileController::Docks {
+			qdw_pa,
+			m_qdw_elmt_collection,
+			qdw_undo,
+			m_selection_properties_editor,
+			m_autonumbering_dock
+		},
+		actions);
 }
 
 /**
@@ -826,10 +1098,22 @@ void QETDiagramEditor::setUpMenu()
 
 	// File menu
 	QMenu *recentfile = menu_fichier -> addMenu(QET::Icons::DocumentOpenRecent, tr("&Récemment ouverts"));
-	recentfile->addActions(QETApp::projectsRecentFiles()->menu()->actions());
-	connect(QETApp::projectsRecentFiles(), SIGNAL(fileOpeningRequested(const QString &)),
+	RecentFiles *recent_files = QETApp::projectsRecentFiles();
+	auto rebuild_recent_menu = [recentfile, recent_files]() {
+		recentfile->clear();
+		recentfile->addActions(recent_files->menu()->actions());
+	};
+	rebuild_recent_menu();
+	connect(
+		recent_files,
+		&RecentFiles::filesChanged,
+		this,
+		rebuild_recent_menu);
+	connect(recent_files, SIGNAL(fileOpeningRequested(const QString &)),
 		this, SLOT(openRecentFile(const QString &)));
 	menu_fichier -> addActions(m_file_actions_group.actions());
+	menu_fichier -> addSeparator();
+	menu_fichier -> addAction(m_export_center);
 	menu_fichier -> addSeparator();
 	//menu_fichier -> addAction(import_diagram);
 	menu_fichier -> addAction(m_export_to_images);
@@ -861,6 +1145,8 @@ void QETDiagramEditor::setUpMenu()
 
 	// menu Projet
 	menu_project -> addAction(m_project_edit_properties);
+	menu_project -> addAction(m_project_folio_navigator);
+	menu_project -> addSeparator();
 	menu_project -> addAction(m_project_add_diagram);
 	menu_project -> addAction(m_remove_diagram_from_project);
 	menu_project -> addAction(m_clean_project);
@@ -881,11 +1167,43 @@ void QETDiagramEditor::setUpMenu()
 	main_tool_bar         -> toggleViewAction() -> setStatusTip(tr("Affiche ou non la barre d'outils principale"));
 	view_tool_bar         -> toggleViewAction() -> setStatusTip(tr("Affiche ou non la barre d'outils Affichage"));
 	diagram_tool_bar      -> toggleViewAction() -> setStatusTip(tr("Affiche ou non la barre d'outils Schéma"));
+	m_add_item_tool_bar   -> toggleViewAction() -> setStatusTip(tr("Affiche ou non la barre d'outils Ajouter"));
+	m_depth_tool_bar      -> toggleViewAction() -> setStatusTip(tr("Affiche ou non la barre d'outils Profondeur"));
 	qdw_pa           -> toggleViewAction() -> setStatusTip(tr("Affiche ou non le panel d'appareils"));
 	qdw_undo         -> toggleViewAction() -> setStatusTip(tr("Affiche ou non la liste des modifications"));
+	m_qdw_elmt_collection -> toggleViewAction() -> setStatusTip(tr("Affiche ou non les collections"));
+	m_selection_properties_editor -> toggleViewAction() -> setStatusTip(tr("Affiche ou non les propriétés"));
+	m_autonumbering_dock -> toggleViewAction() -> setStatusTip(tr("Affiche ou non la numérotation automatique"));
 
 
 	// menu Affichage
+	QMenu *workspace_profile_menu = menu_affichage->addMenu(
+		QET::Icons::ConfigureToolbars,
+		tr("Espace de travail"));
+	workspace_profile_menu->setAccessibleName(tr("Profil d'espace de travail"));
+	workspace_profile_menu->addAction(m_workspace_essential_action);
+	workspace_profile_menu->addAction(m_workspace_classic_action);
+	workspace_profile_menu->addSeparator();
+	workspace_profile_menu->addAction(m_workspace_reset_action);
+
+	QMenu *panels_menu = menu_affichage->addMenu(tr("Panneaux"));
+	panels_menu->setAccessibleName(tr("Afficher les panneaux"));
+	panels_menu->addAction(qdw_pa->toggleViewAction());
+	panels_menu->addAction(m_qdw_elmt_collection->toggleViewAction());
+	panels_menu->addAction(m_selection_properties_editor->toggleViewAction());
+	panels_menu->addAction(qdw_undo->toggleViewAction());
+	panels_menu->addAction(m_autonumbering_dock->toggleViewAction());
+
+	QMenu *toolbars_menu = menu_affichage->addMenu(tr("Barres d'outils"));
+	toolbars_menu->setAccessibleName(tr("Afficher les barres d'outils"));
+	toolbars_menu->addAction(main_tool_bar->toggleViewAction());
+	toolbars_menu->addAction(diagram_tool_bar->toggleViewAction());
+	toolbars_menu->addAction(view_tool_bar->toggleViewAction());
+	toolbars_menu->addAction(m_add_item_tool_bar->toggleViewAction());
+	toolbars_menu->addAction(m_depth_tool_bar->toggleViewAction());
+	menu_affichage->addAction(m_workspace_reset_action);
+
+	menu_affichage->addSeparator();
 	QMenu *projects_view_mode = menu_affichage -> addMenu(QET::Icons::ConfigureToolbars, tr("Afficher les projets"));
 	projects_view_mode -> setTearOffEnabled(true);
 	projects_view_mode -> addAction(m_windowed_view_mode);
@@ -960,6 +1278,9 @@ void QETDiagramEditor::save()
 	if (ProjectView *project_view = currentProjectView()) {
 		QETResult saved = project_view -> save();
 
+		if (saved.isCancelled()) {
+			return;
+		}
 		if (saved.isOk()) {
 			//save_file -> setDisabled(true);
 			QETApp::projectsRecentFiles() -> fileWasOpened(project_view -> project() -> filePath());
@@ -984,6 +1305,9 @@ void QETDiagramEditor::saveAs()
 {
 	if (ProjectView *project_view = currentProjectView()) {
 		QETResult save_file = project_view -> saveAs();
+		if (save_file.isCancelled()) {
+			return;
+		}
 		if (save_file.isOk()) {
 			QETApp::projectsRecentFiles() -> fileWasOpened(project_view -> project() -> filePath());
 
@@ -1027,6 +1351,31 @@ bool QETDiagramEditor::openRecentFile(const QString &filepath)
 	// recent file at the same time
 	if (qApp -> activeWindow() != this) return(false);
 	return(openAndAddProject(filepath));
+}
+
+/**
+	Open a recent project selected in this window's start center. Missing files
+	remain in history until the user explicitly chooses to forget them.
+*/
+void QETDiagramEditor::openStartCenterRecentFile(const QString &filepath)
+{
+	if (filepath.isEmpty()) return;
+	openAndAddProject(filepath, true, true);
+}
+
+/**
+	Show the start center only while this editor owns no project subwindow.
+*/
+void QETDiagramEditor::updateCentralPage()
+{
+	const bool has_open_projects = !openedProjects().isEmpty();
+	if (m_start_center_page_controller) {
+		m_start_center_page_controller->setHasOpenProjects(
+			has_open_projects);
+	}
+	if (m_workspace_profile_controller) {
+		m_workspace_profile_controller->setHomeMode(!has_open_projects);
+	}
 }
 
 /**
@@ -1090,7 +1439,8 @@ bool QETDiagramEditor::closeProject(QETProject *project)
 */
 bool QETDiagramEditor::openAndAddProject(
 		const QString &filepath,
-		bool interactive)
+		bool interactive,
+		bool offer_forget_if_missing)
 {
 	if (filepath.isEmpty()) return(false);
 
@@ -1121,14 +1471,35 @@ bool QETDiagramEditor::openAndAddProject(
 	{
 		if (interactive)
 		{
-			QET::QetMessageBox::critical(
-				this,
-				tr("Impossible d'ouvrir le fichier", "message box title"),
-				QString(
-					tr("Il semblerait que le fichier %1 que vous essayez d'ouvrir"
-					" n'existe pas ou plus.")
-				).arg(filepath)
-			);
+			if (offer_forget_if_missing) {
+				QMessageBox message_box(
+					QMessageBox::Warning,
+					tr("Projet récent indisponible"),
+					tr("Ce projet est introuvable ou son emplacement est momentanément indisponible."),
+					QMessageBox::NoButton,
+					this);
+				message_box.setInformativeText(filepath);
+				QPushButton *keep_button = message_box.addButton(
+					tr("Conserver dans la liste"),
+					QMessageBox::RejectRole);
+				QPushButton *forget_button = message_box.addButton(
+					tr("Oublier de la liste"),
+					QMessageBox::ActionRole);
+				message_box.setDefaultButton(keep_button);
+				message_box.exec();
+				if (message_box.clickedButton() == forget_button) {
+					QETApp::projectsRecentFiles()->forgetFile(filepath);
+				}
+			} else {
+				QET::QetMessageBox::critical(
+					this,
+					tr("Impossible d'ouvrir le fichier", "message box title"),
+					QString(
+						tr("Il semblerait que le fichier %1 que vous essayez d'ouvrir"
+						" n'existe pas ou plus.")
+					).arg(filepath)
+				);
+			}
 		}
 		return(false);
 	}
@@ -1254,7 +1625,13 @@ QList<ProjectView *> QETDiagramEditor::openedProjects() const
 ProjectView *QETDiagramEditor::currentProjectView() const
 {
 	QMdiSubWindow *current_window = m_workspace.activeSubWindow();
-	if (!current_window) return(nullptr);
+	// Modal progress and confirmation dialogs temporarily clear the active MDI
+	// sub-window on Windows.  The current sub-window still identifies the
+	// project the user is working on and keeps project actions deterministic.
+	if (!current_window)
+		current_window = m_workspace.currentSubWindow();
+	if (!current_window)
+		return m_last_active_project_view.data();
 
 	QWidget *current_widget = current_window -> widget();
 	if (!current_widget) return(nullptr);
@@ -1262,7 +1639,7 @@ ProjectView *QETDiagramEditor::currentProjectView() const
 	if (ProjectView *project_view = qobject_cast<ProjectView *>(current_widget)) {
 		return(project_view);
 	}
-	return(nullptr);
+	return m_last_active_project_view.data();
 }
 
 /**
@@ -1593,6 +1970,7 @@ void QETDiagramEditor::slot_updateActions()
 	m_close_file->                  setEnabled(opened_project);
 	m_save_file->                   setEnabled(opened_project);
 	m_save_file_as->                setEnabled(opened_project);
+	m_export_center->               setEnabled(opened_project);
 	m_rotate_texts->                setEnabled(editable_project);
 	m_export_to_images->            setEnabled(opened_diagram);
 	m_print->                       setEnabled(opened_diagram);
@@ -1608,6 +1986,7 @@ void QETDiagramEditor::slot_updateActions()
 
 		//Project menu
 	m_project_edit_properties     -> setEnabled(opened_project);
+	m_project_folio_navigator     -> setEnabled(opened_project);
 	m_project_add_diagram         -> setEnabled(editable_project);
 	m_remove_diagram_from_project -> setEnabled(editable_project);
 	m_clean_project               -> setEnabled(editable_project);
@@ -1856,6 +2235,7 @@ void QETDiagramEditor::slot_updatePasteAction()
 void QETDiagramEditor::addProjectView(ProjectView *project_view)
 {
 	if (!project_view) return;
+	m_last_active_project_view = project_view;
 
 	foreach(DiagramView *dv, project_view -> diagram_views())
 		diagramWasAdded(dv);
@@ -1867,9 +2247,85 @@ void QETDiagramEditor::addProjectView(ProjectView *project_view)
 	connect(project_view, SIGNAL(diagramAdded(DiagramView *)),
 		this, SLOT(diagramWasAdded(DiagramView *)));
 
-	if (QETProject *project = project_view -> project())
+	if (QETProject *project = project_view -> project()) {
 		connect(project, SIGNAL(readOnlyChanged(QETProject *, bool)),
 			this, SLOT(slot_updateActions()));
+
+		QString project_name = project->title();
+		if (project_name.isEmpty())
+			project_name = tr("Sans titre");
+		m_project_save_controller->registerProject(
+			project,
+			project_name,
+			project->filePath(),
+			project->hasUnsavedChanges());
+
+		connect(project, &QETProject::projectModified, this,
+			[this](QETProject *modified_project, bool modified) {
+				m_project_save_controller->setModified(modified_project, modified);
+			});
+		connect(project, &QETProject::projectTitleChanged, this,
+			[this](QETProject *changed_project, const QString &title) {
+				m_project_save_controller->updateProjectIdentity(
+					changed_project,
+					title.isEmpty() ? tr("Sans titre") : title,
+					changed_project->filePath());
+			});
+		connect(project, &QETProject::projectFilePathChanged, this,
+			[this](QETProject *changed_project, const QString &path) {
+				QString name = changed_project->title();
+				if (name.isEmpty()) name = tr("Sans titre");
+				m_project_save_controller->updateProjectIdentity(
+					changed_project, name, path);
+			});
+		connect(project, &QETProject::canonicalSaveStarted, this,
+			[this](QETProject *saving_project,
+				quint64 operation_id,
+				QETProject::SaveOrigin origin) {
+				Q_UNUSED(origin)
+				m_project_save_controller->beginCanonicalSave(
+					saving_project, operation_id);
+			});
+		connect(project, &QETProject::canonicalSaveFinished, this,
+			[this](QETProject *saved_project,
+				quint64 operation_id,
+				QETProject::SaveOrigin origin,
+				bool ok,
+				const QString &error,
+				const QString &committed_path,
+				bool has_unsaved_changes) {
+				Q_UNUSED(origin)
+				m_project_save_controller->finishCanonicalSave(
+					saved_project,
+					operation_id,
+					ok,
+					error,
+					committed_path,
+					has_unsaved_changes);
+			});
+		connect(project, &QETProject::recoveryBackupStarted, this,
+			[this](QETProject *backup_project, quint64 operation_id) {
+				m_project_save_controller->beginRecoveryBackup(
+					backup_project, operation_id);
+			});
+		connect(project, &QETProject::recoveryBackupFinished, this,
+			[this](QETProject *backup_project,
+				quint64 operation_id,
+				bool ok,
+				const QString &error,
+				const QString &backup_path) {
+				m_project_save_controller->finishRecoveryBackup(
+					backup_project,
+					operation_id,
+					ok,
+					error,
+					backup_path);
+			});
+		connect(project, &QETProject::recoveryBackupInvalidated, this,
+			[this](QETProject *backup_project) {
+				m_project_save_controller->invalidateRecoveryBackup(backup_project);
+			});
+	}
 
 	//Manage request for edit or find element and titleblock
 	connect (project_view, &ProjectView::findElementRequired,
@@ -1880,7 +2336,11 @@ void QETDiagramEditor::addProjectView(ProjectView *project_view)
 		this, SLOT(showError(const QString &)));
 
 	//Highlight the current page
-	connect(project_view, &ProjectView::diagramActivated, this, [this](DiagramView *dv) {
+	connect(project_view, &ProjectView::diagramActivated, this, [this, project_view](DiagramView *dv) {
+		if (project_view == currentProjectView()) {
+			m_selection_properties_editor->setDiagram(
+				dv ? dv->diagram() : nullptr);
+		}
 		if (dv && dv->diagram() && pa) {
 			// 1. Find the item in the tree that corresponds to this diagram
 			QTreeWidgetItem *item = pa->elementsPanel().getItemForDiagram(dv->diagram());
@@ -1924,9 +2384,16 @@ void QETDiagramEditor::addProjectView(ProjectView *project_view)
 			act->setShortcut(QKeySequence());
 	}
 
-		//Display the new window
+	//Display the new window
 	if (maximise) project_view -> showMaximized();
 	else          project_view -> show();
+	// A modal progress/backup dialog shown while loading can otherwise leave
+	// QMdiArea without an active sub-window.  Besides hiding the initial save
+	// state, that keeps Save/Save As disabled until another MDI activation.
+	m_workspace.setActiveSubWindow(sub_window);
+	updateCentralPage();
+	slot_updateActions();
+	m_project_save_controller->setActiveProject(project_view->project());
 }
 
 /**
@@ -1985,7 +2452,8 @@ void QETDiagramEditor::openBackupFiles(QList<KAutoSaveFile *> backup_files)
 {
 	for (KAutoSaveFile *file : backup_files)
 	{
-			//Create the project
+		const QString managed_file_path = file->managedFile().fileName();
+		//Create the project
 		DialogWaiting::instance(this);
 
 		QETProject *project = new QETProject(file, this);
@@ -1998,10 +2466,11 @@ void QETDiagramEditor::openBackupFiles(QList<KAutoSaveFile *> backup_files)
 					tr("Échec de l'ouverture du projet", "message box title"),
 					QString(tr(
 						"Une erreur est survenue lors de l'ouverture du fichier %1.",
-						"message box content")).arg(file->managedFile().fileName()));
+						"message box content")).arg(managed_file_path));
 			}
 			delete project;
 			DialogWaiting::dropInstance();
+			continue;
 		}
 		addProject(project);
 		DialogWaiting::dropInstance();
@@ -2107,9 +2576,31 @@ void QETDiagramEditor::readSettings()
 	QVariant geometry = settings.value("diagrameditor/geometry");
 	if (geometry.isValid()) restoreGeometry(geometry.toByteArray());
 
-	// etat de la fenetre (barres d'outils, docks...)
-	QVariant state = settings.value("diagrameditor/state");
-	if (state.isValid()) restoreState(state.toByteArray());
+	// Preserve existing layouts: a legacy state without an explicit profile is
+	// treated as Classic. Only a fresh installation starts in Essential mode.
+	const QString profile_key = QStringLiteral("diagrameditor/workspace_profile");
+	const QString classic_state_key = WorkspaceProfileController::stateSettingsKey(
+		WorkspaceProfileController::Profile::Classic);
+	const bool has_classic_state = settings.contains(classic_state_key);
+	const bool has_explicit_profile = settings.contains(profile_key);
+	const auto profile = WorkspaceProfileController::startupProfile(
+		has_explicit_profile,
+		settings.value(profile_key).toString(),
+		has_classic_state);
+	const QString profile_state_key =
+		WorkspaceProfileController::stateSettingsKey(profile);
+	const bool has_profile_state = settings.contains(profile_state_key);
+	const QVariant profile_state = settings.value(profile_state_key);
+
+	if (m_workspace_profile_controller) {
+		m_workspace_profile_controller->apply(profile, !has_profile_state);
+		if (has_profile_state
+			&& !m_workspace_profile_controller->restorePersistentWindowState(
+				profile_state.toByteArray())) {
+			m_workspace_profile_controller->apply(profile, true);
+		}
+		updateWorkspaceProfileActions();
+	}
 
 	// gestion des projets (onglets ou fenetres)
 	bool tabbed = settings.value("diagrameditor/viewmode", "tabbed") == "tabbed";
@@ -2128,7 +2619,75 @@ void QETDiagramEditor::writeSettings()
 {
 	QSettings settings;
 	settings.setValue("diagrameditor/geometry", saveGeometry());
-	settings.setValue("diagrameditor/state", saveState());
+	if (!m_workspace_profile_controller) {
+		settings.setValue("diagrameditor/state", saveState());
+		return;
+	}
+
+	const auto profile = m_workspace_profile_controller->profile();
+	settings.setValue(
+		QStringLiteral("diagrameditor/workspace_profile"),
+		WorkspaceProfileController::settingsValue(profile));
+	settings.setValue(
+		WorkspaceProfileController::stateSettingsKey(profile),
+		m_workspace_profile_controller->persistentWindowState());
+}
+
+void QETDiagramEditor::applyWorkspaceProfile(
+	WorkspaceProfileController::Profile profile,
+	bool reset_layout,
+	bool persist_selection)
+{
+	if (!m_workspace_profile_controller) {
+		return;
+	}
+
+	QSettings settings;
+	if (persist_selection) {
+		const auto current_profile = m_workspace_profile_controller->profile();
+		const QString current_state_key =
+			WorkspaceProfileController::stateSettingsKey(current_profile);
+		settings.setValue(
+			current_state_key,
+			m_workspace_profile_controller->persistentWindowState());
+		settings.setValue(
+			QStringLiteral("diagrameditor/workspace_profile"),
+			WorkspaceProfileController::settingsValue(profile));
+	}
+
+	const QString target_state_key =
+		WorkspaceProfileController::stateSettingsKey(profile);
+	const QVariant target_state = settings.value(target_state_key);
+	const bool should_restore = !reset_layout && settings.contains(target_state_key);
+
+	m_workspace_profile_controller->apply(profile, !should_restore);
+	if (should_restore
+		&& !m_workspace_profile_controller->restorePersistentWindowState(
+			target_state.toByteArray())) {
+		m_workspace_profile_controller->apply(profile, true);
+	}
+	updateWorkspaceProfileActions();
+
+	statusBar()->showMessage(
+		profile == WorkspaceProfileController::Profile::Essential
+			? tr("Espace de travail Essentiel activé")
+			: tr("Espace de travail Classique activé"),
+		3000);
+}
+
+void QETDiagramEditor::updateWorkspaceProfileActions()
+{
+	if (!m_workspace_profile_controller) {
+		return;
+	}
+	const bool essential = m_workspace_profile_controller->profile()
+		== WorkspaceProfileController::Profile::Essential;
+	if (m_workspace_essential_action) {
+		m_workspace_essential_action->setChecked(essential);
+	}
+	if (m_workspace_classic_action) {
+		m_workspace_classic_action->setChecked(!essential);
+	}
 }
 
 /**
@@ -2157,9 +2716,12 @@ void QETDiagramEditor::activateProject(ProjectView *project_view)
 */
 void QETDiagramEditor::projectWasClosed(ProjectView *project_view)
 {
+	if (m_last_active_project_view == project_view)
+		m_last_active_project_view.clear();
 	QETProject *project = project_view -> project();
 	if (project)
 	{
+		m_project_save_controller->unregisterProject(project);
 		pa -> elementsPanel().projectWasClosed(project);
 		m_element_collection_widget->removeProject(project);
 		undo_group.removeStack(project -> undoStack());
@@ -2172,6 +2734,8 @@ void QETDiagramEditor::projectWasClosed(ProjectView *project_view)
 	m_selection_properties_editor->setDiagram(nullptr);
 	project_view -> deleteLater();
 	project -> deleteLater();
+	QTimer::singleShot(0, this, &QETDiagramEditor::refreshProjectSaveStatus);
+	QTimer::singleShot(0, this, &QETDiagramEditor::updateCentralPage);
 }
 
 /**
@@ -2461,11 +3025,27 @@ void QETDiagramEditor::showError(const QString &error)
 */
 void QETDiagramEditor::subWindowActivated(QMdiSubWindow *subWindows)
 {
-	Q_UNUSED(subWindows)
+	if (subWindows) {
+		if (auto *project_view = qobject_cast<ProjectView *>(subWindows->widget()))
+			m_last_active_project_view = project_view;
+	}
 
+	updateCentralPage();
 	slot_updateActions();
 	slot_updateWindowsMenu();
+	refreshProjectSaveStatus();
+	syncSelectionPropertiesEditor();
 	emit syncElementsPanel();
+}
+
+/**
+	Display the save state of the active project without replacing transient
+	status-bar messages.
+*/
+void QETDiagramEditor::refreshProjectSaveStatus()
+{
+	if (!m_project_save_controller) return;
+	m_project_save_controller->setActiveProject(currentProject());
 }
 
 /**
@@ -2475,10 +3055,15 @@ void QETDiagramEditor::subWindowActivated(QMdiSubWindow *subWindows)
 void QETDiagramEditor::selectionChanged()
 {
 	slot_updateComplexActions();
+	syncSelectionPropertiesEditor();
+}
 
+
+void QETDiagramEditor::syncSelectionPropertiesEditor()
+{
 	DiagramView *dv = currentDiagramView();
-	if (dv && dv->diagram())
-		m_selection_properties_editor->setDiagram(dv->diagram());
+	m_selection_properties_editor->setDiagram(
+		dv ? dv->diagram() : nullptr);
 }
 
 

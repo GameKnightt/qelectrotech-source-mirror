@@ -20,16 +20,29 @@
 
 #include "../PropertiesEditor/propertieseditordockwidget.h"
 
+#include <QPointer>
+
 class Diagram;
+class QGraphicsScene;
+class PropertiesEditorDockWidgetTest;
 
 class DiagramPropertiesEditorDockWidget : public PropertiesEditorDockWidget
 {
 		Q_OBJECT
 
 	public:
+		enum class State
+		{
+			NoDiagram,
+			NoSelection,
+			UnsupportedSelection,
+			Editor
+		};
+
 		DiagramPropertiesEditorDockWidget(QWidget *parent = nullptr);
 
 		void setDiagram(Diagram *diagram);
+		State state() const;
 
 	private: //Make this method private because only this class manage the editor widget.
 		bool addEditor(PropertiesEditorWidget *editor,int index = 0)
@@ -42,8 +55,16 @@ class DiagramPropertiesEditorDockWidget : public PropertiesEditorDockWidget
 		void diagramWasDeleted();
 
 	private:
-		Diagram *m_diagram;
-		int m_edited_qgi_type;
+		friend class PropertiesEditorDockWidgetTest;
+
+		void setGraphicsScene(QGraphicsScene *scene);
+		void showNoDiagramState();
+		void showNoSelectionState();
+		void showUnsupportedSelectionState(int count, bool mixed_types);
+		QString selectionSummary(int count) const;
+
+		QPointer<QGraphicsScene> m_scene;
+		State m_state = State::NoDiagram;
 };
 
 #endif // DIAGRAMPROPERTIESEDITORDOCKWIDGET_H

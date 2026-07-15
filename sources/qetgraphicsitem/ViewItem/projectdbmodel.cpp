@@ -182,35 +182,67 @@ QVariant ProjectDBModel::data(const QModelIndex &index, int role) const
 */
 void ProjectDBModel::setQuery(const QString &query)
 {
-	auto rm_ = m_query != query;
-	if (rm_) {
-		emit beginResetModel();
+	const bool query_changed = m_query != query;
+	if (!m_project)
+	{
+		m_query = query;
+		return;
 	}
 
+	if (!query_changed) {
+		refresh();
+		return;
+	}
+
+	disconnect(m_project->dataBase(),
+			   &projectDataBase::dataBaseUpdated,
+			   this,
+			   &ProjectDBModel::dataBaseUpdated);
+	const auto update_result = m_project->dataBase()->updateDB();
+	if (!update_result.isOk()) {
+		emit databaseRefreshFailed(update_result.diagnostic());
+		connect(m_project->dataBase(),
+			&projectDataBase::dataBaseUpdated,
+			this,
+			&ProjectDBModel::dataBaseUpdated);
+		return;
+	}
+
+	beginResetModel();
 	m_query = query;
-	
-	if (m_project)
-	{
-		if (rm_) {
-			disconnect(m_project->dataBase(),
-				   &projectDataBase::dataBaseUpdated,
-				   this,
-				   &ProjectDBModel::dataBaseUpdated);
-		}
-		m_project->dataBase()->updateDB();
-		if (rm_) {
-			setHeaderString();
-			fillValue();
-			connect(m_project->dataBase(),
-				&projectDataBase::dataBaseUpdated,
-				this,
-				&ProjectDBModel::dataBaseUpdated);
-		}
+	setHeaderString();
+	fillValue();
+	endResetModel();
+	connect(m_project->dataBase(),
+		&projectDataBase::dataBaseUpdated,
+		this,
+		&ProjectDBModel::dataBaseUpdated);
+}
+
+bool ProjectDBModel::refresh(QString *error_message)
+{
+	if (error_message) {
+		error_message->clear();
 	}
-	
-	if (rm_) {
-		emit endResetModel();
+	if (!m_project) {
+		const QString diagnostic = tr("Aucun projet n'est associé à ce tableau.");
+		if (error_message) {
+			*error_message = diagnostic;
+		}
+		emit databaseRefreshFailed(diagnostic);
+		return false;
 	}
+
+	const auto update_result = m_project->dataBase()->updateDB();
+	if (!update_result.isOk()) {
+		const QString diagnostic = update_result.diagnostic();
+		if (error_message) {
+			*error_message = diagnostic;
+		}
+		emit databaseRefreshFailed(diagnostic);
+		return false;
+	}
+	return true;
 }
 
 /**

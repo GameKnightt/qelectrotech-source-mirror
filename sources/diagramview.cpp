@@ -25,6 +25,7 @@
 #include "projectview.h"
 #include "qetdiagrameditor.h"
 #include "qetgraphicsitem/conductor.h"
+#include "utils/conductorinteraction.h"
 #include "qetgraphicsitem/conductortextitem.h"
 #include "qetgraphicsitem/independenttextitem.h"
 #include "qeticons.h"
@@ -204,12 +205,6 @@ void DiagramView::handleElementDrop(QDropEvent *event)
 	//Build an element from the text of the mime data
 	ElementsLocation location(event->mimeData()->text());
 
-	if ( !(location.isElement() && location.exist()) )
-	{
-		qDebug() << "DiagramView::handleElementDrop, location can't be use : " << location;
-		return;
-	}
-
 	QPointF drop_pos;
 	#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)	// ### Qt 6: remove
 	drop_pos = mapToScene(event->pos());
@@ -217,14 +212,40 @@ void DiagramView::handleElementDrop(QDropEvent *event)
 	drop_pos = event->position();
 	#endif
 
-	if (location.path().endsWith(".qetmak")) {
-		diagram()->setEventInterface(new DiagramEventAddMacro(location, diagram(), drop_pos));
-	} else {
-		diagram()->setEventInterface(new DiagramEventAddElement(location, diagram(), drop_pos));
+	startAddingElementAt(location, drop_pos);
+}
+
+/**
+	@brief DiagramView::startAddingElement
+	Start the same interactive placement mode as an element dropped from the
+	collection. The initial preview is centred in the visible part of the folio.
+	@return true when placement mode was started.
+*/
+bool DiagramView::startAddingElement(const ElementsLocation &location)
+{
+	return startAddingElementAt(location, viewedSceneRect().center());
+}
+
+bool DiagramView::startAddingElementAt(const ElementsLocation &location,
+										   const QPointF &initial_position)
+{
+	if (!m_diagram || m_diagram->isReadOnly()
+			|| !(location.isElement() && location.exist())) {
+		qDebug() << "DiagramView::startAddingElement, location can't be used:"
+				 << location;
+		return false;
 	}
 
-	//Set focus to the view to get event
-	this->setFocus();
+	ElementsLocation placement_location(location);
+	if (placement_location.path().endsWith(".qetmak")) {
+		m_diagram->setEventInterface(new DiagramEventAddMacro(
+			placement_location, m_diagram, initial_position));
+	} else {
+		m_diagram->setEventInterface(new DiagramEventAddElement(
+			placement_location, m_diagram, initial_position));
+	}
+	setFocus();
+	return true;
 }
 
 /**
@@ -467,10 +488,30 @@ void DiagramView::mousePressEvent(QMouseEvent *e)
 	if (e->button() == Qt::MiddleButton)
 #endif
 	{
+		clearConductorProximityHover();
 		m_drag_last_pos = e->pos();
 		viewport()->setCursor(Qt::ClosedHandCursor);
 		e->accept();
 		return;
+	}
+
+	// Preserve exact-item priority, then offer conductors a larger target in
+	// viewport pixels before a background click starts a rubber-band.
+	if (e->button() == Qt::LeftButton
+			&& dragMode() != QGraphicsView::ScrollHandDrag
+			&& itemAt(e->pos()) == nullptr)
+	{
+		if (Conductor *conductor = conductorNearViewportPoint(e->pos()))
+		{
+			if (e->modifiers() & Qt::ControlModifier) {
+				conductor->setSelected(!conductor->isSelected());
+			} else {
+				m_diagram->clearSelection();
+				conductor->setSelected(true);
+			}
+			e->accept();
+			return;
+		}
 	}
 
 		//There is a good luck that user want to do a free selection
@@ -512,7 +553,19 @@ void DiagramView::mousePressEvent(QMouseEvent *e)
 void DiagramView::mouseMoveEvent(QMouseEvent *e)
 {
 	setToolTip(tr("X: %1 Y: %2").arg(e->pos().x()).arg(e->pos().y()));
-	if (m_event_interface && m_event_interface->mouseMoveEvent(e)) return;
+	if (m_event_interface)
+	{
+		clearConductorProximityHover();
+		if (m_event_interface->mouseMoveEvent(e)) return;
+	}
+
+	if (e->buttons() == Qt::NoButton
+			&& !m_free_rubberbanding
+			&& dragMode() != QGraphicsView::ScrollHandDrag) {
+		updateConductorProximityHover(e->pos());
+	} else {
+		clearConductorProximityHover();
+	}
 
 		// Drag the view
 #if QT_VERSION < QT_VERSION_CHECK(5, 15, 1) // ### Qt 6: remove
@@ -572,6 +625,12 @@ void DiagramView::mouseMoveEvent(QMouseEvent *e)
 	}
 
 	else QGraphicsView::mouseMoveEvent(e);
+}
+
+void DiagramView::leaveEvent(QEvent *event)
+{
+	clearConductorProximityHover();
+	QGraphicsView::leaveEvent(event);
 }
 
 /**
@@ -1400,5 +1459,80 @@ void DiagramView::mouseDoubleClickEvent(QMouseEvent *e)
 		editDiagramProperties();
 		return;
 	}
+	if (itemAt(e->pos()) == nullptr)
+	{
+		if (Conductor *conductor = conductorNearViewportPoint(e->pos()))
+		{
+			m_diagram->clearSelection();
+			conductor->setSelected(true);
+			e->accept();
+			conductor->editProperty();
+			return;
+		}
+	}
 	QGraphicsView::mouseDoubleClickEvent(e);
+}
+
+Conductor *DiagramView::conductorNearViewportPoint(const QPoint &point) const
+{
+	if (!m_diagram || m_event_interface) {
+		return nullptr;
+	}
+
+	constexpr int search_radius = 8;
+	const QRect viewport_rect(
+			point.x() - search_radius,
+			point.y() - search_radius,
+			search_radius * 2 + 1,
+			search_radius * 2 + 1);
+	const QRectF scene_rect = mapToScene(viewport_rect).boundingRect();
+	const QList<QGraphicsItem *> candidates = m_diagram->items(
+			scene_rect,
+			Qt::IntersectsItemBoundingRect,
+			Qt::DescendingOrder,
+			viewportTransform());
+
+	for (QGraphicsItem *item : candidates)
+	{
+		auto *conductor = qgraphicsitem_cast<Conductor *>(item);
+		if (!conductor || !conductor->isVisible()) {
+			continue;
+		}
+		const QTransform item_to_viewport =
+				viewportTransform() * conductor->sceneTransform();
+		if (ConductorInteraction::containsViewportPoint(
+					conductor->path(),
+					item_to_viewport,
+					point,
+					conductor->properties().cond_size)) {
+			return conductor;
+		}
+	}
+	return nullptr;
+}
+
+void DiagramView::updateConductorProximityHover(const QPoint &point)
+{
+	QGraphicsItem *exact_item = itemAt(point);
+	Conductor *candidate = exact_item
+			? qgraphicsitem_cast<Conductor *>(exact_item)
+			: conductorNearViewportPoint(point);
+
+	if (m_proximity_hovered_conductor == candidate) {
+		return;
+	}
+	clearConductorProximityHover();
+	if (candidate)
+	{
+		m_proximity_hovered_conductor = candidate;
+		candidate->setProximityHovered(true);
+	}
+}
+
+void DiagramView::clearConductorProximityHover()
+{
+	if (m_proximity_hovered_conductor) {
+		m_proximity_hovered_conductor->setProximityHovered(false);
+	}
+	m_proximity_hovered_conductor.clear();
 }

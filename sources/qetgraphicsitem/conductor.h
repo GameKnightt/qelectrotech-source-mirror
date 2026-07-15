@@ -115,6 +115,8 @@ class Conductor : public QGraphicsObject
 		void setPropertyToPotential(
 				const ConductorProperties &property,
 				bool only_text = false);
+		ConductorProperties resolvedProperties(
+				const ConductorProperties &property) const;
 		void setProperties(const ConductorProperties &property);
 		ConductorProperties properties() const;
 
@@ -125,6 +127,7 @@ class Conductor : public QGraphicsObject
 		void calculateTextItemPosition();
 		virtual Highlight highlight() const;
 		virtual void setHighlighted(Highlight);
+		void setProximityHovered(bool hovered);
 		QSet<Conductor *> relatedPotentialConductors(
 				const bool all_diagram = true,
 				QList <Terminal *> *t_list=nullptr);
@@ -140,6 +143,9 @@ class Conductor : public QGraphicsObject
 		QList<QPointF> junctions() const;
 
 	private:
+		ConductorProperties resolvedProperties(
+				const ConductorProperties &property,
+				autonum::sequentialNumbers &sequence) const;
 		void setUpConnectionForFormula(
 				QString old_formula, QString new_formula);
 		autonum::sequentialNumbers m_autoNum_seq;
@@ -182,6 +188,7 @@ class Conductor : public QGraphicsObject
 		QVector<QetGraphicsHandlerItem *> m_handler_vector;
 		int m_vector_index = -1;
 		bool m_mouse_over;
+		bool m_proximity_hovered = false;
 			/// Functional properties
 		ConductorProperties m_properties;
 			/// Text input for non simple, non-singleline conductors

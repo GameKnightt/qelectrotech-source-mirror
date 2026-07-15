@@ -22,12 +22,14 @@
 #include "../qetgraphicsitem/ViewItem/qetgraphicstableitem.h"
 #include "../qetgraphicsitem/ViewItem/ui/graphicstablepropertieseditor.h"
 #include "../qetgraphicsitem/ViewItem/ui/projectdbmodelpropertieswidget.h"
+#include "../qetgraphicsitem/conductor.h"
 #include "../qetgraphicsitem/diagramimageitem.h"
 #include "../qetgraphicsitem/dynamicelementtextitem.h"
 #include "../qetgraphicsitem/element.h"
 #include "../qetgraphicsitem/elementtextitemgroup.h"
 #include "../qetgraphicsitem/independenttextitem.h"
 #include "../qetgraphicsitem/qetshapeitem.h"
+#include "../ui/conductorpropertieseditor.h"
 #include "../ui/dynamicelementtextitemeditor.h"
 #include "../ui/elementpropertieswidget.h"
 #include "../ui/imagepropertieswidget.h"
@@ -100,6 +102,20 @@ PropertiesEditorWidget *PropertiesEditorFactory::propertiesEditor(
 
 	switch (type_)
 	{
+		case Conductor::Type: //1001
+		{
+			QList<Conductor *> conductors;
+			for (QGraphicsItem *qgi : items) {
+				conductors.append(static_cast<Conductor *>(qgi));
+			}
+
+			if (class_name == ConductorPropertiesEditor::staticMetaObject.className())
+			{
+				static_cast<ConductorPropertiesEditor *>(editor)->setConductors(conductors);
+				return editor;
+			}
+			return new ConductorPropertiesEditor(conductors, parent);
+		}
 		case Element::Type: //1000
 		{
 			if (count_ > 1) {

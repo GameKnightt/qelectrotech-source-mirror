@@ -29,6 +29,7 @@
 #include "titleblock/templatescollection.h"
 #include "titleblockproperties.h"
 #include "diagram.h"
+#include "utils/orderedindexcache.h"
 #ifdef BUILD_WITHOUT_KF5
 #	include "ui/nokde/kautosavefile.h"
 #else
@@ -37,6 +38,7 @@
 
 #include <QHash>
 #include <QFuture>
+#include <QFutureWatcher>
 
 class Diagram;
 class ElementsLocation;
@@ -86,6 +88,8 @@ class QETProject : public QObject
 			ProjectParsingFailed  = 4, /// the parsing of the XML content failed
 			FileOpenDiscard       = 5  /// the user cancelled the file opening
 		};
+		enum class SaveOrigin { Manual, Automatic };
+		Q_ENUM(SaveOrigin)
 
 		Q_PROPERTY(bool autoConductor READ autoConductor WRITE setAutoConductor)
 
@@ -189,6 +193,7 @@ class QETProject : public QObject
 		QDomDocument toXml();
 		bool close();
 		QETResult write();
+		QETResult write(const QString &file_path);
 		bool isReadOnly() const;
 		void setReadOnly(bool);
 		bool isEmpty() const;
@@ -199,6 +204,7 @@ class QETProject : public QObject
 		bool usesTitleBlockTemplate(const TitleBlockTemplateLocation &);
 		bool projectWasModified();
 		bool projectOptionsWereModified();
+		bool hasUnsavedChanges() const;
 		DiagramContext projectProperties();
 		void setProjectProperties(const DiagramContext &);
 		QUndoStack* undoStack() {return m_undo_stack;}
@@ -221,6 +227,24 @@ class QETProject : public QObject
 		void diagramAdded(QETProject *, Diagram *);
 		void diagramRemoved(QETProject *, Diagram *);
 		void projectModified(QETProject *, bool);
+		void canonicalSaveStarted(
+			QETProject *, quint64 operation_id, QETProject::SaveOrigin origin);
+		void canonicalSaveFinished(
+			QETProject *,
+			quint64 operation_id,
+			QETProject::SaveOrigin origin,
+			bool ok,
+			const QString &error,
+			const QString &committed_path,
+			bool has_unsaved_changes);
+		void recoveryBackupStarted(QETProject *, quint64 operation_id);
+		void recoveryBackupFinished(
+			QETProject *,
+			quint64 operation_id,
+			bool ok,
+			const QString &error,
+			const QString &backup_path);
+		void recoveryBackupInvalidated(QETProject *);
 		void projectDiagramsOrderChanged(QETProject *, int, int);
 		void diagramUsedTemplate(TitleBlockTemplatesCollection *, const QString &);
 		void readOnlyChanged(QETProject *, bool);
@@ -255,6 +279,7 @@ class QETProject : public QObject
 		void writeProjectPropertiesXml(QDomElement &);
 		void writeDefaultPropertiesXml(QDomElement &);
 		void addDiagram(Diagram *diagram, int pos = -1);
+		QETResult write(const QString &file_path, SaveOrigin origin);
 		void writeBackup();
 		void init();
 		ProjectState openFile(QFile *file);
@@ -262,6 +287,13 @@ class QETProject : public QObject
 
 	// attributes
 	private:
+		struct BackupWriteResult {
+			quint64 operationId = 0;
+			bool ok = false;
+			QString error;
+			QString backupPath;
+		};
+
 			/// When false, writeBackup() is a no-op (set by the headless CLI)
 		static bool m_backup_enabled;
 			/// File path this project is saved to
@@ -270,6 +302,8 @@ class QETProject : public QObject
 		ProjectState m_state;
 			/// Diagrams carried by the project
 		QList<Diagram *> m_diagrams_list;
+			/// Cached diagram positions, validated against m_diagrams_list.
+		mutable OrderedIndexCache<Diagram *> m_diagram_index_cache;
 			/// Project title
 		QString project_title_;
 			/// QElectroTech version declared in the XML document at opening time
@@ -312,8 +346,11 @@ class QETProject : public QObject
 		bool m_freeze_new_conductors = false;
 		QTimer m_save_backup_timer,
 			   m_autosave_timer;
-		QFuture<bool> m_backup_future;
+		QFuture<BackupWriteResult> m_backup_future;
+		QFutureWatcher<BackupWriteResult> m_backup_watcher;
 		KAutoSaveFile m_backup_file;
+		quint64 m_save_operation_id = 0;
+		quint64 m_backup_operation_id = 0;
 		QUuid m_uuid = QUuid::createUuid();
 		projectDataBase m_data_base;
 		QVector<TerminalStrip *> m_terminal_strip_vector;

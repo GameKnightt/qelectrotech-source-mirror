@@ -20,15 +20,20 @@
 
 #include "SearchAndReplace/ui/searchandreplacewidget.h"
 #include "qetmainwindow.h"
+#include "ui/workspaceprofilecontroller.h"
 
 #include <QActionGroup>
 #include <QCloseEvent>
 #include <QDir>
 #include <QMdiArea>
+#include <QPointer>
 #include <QSignalMapper>
 #include <QUndoGroup>
 
+#include <memory>
+
 class QMdiSubWindow;
+class QStackedWidget;
 class QETProject;
 class QETResult;
 class ProjectView;
@@ -43,6 +48,10 @@ class DiagramPropertiesEditorDockWidget;
 class ElementsCollectionWidget;
 class AutoNumberingDockWidget;
 class TerminalNumberingDialog;
+class StartCenterWidget;
+class StartCenterPageController;
+class ProjectSaveStatusWidget;
+class ProjectSaveStatusController;
 
 class KAutoSaveFile;
 /**
@@ -63,7 +72,7 @@ class QETDiagramEditor : public QETMainWindow
 		void                 closeEvent        (QCloseEvent *) override;
 		QList<ProjectView *> openedProjects    () const;
 		void                 addProjectView    (ProjectView *);
-		bool                 openAndAddProject (const QString &, bool = true);
+		bool                 openAndAddProject (const QString &, bool = true, bool = false);
 		QList<QString>       editedFiles       () const;
 		ProjectView         *viewForFile       (const QString &) const;
 		ProjectView *currentProjectView() const;
@@ -88,6 +97,16 @@ class QETDiagramEditor : public QETMainWindow
 		void setUpActions       ();
 		void setUpToolBar       ();
 		void setUpMenu          ();
+		void setUpStartCenter   ();
+		void openExportCenter   ();
+		void openStartCenterRecentFile(const QString &);
+		void updateCentralPage  ();
+		void syncSelectionPropertiesEditor();
+		void applyWorkspaceProfile(
+			WorkspaceProfileController::Profile profile,
+			bool reset_layout,
+			bool persist_selection);
+		void updateWorkspaceProfileActions();
 		
 		bool addProject(QETProject *, bool = true);
 		DiagramView *currentDiagramView() const;
@@ -182,6 +201,7 @@ class QETDiagramEditor : public QETMainWindow
 		*m_windowed_view_mode,		///< Display projects as windows
 		*m_mode_selection,		///< Set edition mode
 		*m_mode_visualise,		///< Set visualisation mode
+		*m_export_center,		///< Open the unified export launcher
 		*m_export_to_images,		///< Export diagrams of the current project as imagess
 		*m_export_to_pdf = nullptr, ///< Export project to pdf.
 		*m_print,			///< Print diagrams of the current project
@@ -195,6 +215,7 @@ class QETDiagramEditor : public QETMainWindow
 		*m_draw_grid,			///< Switch the background grid display or not
 		*m_draw_guides = nullptr,	///< Switch the custom guides display or not
 		*m_project_edit_properties,	///< Edit the properties of the current project.
+		*m_project_folio_navigator,	///< Open the quick folio navigator.
 		*m_project_add_diagram,		///< Add a diagram to the current project.
 		*m_remove_diagram_from_project,	///< Delete a diagram from the current project
 		*m_clean_project,		///< Clean the content of the current project by removing useless items
@@ -218,16 +239,28 @@ class QETDiagramEditor : public QETMainWindow
 		*m_rotate_texts,		///< Direct selected text items to a specific angle
 		*m_find_element,		///< Find the selected element in the panel
 		*m_group_selected_texts = nullptr,
+		*m_new_file,			///< Create a new project
+		*m_open_file,			///< Open a project
 		*m_close_file,			///< Close current project file
 		*m_save_file,			///< Save current project
 		*m_save_file_as,		///< Save current project as a specific file
-		*m_find = nullptr;
+		*m_find = nullptr,
+		*m_workspace_essential_action = nullptr,
+		*m_workspace_classic_action = nullptr,
+		*m_workspace_reset_action = nullptr,
+		*m_handler_size_action = nullptr;
+
+		QActionGroup *m_workspace_profile_group = nullptr;
 
 		QList <QAction *> m_zoom_action_toolBar; ///Only zoom action must displayed in the toolbar
 
 		void removeDiagramSilent(Diagram *diagram);
+		void refreshProjectSaveStatus();
 
 		QMdiArea m_workspace;
+		QStackedWidget *m_central_pages = nullptr;
+		QWidget *m_editor_page = nullptr;
+		StartCenterWidget *m_start_center = nullptr;
 		QSignalMapper windowMapper;
 		QDir open_dialog_dir; /// Directory to use for file dialogs such as File > save
 
@@ -237,6 +270,9 @@ class QETDiagramEditor : public QETMainWindow
 		*qdw_undo; /// Dock for the undo list
 
 		ElementsCollectionWidget *m_element_collection_widget;
+		QPointer<ProjectView> m_last_active_project_view;
+		ProjectSaveStatusWidget *m_project_save_status = nullptr;
+		ProjectSaveStatusController *m_project_save_controller = nullptr;
 			
 		DiagramPropertiesEditorDockWidget *m_selection_properties_editor;
 			/// Elements panel
@@ -249,6 +285,9 @@ class QETDiagramEditor : public QETMainWindow
 		*diagram_tool_bar    = nullptr,
 		*m_add_item_tool_bar = nullptr,
 		*m_depth_tool_bar    = nullptr;
+
+		std::unique_ptr<WorkspaceProfileController> m_workspace_profile_controller;
+		std::unique_ptr<StartCenterPageController> m_start_center_page_controller;
 		
 		QUndoGroup undo_group;
 		AutoNumberingDockWidget *m_autonumbering_dock;

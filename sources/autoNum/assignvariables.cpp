@@ -24,6 +24,7 @@
 #include "../qetgraphicsitem/element.h"
 #include "../qetxml.h"
 #include "../qetproject.h"
+#include "../utils/titleblockcontextresolver.h"
 #include <QStringList>
 #include <QVariant>
 #include <utility>
@@ -191,13 +192,15 @@ namespace autonum
 						sequentialNumbers &seqStruct,
 						Diagram *diagram,
 						const Element *elmt,
-						const Conductor *cndr)
+						const Conductor *cndr,
+						const ConductorProperties *cndrProperties)
 	{
 		AssignVariables av(std::move(formula),
 				   seqStruct,
 				   diagram,
 				   elmt,
-				   cndr);
+				   cndr,
+				   cndrProperties);
 		seqStruct = av.m_seq_struct;
 		return av.m_assigned_label;
 	}
@@ -306,17 +309,19 @@ namespace autonum
 	}
 	
 	
-	AssignVariables::AssignVariables(const QString& formula,
-					 const sequentialNumbers& seqStruct,
+	AssignVariables::AssignVariables(const QString &formula,
+					 const sequentialNumbers &seqStruct,
 					 Diagram *diagram,
 					 const Element *elmt,
-					 const Conductor *cndr):
+					 const Conductor *cndr,
+					 const ConductorProperties *cndrProperties):
 	m_diagram(diagram),
 	m_arg_formula(formula),
 	m_assigned_label(formula),
 	m_seq_struct(seqStruct),
 	m_element(elmt),
-	m_conductor(cndr)
+	m_conductor(cndr),
+	m_conductor_properties(cndrProperties)
 	{
 		if (m_diagram)
 		{
@@ -360,42 +365,39 @@ namespace autonum
 
 			if (m_conductor)
 			{
-				m_assigned_label.replace("%wf", cndr->properties().m_function);
-				m_assigned_label.replace("%wv", cndr->properties().m_tension_protocol);
-				m_assigned_label.replace("%wc", cndr->properties().m_wire_color);
-				m_assigned_label.replace("%ws", cndr->properties().m_wire_section);
+				const ConductorProperties properties = m_conductor_properties
+					? *m_conductor_properties
+					: cndr->properties();
+				m_assigned_label.replace("%wf", properties.m_function);
+				m_assigned_label.replace("%wv", properties.m_tension_protocol);
+				m_assigned_label.replace("%wc", properties.m_wire_color);
+				m_assigned_label.replace("%ws", properties.m_wire_section);
 			}
 
 			assignTitleBlockVar();
-			assignProjectVar();
 			assignSequence();
 		}
 	}
 
 	void AssignVariables::assignTitleBlockVar()
 	{
-		for (int i = 0; i < m_diagram->border_and_titleblock.additionalFields().count(); i++)
-		{
-			QString folio_variable = m_diagram->border_and_titleblock.additionalFields().keys().at(i);
-			QVariant folio_value = m_diagram->border_and_titleblock.additionalFields().operator [](folio_variable);
-
-			if (m_assigned_label.contains(folio_variable)) {
-				m_assigned_label.replace("%{" + folio_variable + "}", folio_value.toString());
-				m_assigned_label.replace("%"  + folio_variable      , folio_value.toString());
-			}
+		DiagramContext project_context;
+		if (m_diagram->project()) {
+			project_context = m_diagram->project()->projectProperties();
 		}
-	}
 
-	void AssignVariables::assignProjectVar()
-	{
-		for (int i = 0; i < m_diagram->project()->projectProperties().count(); i++)
+		const DiagramContext context = QET::effectiveTitleBlockContext(
+				project_context,
+				m_diagram->border_and_titleblock.additionalFields());
+
+		for (const QString &variable :
+			 context.keys(DiagramContext::DecreasingLength))
 		{
-			QString folio_variable = m_diagram->project()->projectProperties().keys().at(i);
-			QVariant folio_value = m_diagram->project()->projectProperties().operator [](folio_variable);
+			const QString value = context.value(variable).toString();
 
-			if (m_assigned_label.contains(folio_variable)) {
-				m_assigned_label.replace("%{" + folio_variable + "}", folio_value.toString());
-				m_assigned_label.replace("%"  + folio_variable      , folio_value.toString());
+			if (m_assigned_label.contains(variable)) {
+				m_assigned_label.replace("%{" + variable + "}", value);
+				m_assigned_label.replace("%"  + variable      , value);
 			}
 		}
 	}

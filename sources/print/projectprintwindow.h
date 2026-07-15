@@ -89,7 +89,6 @@ class ProjectPrintWindow : public QMainWindow
 		QString settingsSectionName(const QPrinter *printer);
 		void loadPageSetupForCurrentPrinter();
 		void savePageSetupForCurrentPrinter();
-		void saveReloadDiagramParameters(Diagram *diagram, const ExportProperties &options, bool save);
 		QList<Diagram *> selectedDiagram() const;
 		void exportToPDF();
 

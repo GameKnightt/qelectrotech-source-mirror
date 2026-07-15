@@ -20,8 +20,11 @@
 
 #include "qetresult.h"
 #include "titleblock/templatelocation.h"
+#include "utils/folionavigationindex.h"
 
 #include <QCloseEvent>
+#include <QPointer>
+#include <QSet>
 #include <QTabBar>
 #include <QWidget>
 #include <QtWidgets>
@@ -69,6 +72,7 @@ class ElementsLocation;
 class QTabWidget;
 class QLabel;
 class QVBoxLayout;
+class FolioNavigatorDialog;
 
 
 /**
@@ -102,6 +106,9 @@ class ProjectView : public QWidget
 		void changeTabDown();
 		void changeFirstTab();
 		void changeLastTab();
+		void openFolioNavigator();
+		void navigateHistoryBack();
+		void navigateHistoryForward();
 
 	public slots:
 		void removeDiagram(DiagramView *diagram_view, bool silent = false);
@@ -129,7 +136,7 @@ class ProjectView : public QWidget
 		void exportProject();
 		QETResult save();
 		QETResult saveAs();
-		QETResult doSave();
+		QETResult doSave(const QString &file_path = QString());
 		int cleanProject();
 		void updateWindowTitle();
 		void updateTabTitle(DiagramView *);
@@ -142,6 +149,8 @@ class ProjectView : public QWidget
 		void diagramActivated(DiagramView *);
 		void projectClosed(ProjectView *);
 		void errorEncountered(const QString &);
+		void saveStarted(QETProject *);
+		void saveFinished(QETProject *, bool, const QString &);
 			// relayed signals
 		void findElementRequired(const ElementsLocation &);
 
@@ -151,11 +160,21 @@ class ProjectView : public QWidget
 		void initLayout();
 		void loadDiagrams();
 		DiagramView *findDiagram(Diagram *);
+		int diagramIndex(DiagramView *) const;
 		DiagramView *nextDiagram();
 		DiagramView *previousDiagram();
 		DiagramView *firstDiagram();
 		DiagramView *lastDiagram();
 		void rebuildDiagramsMap();
+		void updateTabTitleAtIndex(DiagramView *, int, bool);
+		void recordNavigation(DiagramView *diagram_view);
+		void updateNavigationHistoryActions();
+		void pruneNavigationHistory();
+		void refreshFolioNavigator(bool preserve_filters);
+		void scheduleFolioNavigatorRefresh();
+		QVector<FolioNavigationEntry> folioNavigationEntries() const;
+		void activateFolio(const QUuid &diagram_id);
+		void setFolioFavorite(const QUuid &diagram_id, bool favorite);
 		bool tryClosing();
 		bool tryClosingElementEditors();
 		int tryClosingDiagrams();
@@ -188,8 +207,19 @@ class ProjectView : public QWidget
 #endif
 
 		QMap<int, DiagramView *> m_diagram_ids;
+		QHash<DiagramView *, int> m_diagram_indexes;
+		QHash<Diagram *, DiagramView *> m_diagram_views;
+		QHash<QUuid, DiagramView *> m_diagram_views_by_id;
 		int m_previous_tab_index = -1;
 		QList<DiagramView *> m_diagram_view_list;
+		FolioNavigatorDialog *m_folio_navigator = nullptr;
+		QAction *m_history_back = nullptr;
+		QAction *m_history_forward = nullptr;
+		QList<QPointer<DiagramView>> m_navigation_history;
+		int m_navigation_history_index = -1;
+		bool m_navigating_history = false;
+		bool m_folio_refresh_scheduled = false;
+		QSet<QUuid> m_favorite_folios;
 };
 
 

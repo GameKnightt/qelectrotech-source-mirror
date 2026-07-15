@@ -12,6 +12,9 @@ Here are some important resources:
 
 ## Testing
 
+The current Windows 11 build procedure uses MSYS2 UCRT64, Qt 5, CMake and
+Ninja. See [Build on Windows 11 with MSYS2](docs/development/windows-msys2-build.md).
+
 ## Submitting changes
 
 Always write a clear log message for your commits.

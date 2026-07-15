@@ -18,9 +18,29 @@
 #include "createdxf.h"
 #include <QFile>
 #include <QTextStream>
-#include <QMessageBox>
 #include <QString>
-#include "exportdialog.h"
+#include <cmath>
+
+namespace {
+
+QPointF rotationTransformed(
+	qreal px,
+	qreal py,
+	qreal origin_x,
+	qreal origin_y,
+	qreal angle)
+{
+	angle *= -3.14159265 / 180;
+	const qreal sine = std::sin(angle);
+	const qreal cosine = std::cos(angle);
+	const qreal vector_x = px - origin_x;
+	const qreal vector_y = py - origin_y;
+	return QPointF(
+		vector_x * cosine - vector_y * sine + origin_x,
+		vector_x * sine + vector_y * cosine + origin_y);
+}
+
+}
 
 
 const double Createdxf::sheetWidth = 4000;
@@ -28,6 +48,48 @@ const double Createdxf::sheetHeight = 2700;
 
 double Createdxf::xScale = 1;
 double Createdxf::yScale = 1;
+QString Createdxf::last_error_;
+
+bool Createdxf::hasError()
+{
+	return !last_error_.isEmpty();
+}
+
+QString Createdxf::lastError()
+{
+	return last_error_;
+}
+
+void Createdxf::clearError()
+{
+	last_error_.clear();
+}
+
+void Createdxf::setError(const QString &message)
+{
+	if (last_error_.isEmpty()) {
+		last_error_ = message;
+	}
+}
+
+bool Createdxf::finalizeWrite(
+	QFile &file,
+	QTextStream &stream,
+	const QString &file_path)
+{
+	stream.flush();
+	const bool success = stream.status() == QTextStream::Ok
+		&& file.flush()
+		&& file.error() == QFileDevice::NoError;
+	if (!success) {
+		setError(QCoreApplication::translate(
+			"Createdxf",
+			"Unable to finish writing the DXF file %1: %2")
+			.arg(file_path, file.errorString()));
+	}
+	file.close();
+	return success;
+}
 
 Createdxf::Createdxf()
 {
@@ -40,20 +102,23 @@ Createdxf::~Createdxf()
 /* Header section of every DXF file.*/
 void Createdxf::dxfBegin (const QString& fileName)
 {
-
+	clearError();
 	// Creation of an output stream object in text mode.
 	// Header section of every dxf file.
-	if (!fileName.isEmpty()) {
-		QFile file(fileName);
-		if (!file.open(QFile::WriteOnly)) {
-			// error message
-			QMessageBox errorFileOpen;
-			errorFileOpen.setIcon(QMessageBox::Warning);
-			errorFileOpen.setText("Error: "+fileName+" Could Not be Opened.");
-			errorFileOpen.setInformativeText("Close all Files and Try Again.");
-			errorFileOpen.exec();
-			exit(0);
-		} else {
+	if (fileName.isEmpty()) {
+		setError(QCoreApplication::translate(
+			"Createdxf", "The DXF file path is empty."));
+		return;
+	}
+
+	QFile file(fileName);
+	if (!file.open(QFile::WriteOnly | QFile::Truncate)) {
+		setError(QCoreApplication::translate(
+			"Createdxf", "Unable to open the DXF file %1: %2")
+			.arg(fileName, file.errorString()));
+		return;
+	}
+	{
 			QTextStream To_Dxf(&file);
 			To_Dxf << 999           << "\r\n";
 			To_Dxf << "QET"         << "\r\n";
@@ -222,8 +287,7 @@ void Createdxf::dxfBegin (const QString& fileName)
 			To_Dxf << "SECTION"     << "\r\n";
 			To_Dxf << 2             << "\r\n";
 			To_Dxf << "ENTITIES"    << "\r\n";
-			file.close();
-		}
+			finalizeWrite(file, To_Dxf, fileName);
 	}
 }
 
@@ -234,23 +298,29 @@ void Createdxf::dxfBegin (const QString& fileName)
 */
 void Createdxf::dxfEnd(const QString& fileName)
 {
+	if (hasError()) {
+		return;
+	}
 	// Creation of an output stream object in text mode.
-	if (!fileName.isEmpty()) {
-		QFile file(fileName);
-		if (!file.open(QFile::Append)) {
-			// error message
-			QMessageBox errorFileOpen;
-			errorFileOpen.setText("Error: File "+fileName+" was not written correctly.");
-			errorFileOpen.setInformativeText("Close all Files and Re-Run");
-			errorFileOpen.exec();
-		} else {
+	if (fileName.isEmpty()) {
+		setError(QCoreApplication::translate(
+			"Createdxf", "The DXF file path is empty."));
+		return;
+	}
+	QFile file(fileName);
+	if (!file.open(QFile::Append)) {
+		setError(QCoreApplication::translate(
+			"Createdxf", "Unable to append to the DXF file %1: %2")
+			.arg(fileName, file.errorString()));
+		return;
+	}
+	{
 			QTextStream To_Dxf(&file);
 			To_Dxf << 0             << "\r\n";
 			To_Dxf << "ENDSEC"      << "\r\n";
 			To_Dxf << 0             << "\r\n";
 			To_Dxf << "EOF";
-			file.close();
-		}
+			finalizeWrite(file, To_Dxf, fileName);
 	}
 }
 
@@ -270,15 +340,15 @@ void Createdxf::drawCircle(
 		double y,
 		int colour)
 {
-	if (!fileName.isEmpty()) {
-		QFile file(fileName);
-		if (!file.open(QFile::Append)) {
-			// error message
-			QMessageBox errorFileOpen;
-			errorFileOpen.setText("Error: File "+fileName+" was not written correctly.");
-			errorFileOpen.setInformativeText("Close all Files and Re-Run");
-			errorFileOpen.exec();
-		} else {
+	if (hasError()) return;
+	QFile file(fileName);
+	if (fileName.isEmpty() || !file.open(QFile::Append)) {
+		setError(QCoreApplication::translate(
+			"Createdxf", "Unable to append to the DXF file %1: %2")
+			.arg(fileName, file.errorString()));
+		return;
+	}
+	{
 			QTextStream To_Dxf(&file);
 			// Draw the circle
 			To_Dxf << 0         << "\r\n";
@@ -295,8 +365,7 @@ void Createdxf::drawCircle(
 			To_Dxf << 0.0       << "\r\n";    // Z in UCS (User Coordinate System)coordinates
 			To_Dxf << 40        << "\r\n";
 			To_Dxf << radius    << "\r\n";    // radius of circle
-			file.close();
-		}
+			finalizeWrite(file, To_Dxf, fileName);
 	}
 }
 
@@ -318,15 +387,15 @@ void Createdxf::drawLine (
 		double y2,
 		const int &colour)
 {
-	if (!fileName.isEmpty()) {
-		QFile file(fileName);
-		if (!file.open(QFile::Append)) {
-			// error message
-			QMessageBox errorFileOpen;
-			errorFileOpen.setText("Error: File "+fileName+" was not written correctly.");
-			errorFileOpen.setInformativeText("Close all Files and Re-Run");
-			errorFileOpen.exec();
-		} else {
+	if (hasError()) return;
+	QFile file(fileName);
+	if (fileName.isEmpty() || !file.open(QFile::Append)) {
+		setError(QCoreApplication::translate(
+			"Createdxf", "Unable to append to the DXF file %1: %2")
+			.arg(fileName, file.errorString()));
+		return;
+	}
+	{
 			QTextStream To_Dxf(&file);
 			// Draw the Line
 			To_Dxf << 0         << "\r\n";
@@ -347,8 +416,7 @@ void Createdxf::drawLine (
 			To_Dxf << y2        << "\r\n";    // Y in UCS (User Coordinate System)coordinates
 			To_Dxf << 31        << "\r\n";
 			To_Dxf << 0.0       << "\r\n";    // Z in UCS (User Coordinate System)coordinates
-			file.close();
-		}
+			finalizeWrite(file, To_Dxf, fileName);
 	}
 }
 
@@ -569,7 +637,7 @@ void Createdxf::drawArcEllipse(
 			arc_endAngle = temp;
 		}
 
-		QPointF transformed_point = ExportDialog::rotation_transformed(
+		QPointF transformed_point = rotationTransformed(
 					center_x,
 					center_y,
 					hotspot_x,
@@ -643,15 +711,15 @@ void Createdxf::drawArc(
 		double endAngle,
 		int color)
 {
-	if (!fileName.isEmpty()) {
-		QFile file(fileName);
-		if (!file.open(QFile::Append)) {
-			// error message
-			QMessageBox errorFileOpen;
-			errorFileOpen.setText("Error: File "+fileName+" was not written correctly.");
-			errorFileOpen.setInformativeText("Close all Files and Re-Run");
-			errorFileOpen.exec();
-		} else {
+	if (hasError()) return;
+	QFile file(fileName);
+	if (fileName.isEmpty() || !file.open(QFile::Append)) {
+		setError(QCoreApplication::translate(
+			"Createdxf", "Unable to append to the DXF file %1: %2")
+			.arg(fileName, file.errorString()));
+		return;
+	}
+	{
 			QTextStream To_Dxf(&file);
 			// Draw the arc
 			To_Dxf << 0         << "\r\n";
@@ -672,8 +740,7 @@ void Createdxf::drawArc(
 			To_Dxf << startAngle<< "\r\n";    // start angle
 			To_Dxf << 51        << "\r\n";
 			To_Dxf << endAngle  << "\r\n";    // end angle
-			file.close();
-		}
+			finalizeWrite(file, To_Dxf, fileName);
 	}
 }
 
@@ -699,15 +766,15 @@ void Createdxf::drawText(
 	int colour,
 	double xScaleW)
 {
-	if (!fileName.isEmpty()) {
+	if (hasError()) return;
 	QFile file(fileName);
-	if (!file.open(QFile::Append)) {
-		// error message
-		QMessageBox errorFileOpen;
-		errorFileOpen.setText("Error: File "+fileName+" was not written correctly.");
-		errorFileOpen.setInformativeText("Close all Files and Re-Run");
-		errorFileOpen.exec();
-	} else {
+	if (fileName.isEmpty() || !file.open(QFile::Append)) {
+		setError(QCoreApplication::translate(
+			"Createdxf", "Unable to append to the DXF file %1: %2")
+			.arg(fileName, file.errorString()));
+		return;
+	}
+	{
 		QTextStream To_Dxf(&file);
 		// Draw the text
 		To_Dxf << 0         << "\r\n";
@@ -730,8 +797,7 @@ void Createdxf::drawText(
 		To_Dxf << text      << "\r\n";    // Text Value
 		To_Dxf << 50        << "\r\n";
 		To_Dxf << rotation  << "\r\n";    // Text Rotation
-		file.close();
-	}
+		finalizeWrite(file, To_Dxf, fileName);
 	}
 }
 
@@ -752,15 +818,15 @@ void Createdxf::drawTextAligned(
 	double xScaleW,
 		int colour)
 {
-	if (!fileName.isEmpty()) {
-		QFile file(fileName);
-		if (!file.open(QFile::Append)) {
-			// error message
-			QMessageBox errorFileOpen;
-			errorFileOpen.setText("Error: File "+fileName+" was not written correctly.");
-			errorFileOpen.setInformativeText("Close all Files and Re-Run");
-			errorFileOpen.exec();
-		} else {
+	if (hasError()) return;
+	QFile file(fileName);
+	if (fileName.isEmpty() || !file.open(QFile::Append)) {
+		setError(QCoreApplication::translate(
+			"Createdxf", "Unable to append to the DXF file %1: %2")
+			.arg(fileName, file.errorString()));
+		return;
+	}
+	{
 			QTextStream To_Dxf(&file);
 			// Draw the circle
 			To_Dxf << 0         << "\r\n";
@@ -815,8 +881,7 @@ void Createdxf::drawTextAligned(
 				To_Dxf << 31       << "\r\n";
 				To_Dxf << 0.0      << "\r\n"; // Z in UCS (User Coordinate System)coordinates
 			}
-			file.close();
-		}
+			finalizeWrite(file, To_Dxf, fileName);
 	}
 }
 
@@ -833,15 +898,15 @@ void Createdxf::drawPolyline(const QString &filepath,
 	const int &colorcode, bool preScaled)
 {
 	qreal x,y;
-	if (!filepath.isEmpty()) {
+	if (hasError()) return;
 	QFile file(filepath);
-	if (!file.open(QFile::Append)) {
-		// error message
-		QMessageBox errorFileOpen;
-		errorFileOpen.setText("Error: File "+filepath+" was not written correctly.");
-		errorFileOpen.setInformativeText("Close all Files and Re-Run");
-		errorFileOpen.exec();
-	} else {
+	if (filepath.isEmpty() || !file.open(QFile::Append)) {
+		setError(QCoreApplication::translate(
+			"Createdxf", "Unable to append to the DXF file %1: %2")
+			.arg(filepath, file.errorString()));
+		return;
+	}
+	{
 		QTextStream To_Dxf(&file);
 		// Draw the Line
 		To_Dxf << 0         << "\r\n";
@@ -889,8 +954,7 @@ void Createdxf::drawPolyline(const QString &filepath,
 		To_Dxf << 8         << "\r\n";
 		To_Dxf << 0         << "\r\n";    // Layer number (default layer in autocad)
 
-		file.close();
-	}
+		finalizeWrite(file, To_Dxf, filepath);
 	}
 }
 

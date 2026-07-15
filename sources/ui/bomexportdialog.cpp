@@ -21,6 +21,7 @@
 #include "../qetapp.h"
 #include "../qetinformation.h"
 #include "../qetproject.h"
+#include "../utils/exportutils.h"
 #include "ui_bomexportdialog.h"
 
 #include <QMessageBox>
@@ -59,105 +60,121 @@ BOMExportDialog::~BOMExportDialog()
 */
 int BOMExportDialog::exec()
 {
-	auto r = QDialog::exec();
-	if (r == QDialog::Accepted)
-	{
-			//save in csv file in same directory as project by default
-		QString dir = m_project->currentDir();
-		if (dir.isEmpty()) dir = QETApp::documentDir();
-		QString file_name = dir % "/" % tr("nomenclature_") % QString(m_project ->title() % ".csv");
-		QString file_path = QFileDialog::getSaveFileName(this, tr("Enregister sous... "), file_name, tr("Fichiers csv (*.csv)"));
-		QFile file(file_path);
-		if (!file_path.isEmpty())
-		{
-			if (QFile::exists(file_path ))
-			{
-				// if file already exist -> delete it
-				if (!QFile::remove(file_path) )
-				{
-					QMessageBox::critical(this, tr("Erreur"),
-										  tr("Impossible de remplacer le fichier!\n\n")+
-										  "Destination : "+file_path+"\n");
-				}
-			}
-			if (file.open(QIODevice::WriteOnly | QIODevice::Text))
-			{
-				QTextStream stream(&file);
-#if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)	// ### Qt 6: remove
-				stream << getBom() << endl;
-#else
-#if TODO_LIST
-#pragma message("@TODO remove code for QT 5.15 or later")
-#endif
-				stream << getBom() << &Qt::endl(stream);
-#endif
-			}
-		}
+	const int result = QDialog::exec();
+	if (result != QDialog::Accepted) {
+		return result;
 	}
-	return r;
+
+	QString csv;
+	QString error_message;
+	if (!getBom(csv, error_message)) {
+		QMessageBox::critical(
+			this,
+			tr("Erreur"),
+			tr("Impossible de générer la nomenclature.\n\n%1")
+				.arg(error_message));
+		return QDialog::Rejected;
+	}
+
+	// Save in a CSV file in the same directory as the project by default.
+	QString dir = m_project->currentDir();
+	if (dir.isEmpty()) dir = QETApp::documentDir();
+	const QString file_name = dir % "/" % tr("nomenclature_") %
+		QString(m_project->title() % ".csv");
+	const QString file_path = QFileDialog::getSaveFileName(
+		this,
+		tr("Enregister sous... "),
+		file_name,
+		tr("Fichiers csv (*.csv)"));
+	if (file_path.isEmpty()) {
+		return QDialog::Rejected;
+	}
+
+	if (!ExportUtils::writeTextAtomically(file_path, csv, &error_message)) {
+		QMessageBox::critical(
+			this,
+			tr("Erreur"),
+			tr("Impossible d'écrire le fichier sans remplacer la version existante.\n\n"
+			   "Destination : %1\n%2")
+				.arg(file_path, error_message));
+		return QDialog::Rejected;
+	}
+
+	return QDialog::Accepted;
 }
 
-QString BOMExportDialog::getBom()
+bool BOMExportDialog::getBom(QString &csv, QString &error_message)
 {
-	m_project->dataBase()->updateDB();
+	csv.clear();
+	error_message.clear();
+	const auto update_result = m_project->dataBase()->updateDB();
+	if (!update_result.isOk()) {
+		error_message = tr(
+			"La base de données du projet n'a pas pu être actualisée. "
+			"Aucun fichier n'a été généré.\n%1")
+			.arg(update_result.diagnostic());
+		return false;
+	}
 	auto query_ = m_project->dataBase()->newQuery(m_query_widget->queryStr());
-	QString return_string;
 
 	if (!query_.exec()) {
-		qDebug() << "BOMExportDialog::getBom : query errir : " << query_.lastError();
+		error_message = query_.lastError().text();
+		return false;
 	}
-	else
+
+	// HEADERS
+	if (ui->m_include_headers->isChecked())
 	{
-			//HEADERS
-		if (ui->m_include_headers)
+		const auto record_ = query_.record();
+		QStringList header_names;
+		for (int i = 0; i < record_.count(); ++i)
 		{
-			auto record_ = query_.record();
-			QStringList header_name;
-			for (auto i=0 ; i<record_.count() ; ++i)
-			{
-				auto field_name = record_.fieldName(i);
-
-				qDebug() << "field name = " << field_name;
-				if (field_name == "position") {
-					header_name << tr("Position");
-				} else if (field_name == "diagram_position") {
-					header_name << tr("Position du folio");
-				} else if (field_name == "designation_qty") {
-					header_name << tr("Quantité numéro d'article", "Special field with name : designation quantity");
-				} else {
-					header_name << QETInformation::translatedInfoKey(field_name);
-					if (header_name.isEmpty()) {
-						header_name << field_name;
-					}
+			const QString field_name = record_.fieldName(i);
+			QString header;
+			if (field_name == "position") {
+				header = tr("Position");
+			} else if (field_name == "diagram_position") {
+				header = tr("Position du folio");
+			} else if (field_name == "designation_qty") {
+				header = tr(
+					"Quantité numéro d'article",
+					"Special field with name : designation quantity");
+			} else {
+				header = QETInformation::translatedInfoKey(field_name);
+				if (header.isEmpty()) {
+					header = field_name;
 				}
-
 			}
-			return_string = header_name.join(";") % "\n";
+			header_names << ExportUtils::csvField(header);
 		}
-
-			//ROWS
-		while (query_.next())
-		{
-			auto i=0;
-			QStringList values;
-			while (query_.value(i).isValid())
-			{
-				auto date = query_.value(i).toDate();
-				if (!date.isNull()) {
-					values << QLocale::system().toString(query_.value(i).toDate(), QLocale::ShortFormat);
-				} else {
-					values << query_.value(i).toString();
-				}
-				++i;
-			}
-
-			return_string += values.join(";") % "\n";
-			values.clear();
-		}
+		csv = header_names.join(";") % "\n";
 	}
 
-	qDebug() << return_string;
-	return return_string;
+	// ROWS
+	const int column_count = query_.record().count();
+	while (query_.next())
+	{
+		QStringList values;
+		for (int i = 0; i < column_count; ++i)
+		{
+			const QDate date = query_.value(i).toDate();
+			if (!date.isNull()) {
+				values << ExportUtils::csvField(
+					QLocale::system().toString(date, QLocale::ShortFormat));
+			} else {
+				values << ExportUtils::csvField(query_.value(i).toString());
+			}
+		}
+		csv += values.join(";") % "\n";
+	}
+
+	if (query_.lastError().isValid()) {
+		error_message = query_.lastError().text();
+		csv.clear();
+		return false;
+	}
+
+	return true;
 }
 
 /**

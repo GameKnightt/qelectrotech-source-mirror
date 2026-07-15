@@ -21,6 +21,7 @@
 #include "../qetproject.h"
 #include "elementcollectionhandler.h"
 #include "elementcollectionitem.h"
+#include "elementcollectionroles.h"
 #include "fileelementcollectionitem.h"
 #include "xmlelementcollection.h"
 #include "xmlprojectelementcollectionitem.h"
@@ -42,6 +43,17 @@ ElementsCollectionModel::ElementsCollectionModel(QObject *parent) :
 {
 }
 
+ElementsCollectionModel::~ElementsCollectionModel()
+{
+	// setUpData() operates on items owned by this model. Keep them alive until
+	// every concurrent task has stopped before QStandardItemModel destroys the
+	// hierarchy.
+	if (m_future.isRunning()) {
+		m_future.cancel();
+		m_future.waitForFinished();
+	}
+}
+
 /**
 	@brief ElementsCollectionModel::data
 	Reimplemented from QStandardItemModel
@@ -51,9 +63,19 @@ ElementsCollectionModel::ElementsCollectionModel(QObject *parent) :
 */
 QVariant ElementsCollectionModel::data(const QModelIndex &index, int role) const
 {
-	if (role == Qt::DecorationRole) {
-		QStandardItem *item = itemFromIndex(index);
+	QStandardItem *item = itemFromIndex(index);
+	if (!item)
+		return QVariant();
 
+	if (role == ElementCollectionRoles::CollectionPathRole
+			|| role == ElementCollectionRoles::IsElementRole) {
+		auto *collection_item = static_cast<ElementCollectionItem *>(item);
+		if (role == ElementCollectionRoles::CollectionPathRole)
+			return collection_item->collectionPath();
+		return collection_item->isElement();
+	}
+
+	if (role == Qt::DecorationRole) {
 		if (item->type() == FileElementCollectionItem::Type)
 			static_cast<FileElementCollectionItem*>(item)->setUpIcon();
 		else if (item->type() == XmlProjectElementCollectionItem::Type)
@@ -268,6 +290,10 @@ void ElementsCollectionModel::loadCollections(bool common_collection,
 											  bool custom_collection,
 											  QList<QETProject *> projects)
 {
+	if (m_future.isRunning()) {
+		m_future.cancel();
+		m_future.waitForFinished();
+	}
 	clear();
 
 	m_items_list_to_setUp.clear();

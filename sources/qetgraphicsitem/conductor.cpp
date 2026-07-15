@@ -20,6 +20,7 @@
 #include "../QPropertyUndoCommand/qpropertyundocommand.h"
 #include "../autoNum/numerotationcontextcommands.h"
 #include "../conductorautonumerotation.h"
+#include "../conductorpropertiesresolver.h"
 #include "../conductorsegment.h"
 #include "../conductorsegmentprofile.h"
 #include "../diagram.h"
@@ -31,6 +32,7 @@
 #include "element.h"
 #include "../QetGraphicsItemModeler/qetgraphicshandleritem.h"
 #include "../utils/qetutils.h"
+#include "../utils/conductorinteraction.h"
 
 #include <QMultiHash>
 #include <QtDebug>
@@ -519,12 +521,10 @@ void Conductor::paint(QPainter *painter, const QStyleOptionGraphicsItem *options
 		}
 	}
 
-		//Draw the conductor bigger when is hovered
-	conductor_pen.setWidthF(m_mouse_over? (m_properties.cond_size) +4 : (m_properties.cond_size));
-
 		//Set the QPen and QBrush to the QPainter
 	painter -> setBrush(conductor_brush);
 	QPen final_conductor_pen = conductor_pen;
+	final_conductor_pen.setWidthF(m_properties.cond_size);
 
 		//Set the conductor style
 	final_conductor_pen.setColor(final_conductor_color);
@@ -537,9 +537,19 @@ void Conductor::paint(QPainter *painter, const QStyleOptionGraphicsItem *options
 		final_conductor_pen.setCosmetic(true);
 	}
 
-	painter -> setPen(final_conductor_pen);
+	if ((m_mouse_over || m_proximity_hovered) && !isSelected())
+	{
+		QPen hover_pen(QColor(69, 137, 255, 150));
+		hover_pen.setWidthF(7.0);
+		hover_pen.setCosmetic(true);
+		hover_pen.setJoinStyle(Qt::RoundJoin);
+		hover_pen.setCapStyle(Qt::RoundCap);
+		painter->setPen(hover_pen);
+		painter->drawPath(path());
+	}
 
 		//Draw the conductor
+	painter -> setPen(final_conductor_pen);
 	painter -> drawPath(path());
 		//Draw the second color
 	if(m_properties.m_bicolor)
@@ -684,8 +694,8 @@ void Conductor::hoverEnterEvent(QGraphicsSceneHoverEvent *event) {
 */
 void Conductor::hoverLeaveEvent(QGraphicsSceneHoverEvent *event) {
 	Q_UNUSED(event);
-	update();
 	m_mouse_over = false;
+	update();
 }
 
 /**
@@ -916,13 +926,10 @@ QRectF Conductor::boundingRect() const
 */
 QPainterPath Conductor::shape() const
 {
-	QPainterPathStroker pps;
-	pps.setWidth(m_mouse_over? 5 : 1);
-	pps.setJoinStyle(conductor_pen.joinStyle());
-
-	QPainterPath shape_(pps.createStroke(path()));
-
-	return shape_;
+	// Keep item geometry independent from hover and from any particular view.
+	// DiagramView adds the wider, zoom-independent interaction target.
+	return ConductorInteraction::selectionShape(
+			path(), 1.0, m_properties.cond_size, 5.0);
 }
 
 /**
@@ -1573,6 +1580,32 @@ void Conductor::setPropertyToPotential(const ConductorProperties &property,
 	}
 }
 
+ConductorProperties Conductor::resolvedProperties(
+	const ConductorProperties &property) const
+{
+	autonum::sequentialNumbers sequence = m_autoNum_seq;
+	return resolvedProperties(property, sequence);
+}
+
+ConductorProperties Conductor::resolvedProperties(
+	const ConductorProperties &property,
+	autonum::sequentialNumbers &sequence) const
+{
+	const ConductorFormulaResolver resolver = diagram()
+		? ConductorFormulaResolver(
+			[this, &sequence, &property](const QString &formula) {
+				return autonum::AssignVariables::formulaToLabel(
+					formula,
+					sequence,
+					diagram(),
+					nullptr,
+					this,
+					&property);
+			})
+		: ConductorFormulaResolver();
+	return resolveConductorProperties(property, resolver);
+}
+
 /**
 	@brief Conductor::setProperties
 	Set property as current property of conductor
@@ -1581,22 +1614,16 @@ void Conductor::setPropertyToPotential(const ConductorProperties &property,
 void Conductor::setProperties(const ConductorProperties &property)
 {
 	if (m_properties == property) return;
+	autonum::sequentialNumbers sequence = m_autoNum_seq;
+	const ConductorProperties resolved = resolvedProperties(property, sequence);
+	if (m_properties == resolved) return;
 
 	QString formula = m_properties.m_formula;
-	m_properties = property;
+	m_properties = resolved;
 
 	if (!m_properties.m_formula.isEmpty())
 	{
-		if (diagram())
-		{
-			QString text = autonum::AssignVariables::formulaToLabel(m_properties.m_formula, m_autoNum_seq, diagram(), nullptr, this);
-			m_properties.text = text;
-		}
-		else if (m_properties.text.isEmpty())
-		{
-			m_properties.text = m_properties.m_formula;
-		}
-
+		m_autoNum_seq = sequence;
 		setUpConnectionForFormula(formula, m_properties.m_formula);
 	}
 
@@ -1639,6 +1666,15 @@ Conductor::Highlight Conductor::highlight() const
 */
 void Conductor::setHighlighted(Conductor::Highlight hl) {
 	must_highlight_ = hl;
+	update();
+}
+
+void Conductor::setProximityHovered(bool hovered)
+{
+	if (m_proximity_hovered == hovered) {
+		return;
+	}
+	m_proximity_hovered = hovered;
 	update();
 }
 

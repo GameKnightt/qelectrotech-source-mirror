@@ -19,6 +19,7 @@
 #define SELECTIONPROPERTIESDOCKWIDGET_H
 
 #include <QDockWidget>
+#include <QString>
 
 class PropertiesEditorWidget;
 
@@ -31,12 +32,27 @@ class PropertiesEditorDockWidget : public QDockWidget
 		Q_OBJECT
 
 	public:
+		enum class View
+		{
+			Message,
+			Editor
+		};
+
 		explicit PropertiesEditorDockWidget(QWidget *parent = nullptr);
 		~PropertiesEditorDockWidget() override;
 
 		virtual void clear();
 		virtual void apply();
 		virtual void reset();
+		void showMessage(
+			const QString &context_title,
+			const QString &context_summary,
+			const QString &message_title,
+			const QString &message_description);
+		void showEditorContext(
+			const QString &context_title,
+			const QString &context_summary);
+		View view() const;
 		bool addEditor (PropertiesEditorWidget *editor, int index = 0);
 		QList<PropertiesEditorWidget *> editors() const;
 		bool removeEditor (PropertiesEditorWidget *editor);

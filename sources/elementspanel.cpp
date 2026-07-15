@@ -54,16 +54,6 @@ ElementsPanel::ElementsPanel(QWidget *parent) :
 	setDropIndicatorShown(true);
 	setAutoExpandDelay(1000);
 	
-	// force du noir sur une alternance de blanc (comme le schema) et de gris
-	// clair, avec du blanc sur bleu pas trop fonce pour la selection
-	QPalette qp = palette();
-	qp.setColor(QPalette::Text,            Qt::black);
-	qp.setColor(QPalette::Base,            Qt::white);
-	qp.setColor(QPalette::AlternateBase,   QColor("#e8e8e8"));
-	qp.setColor(QPalette::Highlight,       QColor("#678db2"));
-	qp.setColor(QPalette::HighlightedText, Qt::black);
-	setPalette(qp);
-	
 		// we handle double click on items ourselves
 	connect(this, &ElementsPanel::itemDoubleClicked, this, &ElementsPanel::slot_doubleClick);
 	connect(this, &GenericPanel::firstActivated, [this]() {QTimer::singleShot(250, this, SLOT(reload()));});

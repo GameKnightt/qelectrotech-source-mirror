@@ -61,6 +61,7 @@ class TitleBlockPropertiesWidget : public QWidget
 		~TitleBlockPropertiesWidget() override;
 
 		void setProperties(const TitleBlockProperties &properties);
+		void setProjectProperties(const DiagramContext &properties);
 		TitleBlockProperties properties() const;
 		TitleBlockProperties propertiesAutoNum(QString autoNum) const;
 		TitleBlockTemplateLocation currentTitleBlockLocation () const;
@@ -80,6 +81,7 @@ class TitleBlockPropertiesWidget : public QWidget
 				 const QET::QetCollection collection) const;
 		TitleBlockTemplate *templateForIndex (int index) const;
 		void addTemplateVariables (DiagramContext &context, int index) const;
+		DiagramContext customContext() const;
 
 	private slots:
 		void editCurrentTitleBlockTemplate();
@@ -101,6 +103,7 @@ class TitleBlockPropertiesWidget : public QWidget
 		QList <TitleBlockTemplatesCollection *> m_tbt_collection_list;
 		QList <QET::QetCollection> m_map_index_to_collection_type;
 		QList <QString> keys_2;
+		DiagramContext m_project_properties;
 };
 
 #endif // TITLEBLOCKPROPERTIESWIDGET_H

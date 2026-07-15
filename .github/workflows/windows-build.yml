@@ -126,9 +126,6 @@ jobs:
             mingw-w64-ucrt-x86_64-qt5-translations
             mingw-w64-ucrt-x86_64-sqlite3
             mingw-w64-ucrt-x86_64-pkg-config
-            mingw-w64-ucrt-x86_64-kwidgetsaddons
-            mingw-w64-ucrt-x86_64-kcoreaddons
-            mingw-w64-ucrt-x86_64-extra-cmake-modules
             mingw-w64-ucrt-x86_64-nsis
             mingw-w64-ucrt-x86_64-angleproject
 
@@ -198,6 +195,7 @@ jobs:
             -DQt5_DIR=/ucrt64/lib/cmake/Qt5 \
             -DQT_VERSION_MAJOR=5 \
             -DCMAKE_DISABLE_FIND_PACKAGE_Qt6=ON \
+            -DBUILD_WITH_KF5=OFF \
             -DBUILD_TESTING=OFF \
             -DPACKAGE_TESTS=OFF \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \

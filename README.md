@@ -25,6 +25,13 @@ accélérer les tâches répétitives et clarifier l’interface.
 
 ## Aperçu
 
+### Démarrer depuis un exemple
+
+![Centre de démarrage avec exemples métier](docs/audit/evidence/ui-03b-curated-examples/01-start-center.png)
+
+*Quatre projets publics sont proposés et toujours ouverts comme copies non
+enregistrées ; le premier Ctrl+S passe par Enregistrer sous.*
+
 ### Espace de travail et projet ouvert
 
 ![Projet Arduino ouvert avec la recherche avancée du fork](docs/audit/evidence/ux-05c-table-fill/03-advanced-search.jpg)
@@ -44,7 +51,7 @@ de colonnes personnalisable et persistante.*
 |---|---|
 | Fiabilité | Écritures d’export atomiques, base projet SQLite reconstruite dans une transaction, état de sauvegarde fiable, copies de récupération vérifiées, historique Undo conservé après sauvegarde |
 | Windows et DPI | Dialogues adaptatifs, contrôles clavier et texte à 150 %, build MSYS2/UCRT64 reproductible, préversion portable isolée |
-| Démarrage et interface | Centre de démarrage orienté tâche, profils **Essentiel** et **Classique**, shell contextuel, actions principales hiérarchisées |
+| Démarrage et interface | Centre de démarrage orienté tâche, quatre exemples métier ouverts en copies non enregistrées, profils **Essentiel** et **Classique**, shell contextuel, actions principales hiérarchisées |
 | Navigation | Navigation rapide entre folios, prise en charge déterministe des grands projets, recherche des collections séparée de leur exploration |
 | Propriétés | Inspecteur contextuel, sélection et édition des conducteurs plus prévisibles |
 | Exports | Centre d’export unifié, erreurs visibles, export PDF/PNG/SVG et données métier protégés contre les faux succès |
@@ -71,7 +78,8 @@ Windows sont inclus dans le paquet.
 
 ### Contrôle rapide en cinq minutes
 
-1. Vérifiez le centre de démarrage puis ouvrez un projet.
+1. Vérifiez le centre de démarrage puis ouvrez **Arduino et écran LCD** : le
+   projet doit être indiqué **Modifié** et `Ctrl+S` doit ouvrir Enregistrer sous.
 2. Passez entre les profils **Essentiel** et **Classique**.
 3. Naviguez entre les folios et recherchez un composant.
 4. Ouvrez le centre d’export.
@@ -100,8 +108,9 @@ Les changements de données sont protégés par Undo lorsque le parcours le perm
 Validation de cette préversion :
 
 - compilation de l’application complète sous Windows 11 / Qt 5 / UCRT64 ;
-- **36/36 tests CTest** réussis en série ;
-- tests Windows natifs clavier et mise à l’échelle 150 % réussis ;
+- **39/39 tests CTest** réussis en série ;
+- **12/12** parcours clavier Windows natifs et **18/18** contrôles natifs à
+  150 % réussis ;
 - ouverture CLI d’un projet public de 50 folios : 618 éléments et 671
   conducteurs détectés ;
 - parcours graphique réel : ouverture, modification, enregistrement et retour à
@@ -136,8 +145,8 @@ Validation de cette préversion :
 
 - **Maintenant :** stabiliser l’intégration Windows, le paquet portable, les
   licences et les tests de compatibilité de formats.
-- **Ensuite :** poursuivre la refonte progressive des parcours, les modèles de
-  démarrage, les propriétés et les exports.
+- **Ensuite :** poursuivre la refonte progressive des parcours, les modèles
+  paramétrables, les propriétés et les exports.
 - **Fonctions industrielles :** borniers et câbles, E/S automate, désignation
   IEC 81346, routage intelligent et bus.
 - **Architecture :** convergence Qt 6/KF6, automatisation CLI/API et

@@ -60,3 +60,12 @@ dialogue et le modèle réels de la préversion ; aucune réimplémentation visu
 n’est utilisée. UX05D-00 et UX05D-07 proviennent de l’application complète,
 respectivement avant et après correction. Le détail du protocole et ses limites se trouvent dans
 [`implementation/ux-05d-column-layout.md`](../implementation/ux-05d-column-layout.md).
+
+## Incrément UI-03B — 15 juillet 2026
+
+Le dossier [`ui-03b-curated-examples`](ui-03b-curated-examples/) contient la
+capture native du centre de démarrage enrichi. Les quatre exemples livrés y
+sont visibles avec leur discipline et leur nombre de folios, sans débordement
+horizontal. Le parcours Windows complet a aussi vérifié qu'un exemple s'ouvre
+comme copie **Modifié** et que son premier `Ctrl+S` propose `sansnom.qet` au
+lieu du fichier source livré.

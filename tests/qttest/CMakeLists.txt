@@ -152,6 +152,8 @@ add_executable(
   ${QET_DIR}/sources/recentfiles.h
   ${QET_DIR}/sources/ui/startcenterpagecontroller.cpp
   ${QET_DIR}/sources/ui/startcenterpagecontroller.h
+  ${QET_DIR}/sources/ui/startcentertemplatecatalog.cpp
+  ${QET_DIR}/sources/ui/startcentertemplatecatalog.h
   ${QET_DIR}/sources/ui/startcenterwidget.cpp
   ${QET_DIR}/sources/ui/startcenterwidget.h)
 add_test(
@@ -166,12 +168,29 @@ add_test(
 add_test(
   NAME start_center_lifecycle_test
   COMMAND start_center_test projectHomeCyclesAreIdempotent)
+add_test(
+  NAME start_center_examples_test
+  COMMAND start_center_test
+    curatedCatalogUsesStableSafePaths
+    curatedProjectsHaveExpectedXmlShape
+    templateCardsExposeMetadataAndAvailability
+    templateActivationEmitsExactRequestOnce
+    missingTemplateIsDisabledWithoutBreakingStartCenter)
+add_test(
+  NAME start_center_examples_keyboard_test
+  COMMAND start_center_test templateActivationEmitsExactRequestOnce)
+add_test(
+  NAME start_center_examples_large_text_150_test
+  COMMAND start_center_test templateSectionFitsScreenAt150Percent)
 set_tests_properties(
   start_center_test
   start_center_keyboard_test
   start_center_large_text_150_test
   start_center_lifecycle_test
-  PROPERTIES LABELS "start-center;ui-03;accessibility;deterministic-scale")
+  start_center_examples_test
+  start_center_examples_keyboard_test
+  start_center_examples_large_text_150_test
+  PROPERTIES LABELS "start-center;ui-03;ui-03b;examples;accessibility;deterministic-scale;format-readonly")
 
 add_executable(
   export_integrity_test
@@ -381,7 +400,8 @@ target_link_libraries(
   config_dialog_ux_test
   PRIVATE
   Qt::Test
-  Qt::Widgets)
+  Qt::Widgets
+  Qt::Xml)
 
 target_include_directories(
   project_save_status_test
@@ -415,7 +435,8 @@ target_link_libraries(
   start_center_test
   PRIVATE
   Qt::Test
-  Qt::Widgets)
+  Qt::Widgets
+  Qt::Xml)
 
 target_include_directories(
   export_integrity_test

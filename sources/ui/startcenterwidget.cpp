@@ -16,13 +16,16 @@
 #include <QCommandLinkButton>
 #include <QDir>
 #include <QFileInfo>
+#include <QGridLayout>
 #include <QGroupBox>
 #include <QHeaderView>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QMenu>
 #include <QPushButton>
 #include <QResizeEvent>
 #include <QScrollArea>
+#include <QSizePolicy>
 #include <QStyle>
 #include <QTreeWidget>
 
@@ -174,6 +177,35 @@ StartCenterWidget::StartCenterWidget(
 	m_sections_layout->addWidget(recent_group, 1);
 	content_layout->addLayout(m_sections_layout, 1);
 
+	m_template_group = new QGroupBox(
+		tr("Découvrir par un exemple"), content);
+	m_template_group->setObjectName(QStringLiteral("startCenterTemplateGroup"));
+	m_template_group->setAccessibleDescription(tr(
+		"Ouvrez un projet fourni comme copie non enregistrée. "
+		"Le fichier d'exemple d'origine reste inchangé."));
+	m_template_layout = new QGridLayout(m_template_group);
+	m_template_layout->setContentsMargins(12, 12, 12, 12);
+	m_template_layout->setHorizontalSpacing(12);
+	m_template_layout->setVerticalSpacing(8);
+	for (const StartCenterTemplateEntry &entry :
+		 m_template_catalog.curatedEntries()) {
+		auto button = new QCommandLinkButton(entry.title, m_template_group);
+		button->setObjectName(
+			QStringLiteral("startCenterTemplate_%1").arg(entry.id));
+		button->setProperty("templateId", entry.id);
+		button->setMinimumHeight(64);
+		button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+		button->setAccessibleName(tr("Ouvrir l'exemple %1").arg(entry.title));
+		connect(
+			button,
+			&QCommandLinkButton::clicked,
+			this,
+			&StartCenterWidget::activateTemplateProject);
+		button->installEventFilter(this);
+		m_template_buttons.append(button);
+	}
+	content_layout->addWidget(m_template_group);
+
 	auto centered_content = new QHBoxLayout;
 	centered_content->setContentsMargins(0, 0, 0, 0);
 	centered_content->addStretch();
@@ -216,8 +248,14 @@ StartCenterWidget::StartCenterWidget(
 	}
 
 	setTabOrder(m_new_project_button, m_open_project_button);
-	setTabOrder(m_open_project_button, m_recent_projects);
+	QWidget *previous_tab_target = m_open_project_button;
+	for (QCommandLinkButton *button : m_template_buttons) {
+		setTabOrder(previous_tab_target, button);
+		previous_tab_target = button;
+	}
+	setTabOrder(previous_tab_target, m_recent_projects);
 	setTabOrder(m_recent_projects, m_forget_recent_button);
+	rebuildTemplateProjects();
 	rebuildRecentProjects();
 	updateResponsiveLayout();
 }
@@ -237,6 +275,34 @@ QStringList StartCenterWidget::displayedRecentFiles() const
 		result.append(pathForItem(m_recent_projects->topLevelItem(row)));
 	}
 	return result;
+}
+
+void StartCenterWidget::setTemplateRoots(const QStringList &roots)
+{
+	m_template_catalog.setRoots(roots);
+	rebuildTemplateProjects();
+	updateResponsiveLayout();
+}
+
+QString StartCenterWidget::templatePath(const QString &id) const
+{
+	return m_template_catalog.resolvedPath(id);
+}
+
+bool StartCenterWidget::eventFilter(QObject *watched, QEvent *event)
+{
+	const auto button = qobject_cast<QCommandLinkButton *>(watched);
+	if (button
+		&& m_template_buttons.contains(button)
+		&& event->type() == QEvent::KeyPress) {
+		const auto key_event = static_cast<QKeyEvent *>(event);
+		if (key_event->key() == Qt::Key_Return
+			|| key_event->key() == Qt::Key_Enter) {
+			if (button->isEnabled()) button->click();
+			return true;
+		}
+	}
+	return QWidget::eventFilter(watched, event);
 }
 
 void StartCenterWidget::resizeEvent(QResizeEvent *event)
@@ -307,6 +373,15 @@ void StartCenterWidget::showRecentProjectContextMenu(const QPoint &position)
 	}
 }
 
+void StartCenterWidget::activateTemplateProject()
+{
+	const auto button = qobject_cast<QCommandLinkButton *>(sender());
+	if (!button || !button->isEnabled()) return;
+	const QString id = button->property("templateId").toString();
+	if (!m_template_catalog.isAvailable(id)) return;
+	emit templateProjectRequested(id);
+}
+
 void StartCenterWidget::configureActionButton(
 	QCommandLinkButton *button,
 	QAction *action,
@@ -333,6 +408,35 @@ QString StartCenterWidget::pathForItem(const QTreeWidgetItem *item) const
 	return item ? item->data(0, RecentPathRole).toString() : QString();
 }
 
+void StartCenterWidget::rebuildTemplateProjects()
+{
+	if (!m_template_group) return;
+	const auto entries = m_template_catalog.curatedEntries();
+	bool has_available_template = false;
+	for (int index = 0; index < m_template_buttons.size(); ++index) {
+		QCommandLinkButton *button = m_template_buttons.at(index);
+		if (!button || index >= entries.size()) continue;
+		const StartCenterTemplateEntry &entry = entries.at(index);
+		const bool available = m_template_catalog.isAvailable(entry.id);
+		has_available_template = has_available_template || available;
+		button->setEnabled(available);
+		const QString metadata = entry.folio_count == 1
+			? tr("%1 • 1 folio").arg(entry.discipline)
+			: tr("%1 • %2 folios")
+				.arg(entry.discipline)
+				.arg(entry.folio_count);
+		button->setDescription(available
+			? tr("%1 — %2").arg(metadata, entry.description)
+			: tr("%1 — Exemple non installé sur cet ordinateur.").arg(metadata));
+		button->setAccessibleDescription(available
+			? tr("%1 Le projet sera ouvert comme une copie non enregistrée.")
+				.arg(button->description())
+			: tr("%1 Indisponible.").arg(button->description()));
+		button->setToolTip(button->accessibleDescription());
+	}
+	m_template_group->setVisible(has_available_template);
+}
+
 void StartCenterWidget::updateResponsiveLayout()
 {
 	if (!m_sections_layout) return;
@@ -341,6 +445,16 @@ void StartCenterWidget::updateResponsiveLayout()
 		: QBoxLayout::LeftToRight;
 	if (m_sections_layout->direction() != direction) {
 		m_sections_layout->setDirection(direction);
+	}
+	if (!m_template_layout) return;
+	const int column_count = width() < 760 ? 1 : 2;
+	for (int index = 0; index < m_template_buttons.size(); ++index) {
+		QCommandLinkButton *button = m_template_buttons.at(index);
+		m_template_layout->removeWidget(button);
+		m_template_layout->addWidget(
+			button,
+			index / column_count,
+			index % column_count);
 	}
 }
 

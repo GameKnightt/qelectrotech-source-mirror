@@ -9,6 +9,7 @@
 */
 #include "../../sources/recentfiles.h"
 #include "../../sources/ui/startcenterpagecontroller.h"
+#include "../../sources/ui/startcentertemplatecatalog.h"
 #include "../../sources/ui/startcenterwidget.h"
 
 #include <QAction>
@@ -17,16 +18,21 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QEvent>
+#include <QFile>
 #include <QLabel>
 #include <QMenu>
 #include <QPointer>
+#include <QPixmap>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QScreen>
+#include <QSet>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QStackedWidget>
+#include <QTemporaryDir>
 #include <QTreeWidget>
+#include <QDomDocument>
 #include <QtTest>
 
 #include <algorithm>
@@ -37,6 +43,14 @@ namespace {
 QString nativePath(const QString &path)
 {
 	return QDir::toNativeSeparators(path);
+}
+
+QPixmap opaqueWidgetGrab(QWidget &widget)
+{
+	QPixmap screenshot(widget.size());
+	screenshot.fill(widget.palette().color(QPalette::Window));
+	widget.render(&screenshot);
+	return screenshot;
 }
 
 QByteArray insufficientNativeDesktopReason(const QSize &required_size)
@@ -87,6 +101,20 @@ QTreeWidget *recentTree(StartCenterWidget &widget)
 		QStringLiteral("startCenterRecentProjects"));
 }
 
+QString examplesRoot()
+{
+	const QString root = QFINDTESTDATA("../../examples");
+	return QFileInfo(root).canonicalFilePath();
+}
+
+QCommandLinkButton *templateButton(
+	StartCenterWidget &widget,
+	const QString &id)
+{
+	return widget.findChild<QCommandLinkButton *>(
+		QStringLiteral("startCenterTemplate_%1").arg(id));
+}
+
 class ApplicationFontGuard
 {
 	public:
@@ -124,6 +152,13 @@ class StartCenterTest : public QObject
 		void keyboardContract();
 		void accessibilityContract();
 		void fitsScreenAt150Percent();
+		void curatedCatalogUsesStableSafePaths();
+		void curatedProjectsHaveExpectedXmlShape();
+		void templateCardsExposeMetadataAndAvailability();
+		void templateActivationEmitsExactRequestOnce();
+		void missingTemplateIsDisabledWithoutBreakingStartCenter();
+		void templateSectionFitsScreenAt150Percent();
+		void rendersTemplateEvidence();
 		void projectHomeCyclesAreIdempotent();
 };
 
@@ -407,6 +442,208 @@ void StartCenterTest::fitsScreenAt150Percent()
 	}
 	QVERIFY(widget.minimumSizeHint().width() <= target_size.width());
 	QVERIFY(widget.minimumSizeHint().height() <= target_size.height());
+}
+
+void StartCenterTest::curatedCatalogUsesStableSafePaths()
+{
+	const QString root = examplesRoot();
+	QVERIFY2(!root.isEmpty(), "The repository examples directory is required.");
+	StartCenterTemplateCatalog catalog({root});
+	const auto entries = catalog.curatedEntries();
+	QCOMPARE(entries.size(), 4);
+	QSet<QString> ids;
+	for (const StartCenterTemplateEntry &entry : entries) {
+		QVERIFY(!entry.id.isEmpty());
+		QVERIFY(!ids.contains(entry.id));
+		ids.insert(entry.id);
+		QCOMPARE(QFileInfo(entry.file_name).fileName(), entry.file_name);
+		QCOMPARE(QFileInfo(entry.file_name).suffix().toLower(),
+			QStringLiteral("qet"));
+		const QString path = catalog.resolvedPath(entry.id);
+		QVERIFY2(!path.isEmpty(), qPrintable(entry.file_name));
+		QVERIFY(QDir::fromNativeSeparators(path).startsWith(
+			QDir::fromNativeSeparators(root) + QLatin1Char('/')));
+	}
+	QVERIFY(catalog.resolvedPath(QStringLiteral("../outside")).isEmpty());
+	QVERIFY(catalog.resolvedPath(QStringLiteral("unknown")).isEmpty());
+}
+
+void StartCenterTest::curatedProjectsHaveExpectedXmlShape()
+{
+	const QHash<QString, QVector<int>> expected {
+		{QStringLiteral("ArduinoLCD.qet"), {3, 20, 47}},
+		{QStringLiteral("grafcet.qet"), {3, 56, 35}},
+		{QStringLiteral("Habitat-Unifilaire.qet"), {1, 53, 32}},
+		{QStringLiteral("industrial.qet"), {50, 684, 671}}
+	};
+	for (auto it = expected.cbegin(); it != expected.cend(); ++it) {
+		QFile file(QDir(examplesRoot()).filePath(it.key()));
+		QVERIFY2(file.open(QIODevice::ReadOnly), qPrintable(file.errorString()));
+		QDomDocument document;
+		QVERIFY2(document.setContent(&file), qPrintable(it.key()));
+		QCOMPARE(document.documentElement().tagName(), QStringLiteral("project"));
+		QCOMPARE(document.documentElement().attribute(QStringLiteral("version")),
+			QStringLiteral("0.80"));
+		QCOMPARE(document.elementsByTagName(QStringLiteral("diagram")).count(),
+			it.value().at(0));
+		QCOMPARE(document.elementsByTagName(QStringLiteral("element")).count(),
+			it.value().at(1));
+		QCOMPARE(document.elementsByTagName(QStringLiteral("conductor")).count(),
+			it.value().at(2));
+	}
+}
+
+void StartCenterTest::templateCardsExposeMetadataAndAvailability()
+{
+	QAction new_action(QStringLiteral("New"), this);
+	QAction open_action(QStringLiteral("Open"), this);
+	RecentFiles recent(QStringLiteral("ui03b-metadata"));
+	StartCenterWidget widget(&new_action, &open_action, &recent);
+	widget.setTemplateRoots({examplesRoot()});
+
+	QWidget *group = widget.findChild<QWidget *>(
+		QStringLiteral("startCenterTemplateGroup"));
+	QVERIFY(group);
+	QVERIFY(!group->isHidden());
+	for (const StartCenterTemplateEntry &entry :
+		 StartCenterTemplateCatalog::curatedEntries()) {
+		QCommandLinkButton *button = templateButton(widget, entry.id);
+		QVERIFY(button);
+		QVERIFY(button->isEnabled());
+		QCOMPARE(button->text(), entry.title);
+		QVERIFY(button->description().contains(entry.discipline));
+		QVERIFY(!button->accessibleName().isEmpty());
+		QVERIFY(button->accessibleDescription().contains(
+			QStringLiteral("copie non enregistrée")));
+	}
+}
+
+void StartCenterTest::templateActivationEmitsExactRequestOnce()
+{
+	QAction new_action(QStringLiteral("New"), this);
+	QAction open_action(QStringLiteral("Open"), this);
+	RecentFiles recent(QStringLiteral("ui03b-activation"));
+	const QStringList before = recent.files();
+	StartCenterWidget widget(&new_action, &open_action, &recent);
+	widget.setTemplateRoots({examplesRoot()});
+	widget.resize(900, 680);
+	widget.show();
+	QVERIFY(QTest::qWaitForWindowExposed(&widget));
+
+	QCommandLinkButton *button = templateButton(
+		widget, QStringLiteral("arduino_lcd"));
+	QVERIFY(button);
+	QSignalSpy requested_spy(
+		&widget, &StartCenterWidget::templateProjectRequested);
+	QTest::mouseClick(button, Qt::LeftButton);
+	QCOMPARE(requested_spy.count(), 1);
+	QCOMPARE(requested_spy.takeFirst().at(0).toString(),
+		QStringLiteral("arduino_lcd"));
+	button->setFocus();
+	QTest::keyClick(button, Qt::Key_Return);
+	QCOMPARE(requested_spy.count(), 1);
+	QCOMPARE(requested_spy.takeFirst().at(0).toString(),
+		QStringLiteral("arduino_lcd"));
+	QCOMPARE(recent.files(), before);
+}
+
+void StartCenterTest::missingTemplateIsDisabledWithoutBreakingStartCenter()
+{
+	QTemporaryDir temporary;
+	QVERIFY(temporary.isValid());
+	QVERIFY(QFile::copy(
+		QDir(examplesRoot()).filePath(QStringLiteral("ArduinoLCD.qet")),
+		QDir(temporary.path()).filePath(QStringLiteral("ArduinoLCD.qet"))));
+
+	QAction new_action(QStringLiteral("New"), this);
+	QAction open_action(QStringLiteral("Open"), this);
+	RecentFiles recent(QStringLiteral("ui03b-missing"));
+	StartCenterWidget widget(&new_action, &open_action, &recent);
+	widget.setTemplateRoots({temporary.path()});
+	QVERIFY(templateButton(widget, QStringLiteral("arduino_lcd"))->isEnabled());
+	QCommandLinkButton *missing = templateButton(
+		widget, QStringLiteral("industrial"));
+	QVERIFY(missing);
+	QVERIFY(!missing->isEnabled());
+	QVERIFY(missing->accessibleDescription().contains(
+		QStringLiteral("Indisponible")));
+	QVERIFY(newButton(widget)->isEnabled());
+	QVERIFY(openButton(widget)->isEnabled());
+
+	widget.setTemplateRoots({QDir(temporary.path()).filePath(
+		QStringLiteral("absent"))});
+	QWidget *group = widget.findChild<QWidget *>(
+		QStringLiteral("startCenterTemplateGroup"));
+	QVERIFY(group->isHidden());
+}
+
+void StartCenterTest::templateSectionFitsScreenAt150Percent()
+{
+	ApplicationFontGuard font_guard(1.5);
+	QAction new_action(QStringLiteral("New"), this);
+	QAction open_action(QStringLiteral("Open"), this);
+	RecentFiles recent(QStringLiteral("ui03b-scale"));
+	StartCenterWidget widget(&new_action, &open_action, &recent);
+	widget.setTemplateRoots({examplesRoot()});
+	widget.resize(1280, 680);
+	widget.show();
+	QVERIFY(QTest::qWaitForWindowExposed(&widget));
+	QScrollArea *scroll = widget.findChild<QScrollArea *>(
+		QStringLiteral("startCenterScrollArea"));
+	QVERIFY(scroll);
+	QCOMPARE(scroll->horizontalScrollBar()->maximum(), 0);
+	for (const StartCenterTemplateEntry &entry :
+		 StartCenterTemplateCatalog::curatedEntries()) {
+		QCommandLinkButton *button = templateButton(widget, entry.id);
+		QVERIFY(button->isVisible());
+		scroll->ensureWidgetVisible(button);
+		QCoreApplication::processEvents();
+		const QRect control_rect(
+			button->mapTo(scroll->viewport(), QPoint(0, 0)),
+			button->size());
+		QVERIFY(scroll->viewport()->rect().intersects(control_rect));
+	}
+}
+
+void StartCenterTest::rendersTemplateEvidence()
+{
+	QAction new_action(QStringLiteral("New"), this);
+	QAction open_action(QStringLiteral("Open"), this);
+	RecentFiles recent(QStringLiteral("ui03b-evidence"));
+	recent.fileWasOpened(nativePath(QStringLiteral(
+		"C:/Projets/Armoire principale.qet")));
+	recent.fileWasOpened(nativePath(QStringLiteral(
+		"C:/Projets/Automatisme/Ligne conditionnement.qet")));
+	StartCenterWidget widget(&new_action, &open_action, &recent);
+	widget.resize(1280, 820);
+	widget.show();
+	QVERIFY(QTest::qWaitForWindowExposed(&widget));
+	QCoreApplication::processEvents();
+	const QString baseline_output = QString::fromLocal8Bit(
+		qgetenv("QET_START_CENTER_BASELINE_SCREENSHOT"));
+	if (!baseline_output.isEmpty()) {
+		QVERIFY2(QFileInfo(baseline_output).absoluteDir().exists(),
+			qPrintable(baseline_output));
+		QVERIFY(opaqueWidgetGrab(widget).save(baseline_output, "PNG"));
+		QVERIFY(QFileInfo(baseline_output).size() > 5000);
+	}
+
+	widget.setTemplateRoots({examplesRoot()});
+	QCoreApplication::processEvents();
+
+	QTemporaryDir temporary;
+	QVERIFY(temporary.isValid());
+	QString output = QString::fromLocal8Bit(
+		qgetenv("QET_START_CENTER_SCREENSHOT"));
+	if (output.isEmpty()) {
+		output = QDir(temporary.path()).filePath(
+			QStringLiteral("start-center-examples.png"));
+	}
+	QVERIFY2(QFileInfo(output).absoluteDir().exists(), qPrintable(output));
+	const QPixmap screenshot = opaqueWidgetGrab(widget);
+	QVERIFY(!screenshot.isNull());
+	QVERIFY2(screenshot.save(output, "PNG"), qPrintable(output));
+	QVERIFY(QFileInfo(output).size() > 5000);
 }
 
 void StartCenterTest::projectHomeCyclesAreIdempotent()

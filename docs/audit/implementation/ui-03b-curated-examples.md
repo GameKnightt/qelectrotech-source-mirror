@@ -46,6 +46,12 @@ permet d'atteindre toutes les entrées sur un écran logique 1280×680.
 inscrit dans `manifest-sha256.txt`. Le ZIP portable ne dépend donc plus du
 pipeline NSIS historique pour rendre cette fonction utilisable.
 
+Le ZIP force en outre le marquage UTF-8 de ses noms de fichiers. Le pipeline le
+réextrait avec `Expand-Archive`, contrôle chaque chemin et chaque hash du
+manifeste, refuse les fichiers supplémentaires, puis revérifie l'exécutable, le
+lanceur et les quatre exemples. Cette boucle couvre l'extraction Windows réelle
+et empêche la corruption silencieuse des noms de symboles accentués.
+
 ## Validation du 15 juillet 2026
 
 - application complète compilée sous Windows 11, Qt 5 et UCRT64 ;

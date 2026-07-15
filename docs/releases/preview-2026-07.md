@@ -30,7 +30,8 @@ version officielle grâce à son profil de configuration portable isolé.
 - 18/18 contrats Windows natifs à 150 % ;
 - commande `qelectrotech.exe --version` vérifiée sans démarrage graphique ;
 - paquet portable vérifié avec ses dépendances, ses ressources, ses quatre
-  exemples curatés et un manifeste SHA-256 ;
+  exemples curatés et un manifeste SHA-256 ; le ZIP est réextrait avec
+  `Expand-Archive` et tous les chemins, y compris accentués, sont revérifiés ;
 - parcours réel vérifié : démarrage, ouverture d’un projet, modification,
   sauvegarde et retour au statut **Sauvegardé**.
 

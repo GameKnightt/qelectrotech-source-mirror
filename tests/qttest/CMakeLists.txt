@@ -122,6 +122,36 @@ add_test(
   COMMAND config_dialog_ux_test)
 
 add_executable(
+  application_theme_test
+  tst_applicationtheme.cpp
+  ${QET_DIR}/sources/ui/applicationtheme.cpp
+  ${QET_DIR}/sources/ui/applicationtheme.h)
+add_test(
+  NAME application_theme_test
+  COMMAND application_theme_test)
+set_tests_properties(
+  application_theme_test
+  PROPERTIES
+  LABELS "ui;theme;accent;accessibility")
+
+add_executable(
+  onboarding_dialog_test
+  tst_onboardingdialog.cpp
+  ${QET_DIR}/sources/ui/onboardingdialog.cpp
+  ${QET_DIR}/sources/ui/onboardingdialog.h)
+add_test(
+  NAME onboarding_dialog_test
+  COMMAND onboarding_dialog_test)
+add_test(
+  NAME onboarding_dialog_large_text_150_test
+  COMMAND onboarding_dialog_test fitsA150PercentLogicalDesktop)
+set_tests_properties(
+  onboarding_dialog_test
+  onboarding_dialog_large_text_150_test
+  PROPERTIES
+  LABELS "ui;onboarding;accessibility;deterministic-scale")
+
+add_executable(
   project_save_status_test
   tst_projectsavestatus.cpp
   ${QET_DIR}/sources/qetresult.cpp
@@ -506,6 +536,29 @@ target_link_libraries(
   Qt::Test
   Qt::Widgets
   Qt::Xml)
+
+target_include_directories(
+  application_theme_test
+  PRIVATE
+  ${QET_DIR}/sources)
+
+target_link_libraries(
+  application_theme_test
+  PRIVATE
+  Qt::Test
+  Qt::Widgets)
+
+target_include_directories(
+  onboarding_dialog_test
+  PRIVATE
+  ${QET_DIR}/sources
+  ${QET_DIR}/sources/ui)
+
+target_link_libraries(
+  onboarding_dialog_test
+  PRIVATE
+  Qt::Test
+  Qt::Widgets)
 
 target_include_directories(
   project_save_status_test

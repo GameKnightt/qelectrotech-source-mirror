@@ -674,6 +674,8 @@ set(QET_SRC_FILES
 
   ${QET_DIR}/sources/ui/aboutqetdialog.cpp
   ${QET_DIR}/sources/ui/aboutqetdialog.h
+  ${QET_DIR}/sources/ui/applicationtheme.cpp
+  ${QET_DIR}/sources/ui/applicationtheme.h
   ${QET_DIR}/sources/ui/abstractelementpropertieseditorwidget.cpp
   ${QET_DIR}/sources/ui/abstractelementpropertieseditorwidget.h
   ${QET_DIR}/sources/ui/alignmenttextdialog.cpp
@@ -748,6 +750,8 @@ set(QET_SRC_FILES
   ${QET_DIR}/sources/ui/masterpropertieswidget.h
   ${QET_DIR}/sources/ui/multipastedialog.cpp
   ${QET_DIR}/sources/ui/multipastedialog.h
+  ${QET_DIR}/sources/ui/onboardingdialog.cpp
+  ${QET_DIR}/sources/ui/onboardingdialog.h
   ${QET_DIR}/sources/ui/potentialselectordialog.cpp
   ${QET_DIR}/sources/ui/potentialselectordialog.h
   ${QET_DIR}/sources/ui/projectpropertiesdialog.cpp

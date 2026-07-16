@@ -72,6 +72,31 @@
         <translation>Contact : &lt;a href=&quot;mailto:qet@lists.tuxfamily.org&quot;&gt;qet@lists.tuxfamily.org&lt;/a&gt;</translation>
     </message>
     <message>
+        <source>À propos de QElectroTech</source>
+        <translation>About QElectroTech</translation>
+    </message>
+    <message>
+        <source>Informations sur QElectroTech</source>
+        <translation>Information about QElectroTech</translation>
+    </message>
+    <message>
+        <source>Journal de diagnostic</source>
+        <translation>Diagnostic log</translation>
+    </message>
+    <message>
+        <source>Fermer la fenêtre</source>
+        <translation>Close the window</translation>
+    </message>
+    <message>
+        <source>© 2006-%1 Les développeurs de QElectroTech</source>
+        <comment>about tab, developers line</comment>
+        <translation>© 2006-%1 The QElectroTech developers</translation>
+    </message>
+    <message>
+        <source>Impossible d'ouvrir le journal sélectionné : %1</source>
+        <translation>Unable to open the selected log: %1</translation>
+    </message>
+    <message>
         <location filename="../sources/ui/aboutqetdialog.cpp" line="87"/>
         <source>Idée originale</source>
         <translation>Original concept</translation>
@@ -7148,6 +7173,15 @@ Unbridge and/or remove the levels from the affected terminals so that they can b
 <context>
     <name>QETElementEditor</name>
     <message>
+        <source>Bien démarrer avec QElectroTech…</source>
+        <translation>Getting started with QElectroTech…</translation>
+    </message>
+    <message>
+        <source>Relance l'introduction aux principales zones de travail</source>
+        <comment>status bar tip</comment>
+        <translation>Reopens the introduction to the main workspace areas</translation>
+    </message>
+    <message>
         <location filename="../sources/editor/ui/qetelementeditor.ui" line="217"/>
         <source>&amp;Nouveau</source>
         <translation>&amp;New</translation>
@@ -7802,6 +7836,15 @@ the conditions are not valid</translation>
 </context>
 <context>
     <name>QETMainWindow</name>
+    <message>
+        <source>Bien démarrer avec QElectroTech…</source>
+        <translation>Getting started with QElectroTech…</translation>
+    </message>
+    <message>
+        <source>Relance l'introduction aux principales zones de travail</source>
+        <comment>status bar tip</comment>
+        <translation>Reopens the introduction to the main workspace areas</translation>
+    </message>
     <message>
         <location filename="../sources/qetmainwindow.cpp" line="59"/>
         <source>&amp;Configurer QElectroTech</source>
@@ -15228,6 +15271,189 @@ Maximum length : %2px
         <location filename="../sources/ui/startcenterwidget.cpp" line="229"/>
         <source>Ouvrir</source>
         <translation>Open</translation>
+    </message>
+</context>
+<context>
+    <name>OnboardingDialog</name>
+    <message>
+        <source>Bien démarrer avec QElectroTech</source>
+        <translation>Getting started with QElectroTech</translation>
+    </message>
+    <message>
+        <source>Introduction aux principales zones de travail et aux premières étapes de création d'un schéma.</source>
+        <translation>Introduction to the main workspace areas and the first steps for creating a schematic.</translation>
+    </message>
+    <message>
+        <source>Progression de l'introduction</source>
+        <translation>Introduction progress</translation>
+    </message>
+    <message>
+        <source>Bienvenue dans votre atelier de schémas</source>
+        <translation>Welcome to your schematic workspace</translation>
+    </message>
+    <message>
+        <source>QElectroTech réunit dans un même espace les outils nécessaires pour créer et maintenir des schémas techniques professionnels.</source>
+        <translation>QElectroTech brings together the tools needed to create and maintain professional technical schematics.</translation>
+    </message>
+    <message>
+        <source>Plusieurs disciplines</source>
+        <translation>Multiple disciplines</translation>
+    </message>
+    <message>
+        <source>Électricité, automatisme, pneumatique, hydraulique et process utilisent le même projet structuré.</source>
+        <translation>Electrical engineering, automation, pneumatics, hydraulics and process design use the same structured project.</translation>
+    </message>
+    <message>
+        <source>Vos formats restent compatibles</source>
+        <translation>Your formats remain compatible</translation>
+    </message>
+    <message>
+        <source>Le fork conserve les projets .qet, les éléments .elmt, les cartouches XML et les collections existantes.</source>
+        <translation>The fork preserves existing .qet projects, .elmt elements, XML title blocks and collections.</translation>
+    </message>
+    <message>
+        <source>Une interface progressive</source>
+        <translation>A progressive interface</translation>
+    </message>
+    <message>
+        <source>Le profil Essentiel met les actions fréquentes en avant. Le profil Classique reste disponible pour les usages avancés.</source>
+        <translation>The Essential profile highlights frequent actions. The Classic profile remains available for advanced use.</translation>
+    </message>
+    <message>
+        <source>Repérez les trois zones principales</source>
+        <translation>Locate the three main areas</translation>
+    </message>
+    <message>
+        <source>L'espace de travail garde les informations importantes près du schéma afin de limiter les allers-retours entre fenêtres.</source>
+        <translation>The workspace keeps important information close to the schematic to reduce switching between windows.</translation>
+    </message>
+    <message>
+        <source>Projets et folios</source>
+        <translation>Projects and folios</translation>
+    </message>
+    <message>
+        <source>Naviguez dans la structure du dossier, renommez les folios et retrouvez rapidement les références croisées.</source>
+        <translation>Browse the project structure, rename folios and quickly find cross-references.</translation>
+    </message>
+    <message>
+        <source>Composants</source>
+        <translation>Components</translation>
+    </message>
+    <message>
+        <source>Recherchez un symbole puis déposez-le sur le folio. Les collections commune, entreprise et personnelle restent séparées.</source>
+        <translation>Find a symbol and place it on the folio. Shared, company and personal collections remain separate.</translation>
+    </message>
+    <message>
+        <source>Propriétés</source>
+        <translation>Properties</translation>
+    </message>
+    <message>
+        <source>Sélectionnez un élément ou un conducteur pour afficher uniquement les réglages utiles au contexte.</source>
+        <translation>Select an element or conductor to display only the settings relevant to the current context.</translation>
+    </message>
+    <message>
+        <source>Créez un premier schéma sans friction</source>
+        <translation>Create your first schematic smoothly</translation>
+    </message>
+    <message>
+        <source>Le parcours suivant suffit pour produire un premier projet enregistrable et prêt à être revu.</source>
+        <translation>The following workflow is enough to produce a first project that can be saved and reviewed.</translation>
+    </message>
+    <message>
+        <source>1. Créer ou ouvrir</source>
+        <translation>1. Create or open</translation>
+    </message>
+    <message>
+        <source>Utilisez Ctrl+N pour un projet neuf ou Ctrl+O pour ouvrir une copie.</source>
+        <translation>Use Ctrl+N for a new project or Ctrl+O to open a copy.</translation>
+    </message>
+    <message>
+        <source>2. Placer et renseigner</source>
+        <translation>2. Place and describe</translation>
+    </message>
+    <message>
+        <source>Déposez les composants, puis double-cliquez pour compléter leurs propriétés et références fabricant.</source>
+        <translation>Place components, then double-click to complete their properties and manufacturer references.</translation>
+    </message>
+    <message>
+        <source>3. Relier et contrôler</source>
+        <translation>3. Connect and review</translation>
+    </message>
+    <message>
+        <source>Reliez les bornes, vérifiez les conducteurs et utilisez Annuler/Rétablir dès qu'une modification doit être reprise.</source>
+        <translation>Connect terminals, review conductors and use Undo/Redo whenever a change needs to be revised.</translation>
+    </message>
+    <message>
+        <source>4. Enregistrer et exporter</source>
+        <translation>4. Save and export</translation>
+    </message>
+    <message>
+        <source>Ctrl+S enregistre le projet. Le centre d'export regroupe les sorties PDF, image et les données métier disponibles.</source>
+        <translation>Ctrl+S saves the project. The export center groups PDF, image and available business-data outputs.</translation>
+    </message>
+    <message>
+        <source>Travaillez en confiance</source>
+        <translation>Work with confidence</translation>
+    </message>
+    <message>
+        <source>Les fonctions de sécurité et d'automatisation restent sous votre contrôle et peuvent être utilisées progressivement.</source>
+        <translation>Safety and automation features remain under your control and can be adopted progressively.</translation>
+    </message>
+    <message>
+        <source>État de sauvegarde visible</source>
+        <translation>Visible save status</translation>
+    </message>
+    <message>
+        <source>La barre d'état distingue un projet modifié, en cours d'enregistrement, sauvegardé ou associé à une récupération.</source>
+        <translation>The status bar distinguishes a modified, saving, saved or recovery-associated project.</translation>
+    </message>
+    <message>
+        <source>Automatisation facultative</source>
+        <translation>Optional automation</translation>
+    </message>
+    <message>
+        <source>Le centre Automatisation et IA prépare une connexion MCP locale. Aucun modèle ni aucune clé API n'est intégré au logiciel.</source>
+        <translation>The Automation and AI center prepares a local MCP connection. No model or API key is embedded in the software.</translation>
+    </message>
+    <message>
+        <source>Cette introduction reste accessible</source>
+        <translation>This introduction remains available</translation>
+    </message>
+    <message>
+        <source>Vous pourrez la relancer à tout moment depuis Aide &gt; Bien démarrer avec QElectroTech.</source>
+        <translation>You can reopen it at any time from Help &gt; Getting started with QElectroTech.</translation>
+    </message>
+    <message>
+        <source>Passer l'introduction</source>
+        <translation>Skip introduction</translation>
+    </message>
+    <message>
+        <source>Ferme l'introduction et ne l'affiche plus automatiquement.</source>
+        <translation>Closes the introduction and stops showing it automatically.</translation>
+    </message>
+    <message>
+        <source>Précédent</source>
+        <translation>Previous</translation>
+    </message>
+    <message>
+        <source>Suivant</source>
+        <translation>Next</translation>
+    </message>
+    <message>
+        <source>Étape %1 sur %2</source>
+        <translation>Step %1 of %2</translation>
+    </message>
+    <message>
+        <source>Commencer</source>
+        <translation>Start</translation>
+    </message>
+    <message>
+        <source>Préférences non enregistrées</source>
+        <translation>Preferences not saved</translation>
+    </message>
+    <message>
+        <source>QElectroTech n'a pas pu enregistrer ce choix. Vérifiez les droits d'accès aux préférences puis réessayez.</source>
+        <translation>QElectroTech could not save this choice. Check access to the preferences and try again.</translation>
     </message>
 </context>
 </TS>

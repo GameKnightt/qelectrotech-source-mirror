@@ -51,7 +51,9 @@
 #include "../UndoCommand/openelmtcommand.h"
 
 #include <QSettings>
+#include <QAction>
 #include <QActionGroup>
+#include <QTimer>
 
 /**
  * @brief QETElementEditor::QETElementEditor
@@ -65,6 +67,23 @@ QETElementEditor::QETElementEditor(QWidget *parent) :
 	initGui();
 	setupActions();
 	setupConnection();
+
+	auto onboarding_action = new QAction(
+		QET::Icons::QETLogo,
+		tr("Bien démarrer avec QElectroTech…"),
+		this);
+	onboarding_action->setStatusTip(tr(
+		"Relance l'introduction aux principales zones de travail",
+		"status bar tip"));
+	connect(
+		onboarding_action,
+		&QAction::triggered,
+		this,
+		[this]() {
+			QETApp::instance()->showOnboarding(this, true);
+		});
+	ui->menu_Aide->insertAction(ui->m_online_manual, onboarding_action);
+	ui->menu_Aide->insertSeparator(ui->m_online_manual);
 
 	auto menu = createPopupMenu();
 	menu->setTearOffEnabled(true);
@@ -850,6 +869,14 @@ bool QETElementEditor::event(QEvent *event)
 	if (m_first_activation && event->type() == QEvent::WindowActivate) {
 		m_first_activation = false;
 		QTimer::singleShot(250, m_view, SLOT(zoomFit()));
+		QTimer::singleShot(
+			350,
+			this,
+			[this]() {
+				if (isVisible()) {
+					QETApp::instance()->showOnboarding(this, false);
+				}
+			});
 	}
 
 	return QMainWindow::event(event);

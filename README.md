@@ -1,267 +1,134 @@
 <p align="center">
-  <img src="logo.png" alt="Logo QElectroTech" width="160">
+  <img src="logo.png" alt="Logo QElectroTech" width="140">
 </p>
 
-# QElectroTech — fork ergonomie et productivité
+# QElectroTech — fork ergonomie et automatisation
 
-[![Tests Windows Qt 5](https://github.com/GameKnightt/qelectrotech-source-mirror/actions/workflows/windows-build.yml/badge.svg?branch=master)](https://github.com/GameKnightt/qelectrotech-source-mirror/actions/workflows/windows-build.yml)
-[![Licence GPL v2](https://img.shields.io/badge/licence-GPL--2.0--only-2f6f44)](LICENSE)
-[![État](https://img.shields.io/badge/%C3%A9tat-pr%C3%A9version%20Windows-d97706)](#tester-sous-windows-11)
+[![Build Windows Qt 5](https://github.com/GameKnightt/qelectrotech-source-mirror/actions/workflows/windows-build.yml/badge.svg?branch=master)](https://github.com/GameKnightt/qelectrotech-source-mirror/actions/workflows/windows-build.yml)
+[![Licence GPL v2](https://img.shields.io/badge/licence-GPL--2.0--only-176b5b)](LICENSE)
+[![Version](https://img.shields.io/badge/base-QElectroTech%200.100.1-4b5563)](https://qelectrotech.org/)
 
-> Préversion communautaire non officielle, basée sur QElectroTech 0.100.1.
-> Elle vise à moderniser progressivement l’expérience de travail sans rompre
-> les formats ni les habitudes du projet amont.
+Ce dépôt est un fork communautaire non officiel de
+[QElectroTech](https://qelectrotech.org/), un logiciel libre de création de
+schémas électriques, d’automatisme, pneumatiques, hydrauliques et process.
 
-QElectroTech est un logiciel libre de CAO/IAO destiné à la création de schémas
-électriques, d’automatisme, pneumatiques, hydrauliques et process. Ce fork
-conserve ce socle métier et se concentre sur quatre objectifs : réduire les
-frictions sous Windows 11, rendre les opérations critiques plus fiables,
-accélérer les tâches répétitives et clarifier l’interface.
+Le fork conserve les formats et l’architecture Qt du projet d’origine. Son but
+est d’améliorer progressivement l’ergonomie, la fiabilité et la productivité,
+principalement sous Windows 11.
 
-- [Projet officiel QElectroTech](https://qelectrotech.org/)
-- [Sources officielles](https://github.com/qelectrotech/qelectrotech-source-mirror)
-- [Forum QElectroTech](https://qelectrotech.org/forum/)
-- [Documentation du fork](docs/audit/qet-audit.md)
+## Télécharger et tester
 
-## Aperçu
+La dernière préversion Windows est disponible dans la
+[release Nightly du fork](https://github.com/GameKnightt/qelectrotech-source-mirror/releases/tag/nightly).
 
-### Automatisation et assistants IA
+1. Téléchargez l’archive `readytouse.zip`.
+2. Extrayez-la entièrement dans un dossier local.
+3. Lancez `Launch-QElectroTech-Preview.bat`.
+4. Pour vos premiers essais, travaillez sur une copie de vos projets.
 
-![Centre Automatisation et IA connecté au serveur MCP local](docs/audit/evidence/ai-01-mcp-automation-center/02-portable-runtime.png)
+Les binaires ne sont pas encore signés. Windows SmartScreen peut donc afficher
+un avertissement. La préversion peut être utilisée à côté de l’installation
+officielle.
 
-*Paquet portable Windows 11, fenêtre 1920×1080 : panneau QML intégré à
-l’application Qt Widgets, lecture seule par défaut, périmètre local,
-commande/configuration et outils MCP.*
+## Principales améliorations
 
-### Démarrer depuis un exemple
+### Interface
 
-![Centre de démarrage avec exemples métier](docs/audit/evidence/ui-03b-curated-examples/01-start-center.png)
+- thème Qt Widgets modernisé avec une couleur d’accent discrète ;
+- onboarding au premier démarrage, relançable depuis le menu **Aide** ;
+- centre de démarrage avec projets récents et exemples métier ;
+- profils d’espace de travail **Essentiel** et **Classique** ;
+- fenêtres Configuration et À propos plus lisibles et adaptées au DPI ;
+- navigation clavier, focus visible et meilleure prise en charge des textes
+  agrandis.
 
-*Quatre projets publics sont proposés et toujours ouverts comme copies non
-enregistrées ; le premier Ctrl+S passe par Enregistrer sous.*
+### Productivité
 
-### Espace de travail et projet ouvert
+- navigation rapide entre folios ;
+- recherche des collections clarifiée ;
+- inspecteur de propriétés contextuel ;
+- centre d’export commun ;
+- édition groupée et tabulaire des conducteurs ;
+- vue consolidée des borniers, câbles et conducteurs.
 
-![Projet Arduino ouvert avec la recherche avancée du fork](docs/audit/evidence/ux-05c-table-fill/03-advanced-search.jpg)
+### Fiabilité
 
-*Windows 11, projet public `ArduinoLCD.qet`, espace de travail et recherche avancée.*
+- sauvegarde et récupération rendues plus explicites ;
+- exports et écritures critiques protégés contre les faux succès ;
+- duplication de folios sans collision d’identifiants ;
+- reconstruction transactionnelle de la base SQLite du projet ;
+- tests automatisés Windows, DPI, clavier, XML et données métier.
 
-### Édition tabulaire des conducteurs
+### Automatisation et IA
 
-![Éditeur tabulaire des conducteurs avec colonnes configurables](docs/audit/evidence/ux-05d-column-layout/05-persisted-layout.png)
+Le fork fournit un serveur
+[MCP](https://modelcontextprotocol.io/) local permettant à un client compatible
+de travailler avec des projets QElectroTech.
 
-*Windows 11, projet public `industrial.qet`, édition par potentiel et disposition
-de colonnes personnalisable et persistante.*
+![Centre Automatisation et IA](docs/audit/evidence/ai-01-mcp-automation-center/02-portable-runtime.png)
 
-### Borniers et câbles
-
-![Vue consolidée Borniers et câbles](docs/audit/evidence/ind-01a-terminal-cable-overview/01-overview-populated.png)
-
-*Table en lecture seule, recherche sans accent, filtres, tri naturel, contrôle
-des informations câble/âme et navigation vers le folio.*
-
-![Catalogue et diagnostics des câbles](docs/audit/evidence/ind-01b-cable-diagnostics/01-catalogue-diagnostics.png)
-
-*Catalogue hiérarchique couvrant tous les folios, diagnostics prudents,
-navigation vers le conducteur et export CSV.*
-
-![Éditeur exact des conducteurs du câble C20](docs/audit/evidence/ind-01c/02-exact-conductor-editor.png)
-
-*Sélection exacte depuis le catalogue, modification de la couleur et de la
-référence de câble, aperçu avant application et Undo atomique.*
-
-## Ce que le fork ajoute
-
-| Domaine | Changements disponibles |
-|---|---|
-| Fiabilité | Duplication de folios sans collision d’UUID avec Annuler/Rétablir groupé, écritures d’export atomiques, base projet SQLite reconstruite dans une transaction, état de sauvegarde fiable, copies de récupération vérifiées, historique Undo conservé après sauvegarde |
-| Windows et DPI | Dialogues adaptatifs, contrôles clavier et texte à 150 %, build MSYS2/UCRT64 reproductible, préversion portable isolée |
-| Démarrage et interface | Centre de démarrage orienté tâche, quatre exemples métier ouverts en copies non enregistrées, profils **Essentiel** et **Classique**, shell contextuel, actions principales hiérarchisées |
-| Navigation | Navigation rapide entre folios, prise en charge déterministe des grands projets, recherche des collections séparée de leur exploration |
-| Propriétés | Inspecteur contextuel, sélection et édition des conducteurs plus prévisibles |
-| Exports | Centre d’export unifié, erreurs visibles, export PDF/PNG/SVG et données métier protégés contre les faux succès |
-| Conducteurs | Aperçu avant application, édition tabulaire groupée, collage TSV, recopie vers le bas, colonnes configurables et export CSV de revue |
-| Borniers et câbles | Point d’entrée stabilisé, vue consolidée des bornes, catalogue câble → conducteurs, diagnostics, recherche, filtres, navigation, export CSV et édition exacte multi-sélection protégée par aperçu/Undo |
-| IA et automatisation | Serveur MCP local compatible avec les clients Claude, ChatGPT, Gemini et autres clients MCP ; inspection/validation des projets, création de copies et cartouches, lecture seule par défaut et nouveau panneau QML de configuration |
-
-Le détail technique, les critères d’acceptation et les limites de chaque lot sont
-réunis dans l’[index des implémentations](docs/audit/implementation/README.md).
-
-## Tester sous Windows 11
-
-La préversion Windows est portable, non signée et n’écrase pas l’installation
-officielle. Utilisez d’abord une copie de vos projets importants.
-
-1. Téléchargez la dernière archive de préversion depuis les
-   [Releases du fork](https://github.com/GameKnightt/qelectrotech-source-mirror/releases).
-2. Extrayez l’archive dans un chemin local court.
-3. Fermez les autres instances de QElectroTech.
-4. Double-cliquez sur `Launch-QElectroTech-Preview.bat`.
-5. Ouvrez une **copie** d’un projet existant.
-
-Le lanceur utilise le dossier local `conf/` pour séparer les préférences de la
-préversion. Les collections, cartouches, traductions, plugins Qt et dépendances
-Windows sont inclus dans le paquet.
-
-## Connecter un assistant IA avec MCP
-
-Ouvrez **Projet > Automatisation et IA…**, vérifiez le répertoire autorisé,
-puis copiez la commande ou la configuration JSON dans votre client compatible
-MCP. QElectroTech ne contient aucun modèle et ne stocke aucune clé API : le
-choix du fournisseur, la connexion et les coûts restent gérés par le client.
-
-Le serveur démarre en lecture seule :
+Le serveur fonctionne en lecture seule par défaut. Les opérations d’écriture
+nécessitent une activation explicite, une confirmation et une destination
+distincte.
 
 ```powershell
 qelectrotech.exe --mcp-stdio --mcp-root "C:\Projets\QET"
 ```
 
-Les outils disponibles inspectent et valident un projet. Deux outils
-d’écriture peuvent créer un projet/folios ou appliquer des cartouches dans une
-**nouvelle copie**. Ils exigent à la fois `--mcp-write`, `confirm=true` et une
-destination qui n’existe pas encore. Le serveur borne les messages et les
-fichiers, refuse les chemins hors périmètre — y compris sur un autre volume
-Windows — et n’ouvre aucun dialogue de compatibilité en mode MCP.
+Le logiciel n’intègre aucun modèle et ne stocke aucune clé API. Le fournisseur
+et les éventuels coûts restent gérés par le client MCP utilisé.
 
-Le protocole, la configuration, les garanties de sécurité et la roadmap des
-futurs outils sont détaillés dans
-[l’architecture IA/MCP](docs/architecture/ai-mcp-qml.md).
+## Compatibilité
 
-### Contrôle rapide en cinq minutes
-
-1. Vérifiez le centre de démarrage puis ouvrez **Arduino et écran LCD** : le
-   projet doit être indiqué **Modifié** et `Ctrl+S` doit ouvrir Enregistrer sous.
-2. Passez entre les profils **Essentiel** et **Classique**.
-3. Naviguez entre les folios et recherchez un composant.
-4. Ouvrez **Projet > Borniers et câbles…**, vérifiez les onglets **Bornes** et
-   **Câbles**, sélectionnez un câble et utilisez **Modifier les conducteurs…**
-   (`Alt+M`) ; le brouillon ne doit contenir que la sélection explicite.
-5. Ouvrez **Projet > Automatisation et IA…** et vérifiez que la commande MCP
-   reprend le répertoire du projet.
-6. Ouvrez le centre d’export.
-7. Utilisez la recherche avancée puis **Modifier les conducteurs en tableau…**.
-8. Modifiez une copie du projet : le statut doit passer à **Modifié**.
-9. Enregistrez avec `Ctrl+S` : le statut ne doit revenir à **Sauvegardé**
-   qu’après la fin réelle de l’écriture.
-10. Vérifiez que Undo/Redo reste disponible après la sauvegarde.
-11. Dans l’arbre projet, utilisez **Dupliquer le folio**, puis
-    utilisez Annuler et Rétablir : le folio et son onglet doivent disparaître
-    et réapparaître ensemble, sans composant manquant dans la nomenclature.
-
-Consultez le [guide de la préversion portable](docs/development/windows-portable-preview.md)
-pour le packaging et les contrôles de manifeste.
-
-## Compatibilité et niveau de confiance
-
-Les incréments actuels ne modifient pas les contrats de fichiers existants :
+Les améliorations du fork préservent les contrats existants :
 
 - projets `.qet` ;
 - éléments `.elmt` ;
 - cartouches XML ;
-- collections et traductions ;
-- base SQLite interne et exports existants.
+- collections, traductions et paramètres ;
+- exports et base SQLite interne.
 
-Le profil **Classique** et les actions métier historiques restent disponibles.
-Les changements de données sont protégés par Undo lorsque le parcours le permet.
+La branche principale reste basée sur Qt 5, C++17 et Qt Widgets. La migration
+Qt 6 est traitée séparément afin de ne pas bloquer les améliorations actuelles.
 
-Validation de cette préversion :
+## Compiler sous Windows 11
 
-- compilation de l’application complète sous Windows 11 / Qt 5 / UCRT64 ;
-- **51/51 tests CTest** réussis en série, dont le cycle MCP et les deux
-  contrats QML ;
-- stress DATA-01 : 100 duplications de deux folios liés, 200 UUID nouveaux et
-  aucune collision sur les clés SQLite `element` / `element_info` ;
-- **13/13** contrats IND-01C, dont la portée exacte, la multi-sélection et le
-  brouillon Câble/Couleur ;
-- **17/17** parcours clavier Windows natifs et **25/25** contrôles natifs à
-  150 % réussis ;
-- ouverture CLI d’un projet public de 50 folios : 618 éléments et 671
-  conducteurs détectés ;
-- parcours graphique réel : ouverture, modification, enregistrement et retour à
-  **Sauvegardé** ;
-- paquet portable contrôlé par manifeste SHA‑256.
-- cycle MCP et rendu QML du paquet portable validés sans MSYS2 dans le `PATH`.
+La procédure de référence utilise MSYS2 UCRT64, CMake et Ninja.
 
-### Limites actuelles
+```bash
+cmake -S . -B ../qet-build -G Ninja \
+  -DBUILD_TESTING=ON \
+  -DPACKAGE_TESTS=ON
 
-- préversion Windows non signée ;
-- qualification principale sous Windows 11 et Qt 5 ;
-- parité Linux, macOS et Qt 6 non revendiquée pour cette distribution ;
-- inventaire final des licences tierces, signature et test sur machine Windows
-  propre encore requis avant une publication stable ;
-- le catalogue utilise les champs historiques libres de QElectroTech : ses
-  diagnostics assistent la revue sans certifier la conformité électrique ;
-- les réserves et destinations structurées de câbles, les E/S automate, le
-  pneumatique, l’hydraulique et le process exigent encore des projets
-  anonymisés représentatifs ;
-- thème sombre, contraste élevé et certains scénarios à 200 % restent à
-  compléter.
+cmake --build ../qet-build
+ctest --test-dir ../qet-build --output-on-failure
+```
 
-## Documentation
+Les dépendances et options Windows sont détaillées dans le
+[guide de compilation MSYS2](docs/development/windows-msys2-build.md).
+
+## Documentation utile
 
 | Document | Contenu |
 |---|---|
-| [Audit complet](docs/audit/qet-audit.md) | Architecture, parcours, forces, risques et limites observées |
-| [Backlog et roadmap](docs/audit/backlog-roadmap.md) | Priorités P0 à P3, critères d’acceptation et horizons produit |
-| [Registre des preuves](docs/audit/evidence/README.md) | Captures, tests et résultats des validations |
-| [Implémentations](docs/audit/implementation/README.md) | Résultat et contrat de chaque lot livré |
-| [Architecture IA/MCP](docs/architecture/ai-mcp-qml.md) | Serveur, outils, sécurité, interface QML et extensions prévues |
-| [Notes de préversion](docs/releases/preview-2026-07.md) | Changements, validation, installation et limites de la préversion Windows |
-| [Build Windows 11](docs/development/windows-msys2-build.md) | Compilation Qt 5 avec MSYS2 UCRT64 |
-| [Paquet portable](docs/development/windows-portable-preview.md) | Déploiement, isolation et manifeste SHA‑256 |
+| [Audit du logiciel](docs/audit/qet-audit.md) | Architecture, parcours et problèmes observés |
+| [Backlog et roadmap](docs/audit/backlog-roadmap.md) | Priorités et critères d’acceptation |
+| [Preuves visuelles](docs/audit/evidence/README.md) | Captures et scénarios de validation |
+| [Architecture MCP](docs/architecture/ai-mcp-qml.md) | Outils, sécurité et intégration IA |
+| [Paquet portable Windows](docs/development/windows-portable-preview.md) | Déploiement et vérification |
 
-## Roadmap résumée
+Pour contribuer, consultez également [CONTRIBUTING.md](CONTRIBUTING.md).
 
-- **Maintenant :** stabiliser l’intégration Windows, le paquet portable, les
-  licences et les tests de compatibilité de formats.
-- **Ensuite :** poursuivre la refonte progressive des parcours, les modèles
-  paramétrables, les propriétés et les exports.
-- **Fonctions industrielles :** l’édition exacte des conducteurs de câble avec
-  aperçu/Undo est livrée ; poursuivre avec réserves et destinations structurées,
-  puis E/S automate, désignation IEC 81346, routage intelligent et bus.
-- **Architecture :** socle MCP local livré ; enrichir les outils avec diff et
-  contrôles métier, puis poursuivre séparément la convergence Qt 6/KF6.
+## Projet d’origine et licence
 
-La roadmap détaillée reste la source de vérité pour les priorités, dépendances
-et critères d’acceptation : [backlog-roadmap.md](docs/audit/backlog-roadmap.md).
-
-## Compiler et contribuer
-
-Le clone Windows ne dépend d’aucun objet Git LFS et doit être propre dès le
-premier checkout :
-
-```bash
-git clone --recursive \
-  https://github.com/GameKnightt/qelectrotech-source-mirror.git
-cd qelectrotech-source-mirror
-git remote add upstream \
-  https://github.com/qelectrotech/qelectrotech-source-mirror.git
-```
-
-Le guide [Windows MSYS2/UCRT64](docs/development/windows-msys2-build.md) contient
-les dépendances, les options CMake et les commandes de test. Les contributions
-doivent rester découpées en incréments vérifiables, préserver les formats et
-ajouter une preuve Windows pour tout changement d’interface.
-
-La documentation Qt Creator (`.qch`) est un artefact généré par Doxygen. Elle
-n’est pas versionnée et n’est requise ni pour compiler, ni pour tester, ni pour
-utiliser QElectroTech.
-
-Consultez également [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Projet amont, attribution et licence
-
-Ce dépôt est un fork de QElectroTech, projet développé depuis 2007 par l’équipe
-et la communauté QElectroTech. Il ne constitue pas une distribution officielle
-et ses modifications spécifiques ne sont pas nécessairement prises en charge
-par l’équipe amont.
-
-QElectroTech et les modifications de ce fork sont distribués selon les termes
-de la GNU General Public License version 2. Consultez [LICENSE](LICENSE). Les
-sous-modules, dépendances et collections conservent leurs propres avis de droit
-d’auteur et de licence.
+Ce fork ne remplace pas le projet officiel et ses modifications ne sont pas
+nécessairement prises en charge par l’équipe amont.
 
 - [Site officiel](https://qelectrotech.org/)
-- [Sources officielles](https://github.com/qelectrotech/qelectrotech-source-mirror)
+- [Dépôt officiel](https://github.com/qelectrotech/qelectrotech-source-mirror)
 - [Wiki officiel](https://qelectrotech.org/wiki_new/)
-- [Soutenir le projet QElectroTech amont](https://www.paypal.com/donate/?cmd=_s-xclick&hosted_button_id=ZZHC9D7C3MDPC)
+- [Forum](https://qelectrotech.org/forum/)
+
+QElectroTech et les modifications de ce fork sont distribués sous licence
+[GNU GPL version 2](LICENSE). Les dépendances et collections conservent leurs
+propres licences.

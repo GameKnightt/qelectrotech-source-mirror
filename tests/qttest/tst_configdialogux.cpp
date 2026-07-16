@@ -62,6 +62,7 @@ class ConfigDialogUxTest : public QObject
 private slots:
 	void wrapsEveryPageInAnIndependentScrollArea();
 	void keepsNavigationHeaderAndActionsFixed();
+	void usesCompactReadableNavigation();
 	void synchronizesTheHeaderOnFirstDisplayAndPageChanges();
 	void boundsDialogToLogicalAvailableGeometry_data();
 	void boundsDialogToLogicalAvailableGeometry();
@@ -116,6 +117,23 @@ void ConfigDialogUxTest::keepsNavigationHeaderAndActionsFixed()
 	QCOMPARE(navigation->parentWidget(), &dialog);
 	QCOMPARE(header->parentWidget(), &dialog);
 	QCOMPARE(buttons->parentWidget(), &dialog);
+}
+
+void ConfigDialogUxTest::usesCompactReadableNavigation()
+{
+	ConfigDialog dialog;
+	dialog.addPage(new OversizedConfigPage(QStringLiteral("First page")));
+	auto *navigation =
+		dialog.findChild<QListWidget *>(QStringLiteral("configPagesList"));
+	QVERIFY(navigation);
+	QCOMPARE(navigation->viewMode(), QListView::ListMode);
+	QCOMPARE(navigation->iconSize(), QSize(32, 32));
+	QVERIFY(navigation->minimumWidth() >= 220);
+	QCOMPARE(navigation->count(), 1);
+	QVERIFY(navigation->item(0)->sizeHint().height() >= 48);
+	QCOMPARE(
+		navigation->item(0)->data(Qt::AccessibleTextRole).toString(),
+		QStringLiteral("First page"));
 }
 
 void ConfigDialogUxTest::synchronizesTheHeaderOnFirstDisplayAndPageChanges()

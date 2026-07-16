@@ -20,6 +20,7 @@
 
 #include <QDialogButtonBox>
 #include <QFont>
+#include <QFontMetrics>
 #include <QFrame>
 #include <QGuiApplication>
 #include <QHBoxLayout>
@@ -40,19 +41,23 @@
 	@param parent QWidget parent
 */
 ConfigDialog::ConfigDialog(QWidget *parent) : QDialog(parent) {
+	setObjectName(QStringLiteral("qetConfigDialog"));
+	setAccessibleName(tr("Configuration de QElectroTech"));
 	// liste des pages
 	pages_list = new QListWidget(this);
 	pages_list->setObjectName(QStringLiteral("configPagesList"));
-	pages_list -> setViewMode(QListView::IconMode);
+	pages_list -> setViewMode(QListView::ListMode);
 	// Keep this size in logical pixels. Scaling it with the physical screen
 	// height makes the navigation excessively large on high-DPI displays.
-	pages_list -> setIconSize(QSize(64, 64));
+	pages_list -> setIconSize(QSize(32, 32));
 	pages_list -> setMovement(QListView::Static);
-	pages_list -> setMinimumWidth(168);
-	pages_list -> setMaximumWidth(168);
-	pages_list -> setSpacing(16);
+	pages_list -> setMinimumWidth(220);
+	pages_list -> setMaximumWidth(232);
+	pages_list -> setSpacing(2);
 	pages_list -> setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 	pages_list -> setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+	pages_list -> setTextElideMode(Qt::ElideRight);
+	pages_list -> setWordWrap(true);
 	pages_list -> setAccessibleName(tr("Configuration"));
 
 	// pages
@@ -61,11 +66,11 @@ ConfigDialog::ConfigDialog(QWidget *parent) : QDialog(parent) {
 	page_title->setTextFormat(Qt::PlainText);
 	page_title->setAccessibleName(tr("Configuration"));
 	QFont title_font = page_title->font();
-	title_font.setBold(true);
+	title_font.setWeight(QFont::DemiBold);
 	if (title_font.pointSizeF() > 0) {
-		title_font.setPointSizeF(title_font.pointSizeF() + 1.0);
+		title_font.setPointSizeF(title_font.pointSizeF() + 3.0);
 	} else if (title_font.pixelSize() > 0) {
-		title_font.setPixelSize(title_font.pixelSize() + 2);
+		title_font.setPixelSize(title_font.pixelSize() + 4);
 	}
 	page_title->setFont(title_font);
 
@@ -81,14 +86,20 @@ ConfigDialog::ConfigDialog(QWidget *parent) : QDialog(parent) {
 
 	// layouts
 	QHBoxLayout *hlayout1 = new QHBoxLayout();
+	hlayout1->setContentsMargins(0, 0, 0, 0);
+	hlayout1->setSpacing(18);
 	hlayout1 -> addWidget(pages_list);
 	QVBoxLayout *page_layout = new QVBoxLayout();
+	page_layout->setContentsMargins(0, 0, 0, 0);
+	page_layout->setSpacing(12);
 	page_layout->addWidget(page_title);
 	page_layout->addWidget(pages_widget, 1);
 	hlayout1 -> addLayout(page_layout, 1);
 
 	// Add a layout for QDialog
 	QVBoxLayout *dialog_layout = new QVBoxLayout(this);
+	dialog_layout->setContentsMargins(16, 16, 16, 16);
+	dialog_layout->setSpacing(14);
 	dialog_layout -> addLayout(hlayout1, 1);
 	dialog_layout -> addWidget(buttons);
 	setLayout(dialog_layout);
@@ -144,8 +155,17 @@ void ConfigDialog::addPageToList(ConfigPage *page) {
 	QListWidgetItem *new_button = new QListWidgetItem(pages_list);
 	new_button -> setIcon(page -> icon());
 	new_button -> setText(page -> title());
-	new_button -> setTextAlignment(Qt::AlignHCenter);
+	new_button -> setTextAlignment(Qt::AlignVCenter | Qt::AlignLeft);
 	new_button -> setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+	const int text_width =
+		(std::max)(120, pages_list->minimumWidth() - 72);
+	const int text_height = QFontMetrics(pages_list->font()).boundingRect(
+			QRect(0, 0, text_width, 1000),
+			Qt::AlignLeft | Qt::AlignVCenter | Qt::TextWordWrap,
+			page->title()).height();
+	new_button->setSizeHint(
+		QSize(0, (std::max)(52, text_height + 20)));
+	new_button->setData(Qt::AccessibleTextRole, page->title());
 }
 
 /**
@@ -212,8 +232,8 @@ void ConfigDialog::applyAvailableGeometry(
 	if (!available_geometry.isValid()) return;
 
 	const QSize maximum_size {
-		std::max(1, static_cast<int>(available_geometry.width() * 0.94)),
-		std::max(1, static_cast<int>(available_geometry.height() * 0.94))
+		(std::max)(1, static_cast<int>(available_geometry.width() * 0.94)),
+		(std::max)(1, static_cast<int>(available_geometry.height() * 0.94))
 	};
 	m_geometry_update_in_progress = true;
 	setMaximumSize(maximum_size);
@@ -232,11 +252,11 @@ void ConfigDialog::applyAvailableGeometry(
 				std::clamp(
 						current_frame.left(),
 						available_geometry.left(),
-						std::max(available_geometry.left(), maximum_left)),
+						(std::max)(available_geometry.left(), maximum_left)),
 				std::clamp(
 						current_frame.top(),
 						available_geometry.top(),
-						std::max(available_geometry.top(), maximum_top))));
+						(std::max)(available_geometry.top(), maximum_top))));
 	}
 	move(pos() + target_frame.topLeft() - current_frame.topLeft());
 	m_geometry_update_in_progress = false;

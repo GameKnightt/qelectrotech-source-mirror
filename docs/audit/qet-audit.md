@@ -93,8 +93,8 @@ portable sont également reconstruits par le workflow Windows du fork.
   `.qch` reste reproductible par Doxygen et n'est requis par aucun build ou
   parcours utilisateur.
 - `ChangeLog.MD` et `ChangeLog.md` entraient en collision sur un système de
-  fichiers Windows insensible à la casse. DEV-01 conserve leurs blobs exacts
-  sous `docs/history/` et garde `ChangeLog` comme changelog canonique installé.
+  fichiers Windows insensible à la casse. Les copies Markdown redondantes ont
+  été retirées ; `ChangeLog` reste le changelog canonique installé.
 - Le workflow Windows transmet `-DBUILD_TESTING=OFF`, alors que le projet pilote ses tests avec `PACKAGE_TESTS`. Le paramètre CI peut donc ne pas produire l'effet attendu.
 - La documentation Windows moderne existe surtout sur une branche Qt 6, pas comme parcours contributeur cohérent sur `master`.
 - Les tests présents couvrent quelques utilitaires et la récupération automatique, mais pas les invariants critiques UUID, variables, aller-retour XML/SQLite et duplication de folios.

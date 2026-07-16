@@ -77,7 +77,7 @@ class ConfigDialog : public QDialog {
 		QLabel *page_title;
 		QStackedWidget *pages_widget;
 		QDialogButtonBox *buttons;
-		QSize m_desired_size {1400, 1000};
+		QSize m_desired_size {1180, 780};
 		QMetaObject::Connection m_available_geometry_connection;
 		bool m_geometry_update_in_progress = false;
 		bool m_screen_tracking_initialized = false;

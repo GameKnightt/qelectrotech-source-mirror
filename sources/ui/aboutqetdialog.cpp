@@ -24,6 +24,14 @@
 #include "../qetversion.h"
 
 #include <QDate>
+#include <QGuiApplication>
+#include <QLabel>
+#include <QScreen>
+#include <QShowEvent>
+#include <QSizePolicy>
+#include <QWindow>
+
+#include <algorithm>
 
 /**
 	@brief AboutQETDialog::AboutQETDialog
@@ -34,6 +42,34 @@ AboutQETDialog::AboutQETDialog(QWidget *parent) :
 	ui(new Ui::AboutQETDialog)
 {
 	ui->setupUi(this);
+	setObjectName(QStringLiteral("aboutQetDialog"));
+	setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+	setMinimumSize(420, 300);
+	resize(840, 600);
+	setSizeGripEnabled(true);
+	setAccessibleName(tr("À propos de QElectroTech"));
+	ui->tabWidget->setCurrentIndex(0);
+	ui->tabWidget->setDocumentMode(true);
+	ui->tabWidget->setUsesScrollButtons(true);
+	ui->tabWidget->setAccessibleName(tr("Informations sur QElectroTech"));
+	const QList<QLabel *> information_labels {
+		ui->m_about_label,
+		ui->m_author_label,
+		ui->m_translators_label,
+		ui->m_contrib_label,
+		ui->m_version_label,
+		ui->m_annex_project_label,
+		ui->m_libraries_label
+	};
+	for (QLabel *label : information_labels) {
+		label->setWordWrap(true);
+		label->setTextInteractionFlags(Qt::TextBrowserInteraction);
+		label->setOpenExternalLinks(true);
+		label->setFocusPolicy(Qt::StrongFocus);
+	}
+	ui->m_log_textEdit->setReadOnly(true);
+	ui->m_log_textEdit->setAccessibleName(tr("Journal de diagnostic"));
+	ui->buttonBox->setAccessibleName(tr("Fermer la fenêtre"));
 	setAbout();
 	setAuthors();
 	setTranslators();
@@ -53,30 +89,82 @@ AboutQETDialog::~AboutQETDialog()
 	delete ui;
 }
 
+void AboutQETDialog::showEvent(QShowEvent *event)
+{
+	QDialog::showEvent(event);
+	if (windowHandle() && !m_screen_tracking_initialized) {
+		connect(
+			windowHandle(),
+			&QWindow::screenChanged,
+			this,
+			[this](QScreen *screen) {
+				followScreen(screen);
+			});
+		m_screen_tracking_initialized = true;
+	}
+	QScreen *screen = parentWidget() && parentWidget()->windowHandle()
+		? parentWidget()->windowHandle()->screen()
+		: QGuiApplication::screenAt(frameGeometry().center());
+	followScreen(screen);
+}
+
+void AboutQETDialog::followScreen(QScreen *screen)
+{
+	QObject::disconnect(m_available_geometry_connection);
+	if (!screen) screen = QGuiApplication::primaryScreen();
+	if (!screen) return;
+
+	m_available_geometry_connection = connect(
+		screen,
+		&QScreen::availableGeometryChanged,
+		this,
+		[this](const QRect &available) {
+			fitToAvailableGeometry(available);
+		});
+	fitToAvailableGeometry(screen->availableGeometry());
+}
+
+void AboutQETDialog::fitToAvailableGeometry(const QRect &available)
+{
+	if (!available.isValid()) return;
+
+	const QSize maximum(
+		(std::max)(1, static_cast<int>(available.width() * 0.92)),
+		(std::max)(1, static_cast<int>(available.height() * 0.92)));
+	setMaximumSize(maximum);
+	resize(size().boundedTo(maximum));
+	QRect target = frameGeometry();
+	target.moveCenter(available.center());
+	move(pos() + target.topLeft() - frameGeometry().topLeft());
+}
+
 /**
 	@brief AboutQETDialog::setAbout
 */
 void AboutQETDialog::setAbout()
 {
-
-	QString str  = tr("QElectroTech, une application de réalisation de schémas électriques.", "about tab, description line") +
-			"<br><br>© 2006-"+QDate::currentDate().toString("yyyy")+
-			tr(" Les développeurs de QElectroTech", "about tab, developers line") +
-			"<br><br>"
-			"<a href=\"https://qelectrotech.org/\">https://qelectrotech.org/</a>"
-			"<br><br>" +
-			"The program is provided AS IS with NO WARRANTY OF ANY KIND,"
-			"<br>"
-			" INCLUDING THE WARRANTY OF DESIGN, "
-			"<br>"
-			"MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.";
-			"<br>"
-			"<br><br>" +
-			tr("Contact : <a href=\"mailto:qet@lists.tuxfamily.org\">qet@lists.tuxfamily.org</a>", "about tab, contact line");
-
-
-
-	ui->m_about_label->setText(str);
+	const QString description = tr(
+		"QElectroTech, une application de réalisation de schémas électriques.",
+		"about tab, description line");
+	const QString copyright = tr(
+		"© 2006-%1 Les développeurs de QElectroTech",
+		"about tab, developers line")
+		.arg(QDate::currentDate().toString(QStringLiteral("yyyy")));
+	const QString contact = tr(
+		"Contact : <a href=\"mailto:qet@lists.tuxfamily.org\">"
+		"qet@lists.tuxfamily.org</a>",
+		"about tab, contact line");
+	ui->m_about_label->setText(
+		QStringLiteral(
+			"<p><strong>%1</strong></p>"
+			"<p>%2</p>"
+			"<p><a href=\"https://qelectrotech.org/\">"
+			"https://qelectrotech.org/</a></p>"
+			"<p>%3</p>"
+			"<p>The program is provided AS IS with NO WARRANTY OF ANY KIND, "
+			"including the warranty of design, merchantability and fitness "
+			"for a particular purpose.</p>")
+			.arg(description, copyright, contact));
 }
 
 /**
@@ -239,10 +327,18 @@ void AboutQETDialog::addAuthor(QLabel *label, const QString &name, const QString
 {
 	QString new_text = label->text();
 
-	QString author_template = "<span style=\"text-decoration: underline;\">%1</span> : %2 &lt;<a href=\"mailto:%3\">%3</a>&gt;&lrm;<br/><br/>";
+	const QString author_template = email.isEmpty()
+		? QStringLiteral(
+			"<span style=\"text-decoration: underline;\">%1</span> : "
+			"%2<br/><br/>")
+		: QStringLiteral(
+			"<span style=\"text-decoration: underline;\">%1</span> : "
+			"%2 &lt;<a href=\"mailto:%3\">%3</a>&gt;&lrm;<br/><br/>");
 
-		// Add the function of the person
-	new_text += author_template.arg(work).arg(name).arg(email);
+	// Add the function of the person.
+	new_text += email.isEmpty()
+		? author_template.arg(work, name)
+		: author_template.arg(work, name, email);
 	label->setText(new_text);
 }
 
@@ -256,10 +352,13 @@ void AboutQETDialog::addLibrary(QLabel *label, const QString &name, const QStrin
 {
 	QString new_text = label->text();
 
-	QString Library_template = "<span style=\"text-decoration: underline;\">%1</span> : &lt;<a href=\"%3\">%3</a>&gt;&lrm;<br/><br/>";
+	const QString library_template =
+		QStringLiteral(
+			"<span style=\"text-decoration: underline;\">%1</span> : "
+			"&lt;<a href=\"%2\">%2</a>&gt;&lrm;<br/><br/>");
 
-		// Add the function of the person
-	new_text += Library_template.arg(name).arg(link);
+	// Add the library or related project.
+	new_text += library_template.arg(name, link);
 	label->setText(new_text);
 }
 
@@ -292,8 +391,12 @@ void AboutQETDialog::on_m_licenses_comboBox_currentTextChanged(
 void AboutQETDialog::on_m_log_comboBox_currentTextChanged(const QString &arg1)
 {
 	QFile log_File(arg1);
-	if(log_File.open(QIODevice::ReadOnly)){
+	if(log_File.open(QIODevice::ReadOnly | QIODevice::Text)){
 		ui->m_log_textEdit->setPlainText(log_File.readAll());
+	} else {
+		ui->m_log_textEdit->setPlainText(tr(
+			"Impossible d'ouvrir le journal sélectionné : %1")
+			.arg(log_File.errorString()));
 	}
 	log_File.close();
 	ui->m_log_textEdit->moveCursor(QTextCursor::End);

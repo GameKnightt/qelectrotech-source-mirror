@@ -168,8 +168,7 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
 - **État du fork :** la sélection tolérante, le survol et l'édition groupée des
   conducteurs sont complétés par PROPS-01 : le dock de propriétés suit le folio
   actif, distingue les états vide/mixte/non pris en charge et place les
-  éditeurs existants dans un conteneur défilable. Le contrat est documenté dans
-  `docs/audit/implementation/props-01-contextual-properties.md`.
+  éditeurs existants dans un conteneur défilable.
 - **Utilisateurs touchés :** électricité et automatisme en priorité.
 - **Fréquence :** continue.
 - **Impact :** friction majeure du dessin.
@@ -197,12 +196,7 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
   ancien fichier est vide ou périmé ; le parcours complet est validé sur
   `examples/industrial.qet`. UX-05E exporte désormais le brouillon pour revue
   en CSV UTF-8 atomique, dans l’ordre des colonnes visibles, avec neutralisation
-  des formules de tableur et sans mutation du projet. Voir
-  `docs/audit/implementation/ux-05a-conductor-change-preview.md`,
-  `docs/audit/implementation/ux-05b-conductor-bulk-editor.md` et
-  `docs/audit/implementation/ux-05c-table-fill.md` ainsi que
-  `docs/audit/implementation/ux-05d-column-layout.md` et
-  `docs/audit/implementation/ux-05e-conductor-review-export.md`.
+  des formules de tableur et sans mutation du projet.
 - **Utilisateurs touchés :** projets répétitifs et contrôle qualité.
 - **Fréquence :** régulière.
 - **Impact :** gain de temps élevé.
@@ -224,10 +218,7 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
   diagnostics prudents, navigation, export CSV et édition exacte de la
   multi-sélection sont disponibles sans changement de format. L’édition limite
   le brouillon aux propriétés Câble/Couleur, passe par un aperçu et s’applique
-  dans une commande Undo atomique. Voir
-  `docs/audit/implementation/ind-01a-terminal-cable-overview.md` et
-  `docs/audit/implementation/ind-01b-cable-catalog.md` ainsi que
-  `docs/audit/implementation/ind-01c-exact-conductor-edit.md`.
+  dans une commande Undo atomique.
 - **Utilisateurs touchés :** tableautiers, automaticiens, maintenance.
 - **Fréquence :** centrale dans les projets concernés.
 - **Impact :** données éclatées et sorties incomplètes.
@@ -272,9 +263,7 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
 - **État du fork :** premier incrément launcher-only réalisé. Le menu Fichier et
   le profil Essentiel ouvrent un centre commun pour six sorties Documents et
   Données. Les mêmes `QAction` et dialogues historiques restent utilisés ; les
-  chemins directs et le profil Classique sont conservés. Compilation Qt 5,
-  tests Windows/DPI et inspection visuelle sont documentés dans
-  `docs/audit/implementation/ui-02-export-center.md`.
+  chemins directs et le profil Classique sont conservés.
 - **Utilisateurs touchés :** tous ceux produisant des livrables.
 - **Fréquence :** fin de révision et diffusion.
 - **Impact :** prévention d'actions inattendues et reproductibilité.
@@ -296,9 +285,7 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
   Ouvrir, six projets récents et quatre exemples métier curatés. Chaque exemple
   est ouvert comme copie non enregistrée, éditable et marquée Modifié ; son
   premier `Ctrl+S` passe par Enregistrer sous et la source livrée n'entre jamais
-  dans les récents. La conception et les validations sont documentées dans
-  `docs/audit/implementation/ui-03-start-center.md` et
-  `docs/audit/implementation/ui-03b-curated-examples.md`.
+  dans les récents.
 - **Utilisateurs touchés :** nouveaux utilisateurs, utilisateurs occasionnels et
   toute personne reprenant quotidiennement un dossier existant.
 - **Fréquence :** à chaque démarrage ou fermeture du dernier projet.
@@ -326,8 +313,7 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
   cinq panneaux. À l'ouverture du premier projet, leur état exact est restauré.
   Le profil Essentiel affiche un libellé pour Nouveau, Ouvrir, Enregistrer et
   Centre d'export, conserve les commandes secondaires compactes et regroupe les
-  panneaux et barres dans le menu Affichage. La conception et les validations
-  sont documentées dans `docs/audit/implementation/ui-04-modern-shell.md`.
+  panneaux et barres dans le menu Affichage.
 - **Utilisateurs touchés :** tous, avec un gain particulier pour les nouveaux
   utilisateurs et les écrans 1920 × 1080.
 - **Fréquence :** à chaque démarrage, fermeture du dernier projet et utilisation
@@ -347,6 +333,22 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
 - **Cible restante UI-04B :** isoler la persistance dans un contrôleur dédié et
   mettre en quarantaine un état de fenêtre corrompu avant repli sûr.
 
+### UI-05 — Thème cohérent et onboarding
+
+- **État du fork :** implémenté. Une palette sémantique conserve les surfaces
+  système et ajoute un accent vert pétrole pour les sélections, le focus et les
+  actions principales. Les widgets historiques bénéficient d'espacements et de
+  bordures cohérents ; Configuration et À propos ont reçu une mise à niveau
+  spécifique.
+- **Onboarding :** quatre étapes au premier démarrage, fermeture sans validation
+  non persistée, choix explicite de terminer ou passer, et relance permanente
+  depuis le menu Aide.
+- **Compatibilité amont :** aucune modification de format ou de logique métier ;
+  thème Qt Widgets centralisé et préférence de couleurs système conservée.
+- **Critères d'acceptation :** contraste de l'accent avec le texte, focus visible,
+  navigation clavier, aucun débordement à 1280 × 680 logique avec texte à 150 %,
+  une seule instance de l'onboarding et tests de persistance.
+
 ### A11Y-01 — Socle d'accessibilité et navigation clavier
 
 - **Preuve :** inspection des arbres accessibles, E03/E07/E08.
@@ -361,8 +363,7 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
 
 ### SAVE-02 — Rendre l'état de sauvegarde explicite
 
-- **État :** implémenté et validé sur la branche `codex/save-02-save-state` ;
-  rapport détaillé dans `implementation/save-02-project-save-status.md`.
+- **État :** implémenté et validé.
 - **Preuve :** état peu saillant dans la stable ; autosauvegarde et fermeture
   contournaient le cycle visible ; résultat de récupération ignoré ; branche
   Qt 6 sans écriture ; perte du contexte MDI reproduite sous Windows après les
@@ -388,8 +389,7 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
   ajoute des budgets d'opérations et des mesures Windows synthétiques 150/500.
 - **État du fork :** première passe UX-02b réalisée sur les index de folios,
   onglets, navigateur et positions SQLite. Budgets d'opérations 500/1000 et
-  mesures Windows synthétiques documentés dans
-  `docs/audit/implementation/ux-02b-large-project-performance.md`. Le parsing,
+  mesures Windows synthétiques disponibles. Le parsing,
   l'export, la mémoire et les projets industriels réels restent à profiler.
 - **Utilisateurs touchés :** grands projets.
 - **Fréquence :** ouverture, recherche, génération.
@@ -448,8 +448,7 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
   MCP local `stdio`, neutre vis-à-vis des fournisseurs, avec inspection,
   validation, création de projet/folios et mise à jour de cartouches dans une
   copie. Le panneau QML **Automatisation et IA** génère la commande et la
-  configuration du client. Voir
-  `docs/audit/implementation/ai-01-mcp-automation-center.md`.
+  configuration du client.
 - **Preuve :** CLI d'export déjà présente sur `master`, besoin d’agents externes
   exprimé pour Claude, ChatGPT, Gemini et les outils d’entreprise.
 - **Utilisateurs touchés :** bureaux d'études, CI documentaire, PLM/ERP.

@@ -24,6 +24,7 @@
 
 #include <QByteArray>
 #include <QPalette>
+#include <QPointer>
 #include <QSystemTrayIcon>
 #include <QTranslator>
 
@@ -47,6 +48,7 @@ class QETProject;
 class QETTitleBlockTemplateEditor;
 class QTextOrientationSpinBoxWidget;
 class RecentFiles;
+class OnboardingDialog;
 
 /**
 	@brief The QETApp class
@@ -220,6 +222,8 @@ class QETApp : public QObject
 		 */
 		bool non_interactive_execution_;
 		QPalette initial_palette_;   ///< System color palette
+		QPointer<OnboardingDialog> m_onboarding_dialog;
+		bool m_onboarding_startup_requested = false;
 		
 		static TitleBlockTemplatesFilesCollection *m_common_tbt_collection;
 		static TitleBlockTemplatesFilesCollection *m_company_tbt_collection;
@@ -271,6 +275,7 @@ class QETApp : public QObject
 		void openTitleBlockTemplateFiles(const QStringList &);
 		void configureQET();
 		void aboutQET();
+		void showOnboarding(QWidget *parent = nullptr, bool force = false);
 		void receiveMessage(int instanceId, QByteArray message);
 	
 	private:

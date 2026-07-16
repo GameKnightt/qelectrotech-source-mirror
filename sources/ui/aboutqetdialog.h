@@ -19,8 +19,12 @@
 #define ABOUTQETDIALOG_H
 
 #include <QDialog>
+#include <QMetaObject>
 
 class QLabel;
+class QRect;
+class QScreen;
+class QShowEvent;
 
 namespace Ui {
 	class AboutQETDialog;
@@ -37,6 +41,9 @@ class AboutQETDialog : public QDialog
 		explicit AboutQETDialog(QWidget *parent = nullptr);
 		~AboutQETDialog();
 
+	protected:
+		void showEvent(QShowEvent *event) override;
+
 	private:
 		Ui::AboutQETDialog *ui;
 		void setAbout();
@@ -48,6 +55,8 @@ class AboutQETDialog : public QDialog
 		void setLibraries();
 		void setLicenses();
 		void setLoginfo();
+		void fitToAvailableGeometry(const QRect &available);
+		void followScreen(QScreen *screen);
 		void addAuthor(
 				QLabel *label,
 				const QString &name,
@@ -56,6 +65,8 @@ class AboutQETDialog : public QDialog
 		void addLibrary(QLabel *label,
 				const QString &name,
 				const QString &link);
+		QMetaObject::Connection m_available_geometry_connection;
+		bool m_screen_tracking_initialized = false;
 
 private slots:
 	void on_m_licenses_comboBox_currentTextChanged(const QString &arg1);

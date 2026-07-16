@@ -64,8 +64,7 @@ PNG exactes de la validation Windows 11 du dialogue de modification tabulaire :
 Les vues UX05D-01 à UX05D-06 proviennent d’un banc temporaire qui instancie le
 dialogue et le modèle réels de la préversion ; aucune réimplémentation visuelle
 n’est utilisée. UX05D-00 et UX05D-07 proviennent de l’application complète,
-respectivement avant et après correction. Le détail du protocole et ses limites se trouvent dans
-[`implementation/ux-05d-column-layout.md`](../implementation/ux-05d-column-layout.md).
+respectivement avant et après correction.
 
 ## Incrément UI-03B — 15 juillet 2026
 
@@ -110,3 +109,11 @@ capture 1920×1080 de l’application complète avec le nouveau panneau QML
 **Automatisation et IA** ouvert. Le lot associe cette preuve visuelle à un test
 d’intégration MCP de bout en bout, un contrat QML clavier/largeur minimale et
 un rejeu à 150 %.
+
+## Incrément UI-05 — 16 juillet 2026
+
+Le dossier [`ui-05-theme-onboarding`](ui-05-theme-onboarding/) contient trois
+captures natives de la compilation Windows 11 : l’onboarding en quatre étapes,
+la navigation modernisée de Configuration et la fenêtre À propos redimensionnée.
+Le parcours a également vérifié le lancement depuis **Aide**, le clavier, le
+focus visible, la fermeture sans validation et la relance manuelle.

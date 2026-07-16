@@ -34,7 +34,9 @@
 #include "titleblock/templatescollection.h"
 #include "titleblocktemplate.h"
 #include "ui/aboutqetdialog.h"
+#include "ui/applicationtheme.h"
 #include "ui/configpage/generalconfigurationpage.h"
+#include "ui/onboardingdialog.h"
 #include "machine_info.h"
 #include "TerminalStrip/ui/terminalstripeditorwindow.h"
 #include "qetversion.h"
@@ -46,6 +48,7 @@
 #include <QFontDatabase>
 #include <QProcessEnvironment>
 #include <QRegularExpression>
+#include <QTimer>
 #ifdef BUILD_WITHOUT_KF5
 #	include "ui/nokde/kautosavefile.h"
 #else
@@ -112,6 +115,7 @@ QETApp::QETApp() :
 	if (non_interactive_execution_) {
 		std::exit(EXIT_SUCCESS);
 	}
+	OnboardingDialog::initializeFirstRunEligibility();
 	initConfiguration();
 	initLanguage();
 	QET::Icons::initIcons();
@@ -1688,20 +1692,21 @@ void QETApp::invertMainWindowVisibility(QWidget *window) {
 	false pour utiliser celles du theme en cours
 */
 void QETApp::useSystemPalette(bool use) {
-	if (use) {
-		qApp->setPalette(initial_palette_);
-		qApp->setStyleSheet(
-				"QAbstractScrollArea#mdiarea {"
-				"background-color -> setPalette(initial_palette_);"
-				"}"
-				);
-	} else {
+	QString custom_style_sheet;
+	if (!use) {
 		QFile file(configDir() + "/style.css");
-		file.open(QFile::ReadOnly);
-		QString styleSheet = QLatin1String(file.readAll());
-		qApp->setStyleSheet(styleSheet);
-		file.close();
+		if (file.open(QFile::ReadOnly | QFile::Text)) {
+			custom_style_sheet = QString::fromUtf8(file.readAll());
+		} else {
+			qWarning() << "Unable to open custom interface style:"
+					   << file.fileName() << file.errorString();
+		}
 	}
+	ApplicationTheme::apply(
+			qApp,
+			initial_palette_,
+			custom_style_sheet,
+			!use);
 }
 
 /**
@@ -2029,6 +2034,51 @@ void QETApp::aboutQET()
 }
 
 /**
+	@brief QETApp::showOnboarding
+	Show the first-run introduction, or reopen it explicitly from the Help menu.
+	@param parent Parent window used for modality and screen placement.
+	@param force Ignore the persisted completion state.
+*/
+void QETApp::showOnboarding(QWidget *parent, bool force)
+{
+	if (!force && !OnboardingDialog::shouldShowOnStartup()) {
+		return;
+	}
+
+	if (m_onboarding_dialog) {
+		m_onboarding_dialog->show();
+		m_onboarding_dialog->raise();
+		m_onboarding_dialog->activateWindow();
+		return;
+	}
+
+	if (!force) {
+		if (m_onboarding_startup_requested) return;
+		m_onboarding_startup_requested = true;
+	}
+
+	// Backup recovery and compatibility prompts have priority during startup.
+	// Retry once the active modal workflow has finished instead of stacking
+	// another dialog above it.
+	if (!force && qApp->activeModalWidget()) {
+		const QPointer<QWidget> safe_parent(parent);
+		QTimer::singleShot(
+			500,
+			this,
+			[this, safe_parent]() {
+				m_onboarding_startup_requested = false;
+				showOnboarding(safe_parent.data(), false);
+			});
+		return;
+	}
+
+	QWidget *dialog_parent = parent ? parent : qApp->activeWindow();
+	m_onboarding_dialog = new OnboardingDialog(dialog_parent);
+	m_onboarding_dialog->setAttribute(Qt::WA_DeleteOnClose);
+	m_onboarding_dialog->show();
+}
+
+/**
 	@brief QETApp::floatingToolbarsAndDocksForMainWindow
 	\~French
 	\~ @param window :
@@ -2233,7 +2283,7 @@ void QETApp::initStyle()
 
 	//Apply or not the system style
 	QSettings settings;
-	useSystemPalette(settings.value("usesystemcolors", true).toBool());
+	useSystemPalette(settings.value("usesystemcolors", false).toBool());
 }
 
 /**

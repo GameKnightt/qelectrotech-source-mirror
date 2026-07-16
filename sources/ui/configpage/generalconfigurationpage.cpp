@@ -75,7 +75,8 @@ GeneralConfigurationPage::GeneralConfigurationPage(QWidget *parent) :
 	ui->DiagramEditor_yKeyGridFine_sb->setValue(settings.value("diagrameditor/key_fine_Ygrid", 1).toInt());
 	ui->DiagramEditor_Grid_PointSize_min_sb->setValue(settings.value("diagrameditor/grid_pointsize_min", 1).toInt());
 	ui->DiagramEditor_Grid_PointSize_max_sb->setValue(settings.value("diagrameditor/grid_pointsize_max", 1).toInt());
-	ui->m_use_system_color_cb->setChecked(settings.value("usesystemcolors", "true").toBool());
+	ui->m_use_system_color_cb->setChecked(
+		settings.value("usesystemcolors", false).toBool());
 	bool tabbed = settings.value("diagrameditor/viewmode", "tabbed") == "tabbed";
 	if(tabbed)
 		ui->m_use_tab_mode_rb->setChecked(true);
@@ -204,7 +205,8 @@ void GeneralConfigurationPage::applyConf()
 	QSettings settings;
 	
 		//GLOBAL
-	bool was_using_system_colors = settings.value("usesystemcolors", "true").toBool();
+	bool was_using_system_colors =
+		settings.value("usesystemcolors", false).toBool();
 	bool must_use_system_colors  = ui->m_use_system_color_cb->isChecked();
 	settings.setValue("usesystemcolors", must_use_system_colors);
 	if (was_using_system_colors != must_use_system_colors) {

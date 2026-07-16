@@ -21,6 +21,7 @@
 #include <QMenuBar>
 #include <QDragEnterEvent>
 #include <QDesktopServices>
+#include <QTimer>
 
 #include "qetmainwindow.h"
 #include "qeticons.h"
@@ -100,6 +101,21 @@ void QETMainWindow::initCommonActions()
 
 	manual_online_ -> setShortcut(Qt::Key_F1);
 
+	onboarding_action_ = new QAction(
+		QET::Icons::QETLogo,
+		tr("Bien démarrer avec QElectroTech…"),
+		this);
+	onboarding_action_->setStatusTip(tr(
+		"Relance l'introduction aux principales zones de travail",
+		"status bar tip"));
+	connect(
+		onboarding_action_,
+		&QAction::triggered,
+		this,
+		[this, qet_app]() {
+			qet_app->showOnboarding(this, true);
+		});
+
 	youtube_ = new QAction(QET::Icons::QETVideo, tr("Chaine Youtube"), this);
 	youtube_ -> setStatusTip(tr("Lance le navigateur par défaut vers la chaine Youtube de QElectroTech", "status bar tip"));
 
@@ -149,6 +165,8 @@ void QETMainWindow::initCommonMenus()
 
 	help_menu_ = new QMenu(tr("&Aide", "window menu"), this);
 	help_menu_ -> addAction(whatsthis_action_);
+	help_menu_ -> addSeparator();
+	help_menu_ -> addAction(onboarding_action_);
 	help_menu_ -> addSeparator();
 	help_menu_ -> addAction(manual_online_);
 	help_menu_ -> addAction(youtube_);
@@ -248,6 +266,14 @@ bool QETMainWindow::event(QEvent *e) {
 	} else if (first_activation_ && e -> type() == QEvent::WindowActivate) {
 		firstActivation(e);
 		first_activation_ = false;
+		QTimer::singleShot(
+			350,
+			this,
+			[this]() {
+				if (isVisible()) {
+					QETApp::instance()->showOnboarding(this, false);
+				}
+			});
 	}
 	return(QMainWindow::event(e));
 }

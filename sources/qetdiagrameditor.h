@@ -52,6 +52,8 @@ class StartCenterWidget;
 class StartCenterPageController;
 class ProjectSaveStatusWidget;
 class ProjectSaveStatusController;
+class AutomationCenterDock;
+class AutomationCenterController;
 
 class KAutoSaveFile;
 /**
@@ -94,6 +96,7 @@ class QETDiagramEditor : public QETMainWindow
 		void setUpUndoStack     ();
 		void setUpSelectionPropertiesEditor();
 		void setUpAutonumberingWidget();
+		void setUpAutomationCenter();
 		void setUpActions       ();
 		void setUpToolBar       ();
 		void setUpMenu          ();
@@ -257,6 +260,9 @@ class QETDiagramEditor : public QETMainWindow
 
 		void removeDiagramSilent(Diagram *diagram);
 		void refreshProjectSaveStatus();
+		void refreshAutomationCenter();
+		void observeAutomationDiagram(Diagram *diagram);
+		bool m_automation_refresh_pending = false;
 
 		QMdiArea m_workspace;
 		QStackedWidget *m_central_pages = nullptr;
@@ -269,6 +275,8 @@ class QETDiagramEditor : public QETMainWindow
 		*qdw_pa, /// Dock for the elements panel
 		*m_qdw_elmt_collection,
 		*qdw_undo; /// Dock for the undo list
+		AutomationCenterDock *m_automation_center_dock = nullptr;
+		AutomationCenterController *m_automation_center_controller = nullptr;
 
 		ElementsCollectionWidget *m_element_collection_widget;
 		QPointer<ProjectView> m_last_active_project_view;

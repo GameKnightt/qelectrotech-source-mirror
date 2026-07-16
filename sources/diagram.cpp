@@ -1660,12 +1660,14 @@ void Diagram::addItem(QGraphicsItem *item)
 	if (!item || isReadOnly() || item->scene() == this) return;
 	QGraphicsScene::addItem(item);
 
+	bool counted_item_changed = false;
 	switch (item->type())
 	{
 		case Element::Type:
 		{
 			m_project->dataBase()->addElement(
 						static_cast<Element *>(item));
+			counted_item_changed = true;
 			break;
 		}
 		case Conductor::Type:
@@ -1674,10 +1676,13 @@ void Diagram::addItem(QGraphicsItem *item)
 			conductor->terminal1->addConductor(conductor);
 			conductor->terminal2->addConductor(conductor);
 			conductor->calculateTextItemPosition();
+			counted_item_changed = true;
 			break;
 		}
 		default: {break;}
 	}
+	if (counted_item_changed)
+		emit countedItemsChanged();
 }
 
 /**
@@ -1690,6 +1695,7 @@ void Diagram::removeItem(QGraphicsItem *item)
 {
 	if (!item || isReadOnly()) return;
 
+	bool counted_item_changed = false;
 	switch (item->type())
 	{
 		case Element::Type:
@@ -1697,6 +1703,7 @@ void Diagram::removeItem(QGraphicsItem *item)
 			auto elmt = static_cast<Element*>(item);
 			elmt->unlinkAllElements();
 			m_project->dataBase()->removeElement(elmt);
+			counted_item_changed = true;
 			break;
 		}
 		case Conductor::Type:
@@ -1704,12 +1711,15 @@ void Diagram::removeItem(QGraphicsItem *item)
 			Conductor *conductor = static_cast<Conductor *>(item);
 			conductor->terminal1->removeConductor(conductor);
 			conductor->terminal2->removeConductor(conductor);
+			counted_item_changed = true;
 			break;
 		}
 		default: {break;}
 	}
 
 	QGraphicsScene::removeItem(item);
+	if (counted_item_changed)
+		emit countedItemsChanged();
 }
 /**
 	@brief Diagram::titleChanged

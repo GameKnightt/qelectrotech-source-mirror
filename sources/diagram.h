@@ -296,6 +296,7 @@ class Diagram : public QGraphicsScene
 
 		void diagramActivated();
 		void diagramInformationChanged();
+		void countedItemsChanged();
 };
 Q_DECLARE_METATYPE(Diagram *)
 

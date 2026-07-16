@@ -90,6 +90,7 @@ class QETProject : public QObject
 		};
 		enum class SaveOrigin { Manual, Automatic };
 		Q_ENUM(SaveOrigin)
+		enum class OpeningMode { Interactive, NonInteractive };
 
 		Q_PROPERTY(bool autoConductor READ autoConductor WRITE setAutoConductor)
 
@@ -97,6 +98,10 @@ class QETProject : public QObject
 	public:
 		QETProject (QObject *parent = nullptr);
 		QETProject (const QString &path, QObject * = nullptr);
+		QETProject (
+			const QString &path,
+			OpeningMode opening_mode,
+			QObject *parent = nullptr);
 		QETProject (KAutoSaveFile *backup, QObject *parent=nullptr);
 		~QETProject() override;
 
@@ -297,6 +302,8 @@ class QETProject : public QObject
 
 			/// When false, writeBackup() is a no-op (set by the headless CLI)
 		static bool m_backup_enabled;
+			/// Whether compatibility warnings may open modal dialogs
+		OpeningMode m_opening_mode = OpeningMode::Interactive;
 			/// File path this project is saved to
 		QString m_file_path;
 			/// Current state of the project

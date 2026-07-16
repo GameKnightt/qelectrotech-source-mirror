@@ -15,6 +15,7 @@ reste la source de vérité pour les priorités futures.
 
 ## Interface et navigation
 
+- [AI-01 — Serveur MCP et centre Automatisation et IA](ai-01-mcp-automation-center.md)
 - [UI-01 — Espace de travail Essentiel](ui-01-essential-workspace.md)
 - [UI-02 — Centre d’export unifié](ui-02-export-center.md)
 - [UI-03 — Centre de démarrage](ui-03-start-center.md)
@@ -42,6 +43,7 @@ reste la source de vérité pour les priorités futures.
 
 ## Références
 
+- [Architecture IA, MCP et QML](../../architecture/ai-mcp-qml.md)
 - [Audit complet](../qet-audit.md)
 - [Backlog et roadmap](../backlog-roadmap.md)
 - [Registre des preuves](../evidence/README.md)

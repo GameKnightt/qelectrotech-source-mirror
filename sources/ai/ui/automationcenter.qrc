@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/ai">
+        <file alias="AutomationCenter.qml">qml/AutomationCenter.qml</file>
+    </qresource>
+</RCC>

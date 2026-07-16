@@ -91,7 +91,23 @@ ProjectPropertiesHandler &QETProject::projectPropertiesHandler()
 	@param parent : parent QObject
 */
 QETProject::QETProject(const QString &path, QObject *parent) :
+	QETProject(path, OpeningMode::Interactive, parent)
+{
+}
+
+/**
+	@brief QETProject::QETProject
+	Construct a project from a .qet file with an explicit interaction policy.
+	@param path Path of the file
+	@param opening_mode Whether compatibility warnings may open modal dialogs
+	@param parent Parent object
+*/
+QETProject::QETProject(
+	const QString &path,
+	OpeningMode opening_mode,
+	QObject *parent) :
 	QObject              (parent),
+	m_opening_mode       (opening_mode),
 	m_titleblocks_collection(this),
 	m_data_base(this, this),
 	m_project_properties_handler{this}
@@ -1491,6 +1507,10 @@ void QETProject::readProjectXml(QDomDocument &xml_project)
 		{
 			if (QetVersion::currentVersion() < m_project_qet_version)
 			{
+				if (m_opening_mode == OpeningMode::NonInteractive) {
+					m_state = ProjectParsingFailed;
+					return;
+				}
 				int ret = QET::QetMessageBox::warning(
 							nullptr,
 							tr("Avertissement",
@@ -1518,6 +1538,10 @@ void QETProject::readProjectXml(QDomDocument &xml_project)
 				//Qet 0.6 or lower is break;
 			if (m_project_qet_version <= QetVersion::versionZeroDotSix())
 			{
+				if (m_opening_mode == OpeningMode::NonInteractive) {
+					m_state = ProjectParsingFailed;
+					return;
+				}
 				auto ret = QET::QetMessageBox::warning(
 							nullptr,
 							tr("Avertissement ", "message box title"),

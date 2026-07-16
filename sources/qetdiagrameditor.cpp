@@ -16,6 +16,8 @@
 	along with QElectroTech.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "qetdiagrameditor.h"
+#include "ai/ui/automationcentercontroller.h"
+#include "ai/ui/automationcenterdock.h"
 #include <QCoreApplication>
 #include "ElementsCollection/elementscollectionwidget.h"
 #include "QWidgetAnimation/qwidgetanimation.h"
@@ -30,8 +32,10 @@
 #include "factory/qetgraphicstablefactory.h"
 #include "print/projectprintwindow.h"
 #include "qetgraphicsitem/ViewItem/qetgraphicstableitem.h"
+#include "qetgraphicsitem/conductor.h"
 #include "qetgraphicsitem/conductortextitem.h"
 #include "qetgraphicsitem/dynamicelementtextitem.h"
+#include "qetgraphicsitem/element.h"
 #include "qeticons.h"
 #include "qetmessagebox.h"
 #include "qetproject.h"
@@ -146,6 +150,7 @@ QETDiagramEditor::QETDiagramEditor(const QStringList &files, QWidget *parent) :
 	setUpUndoStack();
 	setUpSelectionPropertiesEditor();
 	setUpAutonumberingWidget();
+	setUpAutomationCenter();
 
 	setUpActions();
 	setUpStartCenter();
@@ -160,6 +165,11 @@ QETDiagramEditor::QETDiagramEditor(const QStringList &files, QWidget *parent) :
 		 SIGNAL(subWindowActivated(QMdiSubWindow *)),
 		 this,
 		 SLOT(subWindowActivated(QMdiSubWindow*)));
+	connect(
+		&m_workspace,
+		&QMdiArea::subWindowActivated,
+		this,
+		[this](QMdiSubWindow *) { refreshAutomationCenter(); });
 	connect (QApplication::clipboard(),
 		 SIGNAL(dataChanged()),
 		 this,
@@ -185,6 +195,7 @@ QETDiagramEditor::QETDiagramEditor(const QStringList &files, QWidget *parent) :
 
 	updateCentralPage();
 	slot_updateActions();
+	refreshAutomationCenter();
 }
 
 /**
@@ -255,6 +266,22 @@ void QETDiagramEditor::setUpStartCenter()
 		&StartCenterWidget::templateProjectRequested,
 		this,
 		&QETDiagramEditor::createProjectFromTemplate);
+}
+
+void QETDiagramEditor::setUpAutomationCenter()
+{
+	m_automation_center_dock = new AutomationCenterDock(this);
+	m_automation_center_controller = m_automation_center_dock->controller();
+	addDockWidget(Qt::RightDockWidgetArea, m_automation_center_dock);
+	connect(
+		m_automation_center_dock,
+		&QDockWidget::visibilityChanged,
+		this,
+		[this](bool visible) {
+			if (visible)
+				refreshAutomationCenter();
+		});
+	m_automation_center_dock->hide();
 }
 
 /**
@@ -1167,6 +1194,8 @@ void QETDiagramEditor::setUpMenu()
 	menu_project -> addAction(m_project_terminalBloc);
 	menu_project -> addAction(m_project_export_wiring_list);
 	menu_project -> addAction(m_terminal_numbering);
+	menu_project -> addSeparator();
+	menu_project -> addAction(m_automation_center_dock->toggleViewAction());
 #ifdef QET_EXPORT_PROJECT_DB
 	menu_project -> addSeparator();
 	menu_project -> addAction(m_export_project_db);
@@ -1182,6 +1211,10 @@ void QETDiagramEditor::setUpMenu()
 	m_qdw_elmt_collection -> toggleViewAction() -> setStatusTip(tr("Affiche ou non les collections"));
 	m_selection_properties_editor -> toggleViewAction() -> setStatusTip(tr("Affiche ou non les propriétés"));
 	m_autonumbering_dock -> toggleViewAction() -> setStatusTip(tr("Affiche ou non la numérotation automatique"));
+	m_automation_center_dock->toggleViewAction()->setStatusTip(
+		tr("Affiche le centre de connexion MCP pour les assistants IA"));
+	m_automation_center_dock->toggleViewAction()->setText(
+		tr("Automatisation et IA…"));
 
 
 	// menu Affichage
@@ -1201,6 +1234,7 @@ void QETDiagramEditor::setUpMenu()
 	panels_menu->addAction(m_selection_properties_editor->toggleViewAction());
 	panels_menu->addAction(qdw_undo->toggleViewAction());
 	panels_menu->addAction(m_autonumbering_dock->toggleViewAction());
+	panels_menu->addAction(m_automation_center_dock->toggleViewAction());
 
 	QMenu *toolbars_menu = menu_affichage->addMenu(tr("Barres d'outils"));
 	toolbars_menu->setAccessibleName(tr("Afficher les barres d'outils"));
@@ -1639,6 +1673,31 @@ bool QETDiagramEditor::addProject(QETProject *project, bool update_panel)
 	undo_group.addStack(project -> undoStack());
 
 	m_element_collection_widget->addProject(project);
+	connect(
+		project,
+		&QETProject::projectModified,
+		this,
+		[this](QETProject *, bool) { refreshAutomationCenter(); });
+	connect(
+		project,
+		&QETProject::projectTitleChanged,
+		this,
+		[this](QETProject *, const QString &) { refreshAutomationCenter(); });
+	for (Diagram *diagram : project->diagrams())
+		observeAutomationDiagram(diagram);
+	connect(
+		project,
+		&QETProject::diagramAdded,
+		this,
+		[this](QETProject *, Diagram *diagram) {
+			observeAutomationDiagram(diagram);
+			refreshAutomationCenter();
+		});
+	connect(
+		project,
+		&QETProject::diagramRemoved,
+		this,
+		[this](QETProject *, Diagram *) { refreshAutomationCenter(); });
 
 	// met a jour le panel d'elements
 	if (update_panel) {
@@ -1703,6 +1762,64 @@ QETProject *QETDiagramEditor::currentProject() const
 	else {
 		return nullptr;
 	}
+}
+
+void QETDiagramEditor::refreshAutomationCenter()
+{
+	if (!m_automation_center_controller
+		|| !m_automation_center_dock
+		|| !m_automation_center_dock->isVisible()
+		|| m_automation_refresh_pending) {
+		return;
+	}
+	m_automation_refresh_pending = true;
+	QTimer::singleShot(100, this, [this]() {
+		m_automation_refresh_pending = false;
+		if (!m_automation_center_dock
+			|| !m_automation_center_dock->isVisible()) {
+			return;
+		}
+
+		QETProject *project = currentProject();
+		if (!project) {
+			m_automation_center_controller->setProjectSnapshot(
+				QString(),
+				QString(),
+				0,
+				0,
+				0);
+			return;
+		}
+
+		int elements = 0;
+		int conductors = 0;
+		const QList<Diagram *> diagrams = project->diagrams();
+		for (Diagram *diagram : diagrams) {
+			for (QGraphicsItem *item : diagram->items()) {
+				if (qgraphicsitem_cast<Element *>(item))
+					++elements;
+				else if (qgraphicsitem_cast<Conductor *>(item))
+					++conductors;
+			}
+		}
+		m_automation_center_controller->setProjectSnapshot(
+			project->title(),
+			project->filePath(),
+			diagrams.size(),
+			elements,
+			conductors);
+	});
+}
+
+void QETDiagramEditor::observeAutomationDiagram(Diagram *diagram)
+{
+	if (!diagram)
+		return;
+	connect(
+		diagram,
+		&Diagram::countedItemsChanged,
+		this,
+		[this]() { refreshAutomationCenter(); });
 }
 
 /**

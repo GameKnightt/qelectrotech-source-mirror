@@ -16,6 +16,7 @@
 	along with QElectroTech.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "cli_export.h"
+#include "ai/qetmcpserver.h"
 #include "machine_info.h"
 #include "qet.h"
 #include "qetapp.h"
@@ -244,13 +245,17 @@ QGuiApplication::setHighDpiScaleFactorRoundingPolicy(QetSettings::hdpiScaleFacto
 #endif
 
 
-	// Headless command-line export: render a project to PDF/PNG/SVG without
-	// opening the GUI, then exit.  Must be handled before SingleApplication
-	// (which would forward the args to an already-running instance).
+	// Headless integrations must be handled before SingleApplication (which
+	// would forward the args to an already-running graphical instance).
 	{
 		QStringList raw_args;
 		for (int i = 0; i < argc; ++i)
 			raw_args << QString::fromLocal8Bit(argv[i]);
+		if (QetMcp::isServerRequest(raw_args)) {
+			QApplication mcp_app(argc, argv);
+			QETProject::setBackupEnabled(false);
+			return QetMcp::runStdioServer(mcp_app.arguments());
+		}
 		if (CLIExport::isExportRequest(raw_args)) {
 			QApplication export_app(argc, argv);
 			// No crash-recovery backups in one-shot CLI mode: the backup write

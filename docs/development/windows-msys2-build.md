@@ -32,6 +32,7 @@ pacman -S --needed \
   mingw-w64-ucrt-x86_64-cmake \
   mingw-w64-ucrt-x86_64-ninja \
   mingw-w64-ucrt-x86_64-qt5-base \
+  mingw-w64-ucrt-x86_64-qt5-declarative \
   mingw-w64-ucrt-x86_64-qt5-svg \
   mingw-w64-ucrt-x86_64-qt5-tools \
   mingw-w64-ucrt-x86_64-qt5-translations \
@@ -149,9 +150,9 @@ QT_QPA_PLATFORM=windows QT_SCALE_FACTOR=1.5 \
 
 La compilation sans liste de cibles est volontaire : elle suit automatiquement
 l’ajout de nouveaux contrats QtTest au lieu de maintenir une liste partielle.
-La branche d’intégration expose actuellement 36 entrées CTest, dont des alias
-dédiés à la sauvegarde, au clavier, au texte à 150 %, aux grands projets, aux
-exports, à la base projet et à l’édition tabulaire des conducteurs.
+La branche d’intégration expose aussi des contrats dédiés au serveur MCP et au
+centre QML, dont un rejeu à 150 %. Utiliser `ctest -N` pour obtenir le nombre
+exact d’entrées de la révision courante.
 
 ## Diagnostic rapide
 

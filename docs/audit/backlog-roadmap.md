@@ -444,13 +444,29 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
 
 ### TECH-02 — API d'automatisation et intégrations
 
-- **Preuve :** CLI d'export déjà présente sur `master`.
+- **État du fork :** premier socle livré par AI-01. Le binaire expose un serveur
+  MCP local `stdio`, neutre vis-à-vis des fournisseurs, avec inspection,
+  validation, création de projet/folios et mise à jour de cartouches dans une
+  copie. Le panneau QML **Automatisation et IA** génère la commande et la
+  configuration du client. Voir
+  `docs/audit/implementation/ai-01-mcp-automation-center.md`.
+- **Preuve :** CLI d'export déjà présente sur `master`, besoin d’agents externes
+  exprimé pour Claude, ChatGPT, Gemini et les outils d’entreprise.
 - **Utilisateurs touchés :** bureaux d'études, CI documentaire, PLM/ERP.
 - **Effort :** L à XL.
 - **Risque :** surface API à maintenir.
-- **Dépendances :** stabilisation CLI, erreurs structurées, schéma de données public.
-- **Compatibilité amont :** commencer par versionner la CLI existante.
-- **Critères d'acceptation :** codes de sortie, JSON machine-readable, opérations sans interface, documentation versionnée et compatibilité sur deux versions mineures.
+- **Dépendances :** identités persistantes, erreurs structurées, schéma de
+  données public, diff sémantique et corpus métier validé.
+- **Compatibilité amont :** transport et présentation additifs ; formats
+  historiques préservés et opérations d’écriture limitées à de nouvelles
+  copies.
+- **Critères d'acceptation du socle :** cycle MCP déterministe, JSON structuré,
+  opérations sans interface, racines autorisées, lecture seule par défaut,
+  confirmation humaine, documentation versionnée et tests Windows.
+- **Incréments suivants :** ressources bibliothèque, contrôles métier,
+  nomenclatures, diff avant application, placement d’éléments et conducteurs,
+  puis génération de folios par modèles validés. Aucun routage ou remplacement
+  de projet ne sera exposé sans aperçu et annulation/retour arrière vérifiables.
 
 ## Roadmap en cinq horizons
 
@@ -496,7 +512,7 @@ Un ticket n'entre en développement que si sa preuve est reproductible, son cont
 ### H4 — Qt 6 et intégrations (en parallèle après H0, convergence 9 à 24 mois)
 
 - TECH-01 Qt 6/KF6 ;
-- TECH-02 API/CLI ;
+- TECH-02 API/CLI : socle MCP local livré, enrichissement progressif ;
 - architecture modulaire, diff/merge et collaboration seulement après stabilisation des identités.
 
 **Porte de sortie :** parité fonctionnelle, packaging signé, compatibilité démontrée et procédure de migration réversible.

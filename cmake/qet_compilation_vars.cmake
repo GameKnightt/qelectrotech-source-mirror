@@ -24,7 +24,10 @@ set(QET_COMPONENTS
   Sql
   Network
   Widgets
-  Concurrent)
+  Concurrent
+  Qml
+  Quick
+  QuickWidgets)
 
 set(QET_PRIVATE_LIBRARIES
   Qt::PrintSupport
@@ -36,9 +39,13 @@ set(QET_PRIVATE_LIBRARIES
   Qt::Network
   Qt::Widgets
   Qt::Concurrent
+  Qt::Qml
+  Qt::Quick
+  Qt::QuickWidgets
   )
 
 set(QET_RES_FILES
+  ${QET_DIR}/sources/ai/ui/automationcenter.qrc
   ${QET_DIR}/sources/autoNum/ui/autonumberingdockwidget.ui
   ${QET_DIR}/sources/autoNum/ui/autonumberingmanagementw.ui
   ${QET_DIR}/sources/autoNum/ui/folioautonumbering.ui
@@ -107,6 +114,16 @@ set(QET_RES_FILES
   ${QET_DIR}/sources/ui/configpage/generalconfigurationpage.ui
   )
 set(QET_SRC_FILES
+  ${QET_DIR}/sources/ai/qetmcpmetadata.cpp
+  ${QET_DIR}/sources/ai/qetmcpmetadata.h
+  ${QET_DIR}/sources/ai/qetmcpprojectservice.cpp
+  ${QET_DIR}/sources/ai/qetmcpprojectservice.h
+  ${QET_DIR}/sources/ai/qetmcpserver.cpp
+  ${QET_DIR}/sources/ai/qetmcpserver.h
+  ${QET_DIR}/sources/ai/ui/automationcentercontroller.cpp
+  ${QET_DIR}/sources/ai/ui/automationcentercontroller.h
+  ${QET_DIR}/sources/ai/ui/automationcenterdock.cpp
+  ${QET_DIR}/sources/ai/ui/automationcenterdock.h
 	${QET_DIR}/sources/conductorpropertiesresolver.cpp
 	${QET_DIR}/sources/conductorpropertiesresolver.h
   ${QET_DIR}/sources/cli_export.cpp

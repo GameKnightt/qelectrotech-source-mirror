@@ -25,6 +25,14 @@ accélérer les tâches répétitives et clarifier l’interface.
 
 ## Aperçu
 
+### Automatisation et assistants IA
+
+![Centre Automatisation et IA connecté au serveur MCP local](docs/audit/evidence/ai-01-mcp-automation-center/02-portable-runtime.png)
+
+*Paquet portable Windows 11, fenêtre 1920×1080 : panneau QML intégré à
+l’application Qt Widgets, lecture seule par défaut, périmètre local,
+commande/configuration et outils MCP.*
+
 ### Démarrer depuis un exemple
 
 ![Centre de démarrage avec exemples métier](docs/audit/evidence/ui-03b-curated-examples/01-start-center.png)
@@ -74,6 +82,7 @@ référence de câble, aperçu avant application et Undo atomique.*
 | Exports | Centre d’export unifié, erreurs visibles, export PDF/PNG/SVG et données métier protégés contre les faux succès |
 | Conducteurs | Aperçu avant application, édition tabulaire groupée, collage TSV, recopie vers le bas, colonnes configurables et export CSV de revue |
 | Borniers et câbles | Point d’entrée stabilisé, vue consolidée des bornes, catalogue câble → conducteurs, diagnostics, recherche, filtres, navigation, export CSV et édition exacte multi-sélection protégée par aperçu/Undo |
+| IA et automatisation | Serveur MCP local compatible avec les clients Claude, ChatGPT, Gemini et autres clients MCP ; inspection/validation des projets, création de copies et cartouches, lecture seule par défaut et nouveau panneau QML de configuration |
 
 Le détail technique, les critères d’acceptation et les limites de chaque lot sont
 réunis dans l’[index des implémentations](docs/audit/implementation/README.md).
@@ -94,6 +103,30 @@ Le lanceur utilise le dossier local `conf/` pour séparer les préférences de l
 préversion. Les collections, cartouches, traductions, plugins Qt et dépendances
 Windows sont inclus dans le paquet.
 
+## Connecter un assistant IA avec MCP
+
+Ouvrez **Projet > Automatisation et IA…**, vérifiez le répertoire autorisé,
+puis copiez la commande ou la configuration JSON dans votre client compatible
+MCP. QElectroTech ne contient aucun modèle et ne stocke aucune clé API : le
+choix du fournisseur, la connexion et les coûts restent gérés par le client.
+
+Le serveur démarre en lecture seule :
+
+```powershell
+qelectrotech.exe --mcp-stdio --mcp-root "C:\Projets\QET"
+```
+
+Les outils disponibles inspectent et valident un projet. Deux outils
+d’écriture peuvent créer un projet/folios ou appliquer des cartouches dans une
+**nouvelle copie**. Ils exigent à la fois `--mcp-write`, `confirm=true` et une
+destination qui n’existe pas encore. Le serveur borne les messages et les
+fichiers, refuse les chemins hors périmètre — y compris sur un autre volume
+Windows — et n’ouvre aucun dialogue de compatibilité en mode MCP.
+
+Le protocole, la configuration, les garanties de sécurité et la roadmap des
+futurs outils sont détaillés dans
+[l’architecture IA/MCP](docs/architecture/ai-mcp-qml.md).
+
 ### Contrôle rapide en cinq minutes
 
 1. Vérifiez le centre de démarrage puis ouvrez **Arduino et écran LCD** : le
@@ -103,13 +136,15 @@ Windows sont inclus dans le paquet.
 4. Ouvrez **Projet > Borniers et câbles…**, vérifiez les onglets **Bornes** et
    **Câbles**, sélectionnez un câble et utilisez **Modifier les conducteurs…**
    (`Alt+M`) ; le brouillon ne doit contenir que la sélection explicite.
-5. Ouvrez le centre d’export.
-6. Utilisez la recherche avancée puis **Modifier les conducteurs en tableau…**.
-7. Modifiez une copie du projet : le statut doit passer à **Modifié**.
-8. Enregistrez avec `Ctrl+S` : le statut ne doit revenir à **Sauvegardé**
+5. Ouvrez **Projet > Automatisation et IA…** et vérifiez que la commande MCP
+   reprend le répertoire du projet.
+6. Ouvrez le centre d’export.
+7. Utilisez la recherche avancée puis **Modifier les conducteurs en tableau…**.
+8. Modifiez une copie du projet : le statut doit passer à **Modifié**.
+9. Enregistrez avec `Ctrl+S` : le statut ne doit revenir à **Sauvegardé**
    qu’après la fin réelle de l’écriture.
-9. Vérifiez que Undo/Redo reste disponible après la sauvegarde.
-10. Dans l’arbre projet, utilisez **Dupliquer le folio**, puis
+10. Vérifiez que Undo/Redo reste disponible après la sauvegarde.
+11. Dans l’arbre projet, utilisez **Dupliquer le folio**, puis
     utilisez Annuler et Rétablir : le folio et son onglet doivent disparaître
     et réapparaître ensemble, sans composant manquant dans la nomenclature.
 
@@ -132,7 +167,8 @@ Les changements de données sont protégés par Undo lorsque le parcours le perm
 Validation de cette préversion :
 
 - compilation de l’application complète sous Windows 11 / Qt 5 / UCRT64 ;
-- **48/48 tests CTest** réussis en série ;
+- **51/51 tests CTest** réussis en série, dont le cycle MCP et les deux
+  contrats QML ;
 - stress DATA-01 : 100 duplications de deux folios liés, 200 UUID nouveaux et
   aucune collision sur les clés SQLite `element` / `element_info` ;
 - **13/13** contrats IND-01C, dont la portée exacte, la multi-sélection et le
@@ -144,6 +180,7 @@ Validation de cette préversion :
 - parcours graphique réel : ouverture, modification, enregistrement et retour à
   **Sauvegardé** ;
 - paquet portable contrôlé par manifeste SHA‑256.
+- cycle MCP et rendu QML du paquet portable validés sans MSYS2 dans le `PATH`.
 
 ### Limites actuelles
 
@@ -168,6 +205,7 @@ Validation de cette préversion :
 | [Backlog et roadmap](docs/audit/backlog-roadmap.md) | Priorités P0 à P3, critères d’acceptation et horizons produit |
 | [Registre des preuves](docs/audit/evidence/README.md) | Captures, tests et résultats des validations |
 | [Implémentations](docs/audit/implementation/README.md) | Résultat et contrat de chaque lot livré |
+| [Architecture IA/MCP](docs/architecture/ai-mcp-qml.md) | Serveur, outils, sécurité, interface QML et extensions prévues |
 | [Notes de préversion](docs/releases/preview-2026-07.md) | Changements, validation, installation et limites de la préversion Windows |
 | [Build Windows 11](docs/development/windows-msys2-build.md) | Compilation Qt 5 avec MSYS2 UCRT64 |
 | [Paquet portable](docs/development/windows-portable-preview.md) | Déploiement, isolation et manifeste SHA‑256 |
@@ -181,8 +219,8 @@ Validation de cette préversion :
 - **Fonctions industrielles :** l’édition exacte des conducteurs de câble avec
   aperçu/Undo est livrée ; poursuivre avec réserves et destinations structurées,
   puis E/S automate, désignation IEC 81346, routage intelligent et bus.
-- **Architecture :** convergence Qt 6/KF6, automatisation CLI/API et
-  intégrations externes.
+- **Architecture :** socle MCP local livré ; enrichir les outils avec diff et
+  contrôles métier, puis poursuivre séparément la convergence Qt 6/KF6.
 
 La roadmap détaillée reste la source de vérité pour les priorités, dépendances
 et critères d’acceptation : [backlog-roadmap.md](docs/audit/backlog-roadmap.md).

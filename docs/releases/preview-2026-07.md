@@ -7,6 +7,13 @@ version officielle grâce à son profil de configuration portable isolé.
 
 ## Points forts
 
+- serveur MCP local et neutre vis-à-vis des fournisseurs pour connecter Claude,
+  ChatGPT, Gemini ou un autre client compatible, avec lecture seule par défaut,
+  périmètre explicite et écritures uniquement vers de nouvelles copies ; le
+  chargement est non interactif, les entrées sont bornées et la publication
+  exclusive ne remplace jamais une destination apparue pendant l’opération ;
+- panneau QML **Automatisation et IA** intégré à la fenêtre Qt Widgets pour
+  préparer la commande et la configuration du client ;
 - centre de démarrage orienté tâches, quatre exemples métier toujours ouverts
   comme copies non enregistrées et profils d’espace de travail **Essentiel** /
   **Classique** ;
@@ -41,16 +48,22 @@ version officielle grâce à son profil de configuration portable isolé.
 
 - application complète compilée en Release sous Windows 11, Qt 5 et MSYS2
   UCRT64 ;
-- 48/48 tests CTest réussis en série ;
+- 51/51 tests CTest réussis en série ;
 - 13/13 contrats IND-01C réussis, plus le scénario exact sous Windows natif à
   100 % et 150 % ;
 - 12/12 contrats grande police à 150 % hors écran ;
 - 17/17 contrats clavier sur la plateforme Windows native ;
 - 25/25 contrats Windows natifs à 150 % ;
 - commande `qelectrotech.exe --version` vérifiée sans démarrage graphique ;
+- cycle MCP complet vérifié : initialisation, liste des outils, création,
+  inspection, cartouches, validation et arrêt ;
+- centre QML vérifié à largeur minimale, au clavier, à 150 % et dans
+  l’application complète à 1920×1080 ;
 - paquet portable vérifié avec ses dépendances, ses ressources, ses quatre
   exemples curatés et un manifeste SHA-256 ; le ZIP est réextrait avec
   `Expand-Archive` et tous les chemins, y compris accentués, sont revérifiés ;
+- cycle MCP hors écran et panneau QML vérifiés depuis ce paquet avec un `PATH`
+  limité à Windows, sans dépendre de l’installation MSYS2 de compilation ;
 - parcours réel vérifié : démarrage, ouverture d’un projet, modification,
   sauvegarde et retour au statut **Sauvegardé**.
 
@@ -72,6 +85,11 @@ ni les collections existantes. Elle n’est pas signée et Windows peut afficher
 un avertissement de réputation. La qualification principale couvre Windows 11
 et Qt 5 ; Linux, macOS et Qt 6 ne sont pas encore annoncés comme distributions
 validées de ce fork.
+
+Le serveur MCP n’embarque aucun modèle et ne stocke aucune clé API. Les clients
+externes restent responsables de l’envoi éventuel de données à leur
+fournisseur. Le mode écriture doit être activé au lancement et chaque opération
+produit une destination distincte après confirmation explicite.
 
 Avant une version stable, il reste notamment à terminer l’inventaire des
 licences tierces, la signature, les essais sur une machine Windows propre et la

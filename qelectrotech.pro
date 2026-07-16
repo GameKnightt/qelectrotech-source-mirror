@@ -91,7 +91,7 @@ TEMPLATE = app
 
 #ToDo comment close the gap with Cmake
 #this is my next problem now
-INCLUDEPATH += sources/ui
+INCLUDEPATH += sources/ui sources/ai sources/ai/ui
 
 #comment close the gap with Cmake (De-Backer)
 #DEPENDPATH += .
@@ -130,6 +130,8 @@ INCLUDEPATH += sources/ui
 
 # Fichiers sources
 HEADERS += $$files(sources/*.h) \
+           $$files(sources/ai/*.h) \
+           $$files(sources/ai/ui/*.h) \
            $$files(sources/project/*.h) \
            $$files(sources/ui/*.h) \
            $$files(sources/editor/*.h) \
@@ -174,6 +176,8 @@ HEADERS += $$files(sources/*.h) \
            $$files(sources/svg/*.h)
 
 SOURCES += $$files(sources/*.cpp) \
+           $$files(sources/ai/*.cpp) \
+           $$files(sources/ai/ui/*.cpp) \
            $$files(sources/editor/*.cpp) \
            $$files(sources/project/*.cpp) \
            $$files(sources/titleblock/*.cpp) \
@@ -221,7 +225,8 @@ SOURCES += $$files(sources/*.cpp) \
 INCLUDEPATH += sources/TerminalStrip/ui
 
 # Liste des fichiers qui seront incorpores au binaire en tant que ressources Qt
-RESOURCES += qelectrotech.qrc
+RESOURCES += qelectrotech.qrc \
+             sources/ai/ui/automationcenter.qrc
 
 # Liste des ressources Windows
 #RC_FILE = ico/windows_icon/qelectrotech.rc
@@ -230,7 +235,7 @@ RESOURCES += qelectrotech.qrc
 TRANSLATIONS += lang/*.ts
 
 # Modules Qt utilises par l'application
-QT += xml svg network sql widgets printsupport concurrent KWidgetsAddons KCoreAddons gui-private
+QT += xml svg network sql widgets printsupport concurrent qml quick quickwidgets KWidgetsAddons KCoreAddons gui-private
 
 # Private Qt GUI headers (needed for QPdfEngine::drawHyperlink)
 # gui-private should add this automatically, but some distros need it explicit

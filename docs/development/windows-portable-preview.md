@@ -61,8 +61,16 @@ native requise ne peut pas être résolue depuis le même environnement UCRT64.
 Si une installation Qt 5 locale partiellement réparée ne contient plus le nom
 `qmake-qt5.exe` attendu par `windeployqt-qt5`, le script copie explicitement le
 petit ensemble de plugins et de bibliothèques graphiques Qt requis, puis utilise
-la même fermeture PE pour résoudre leurs dépendances liées. Le résultat passe
-les mêmes validations dans les deux chemins.
+la même fermeture PE pour résoudre leurs dépendances liées. Le panneau
+**Automatisation et IA** utilise uniquement les primitives Qt Quick intégrées
+au runtime, sans module de contrôles QML externe. Le chemin de secours déploie
+toutefois les plugins cœur `QtQuick.2` et `QtQml` qui enregistrent ces types au
+chargement. Le fichier `qt.conf` redirige également les chemins Qt compilés
+dans MSYS2 vers le dossier portable, afin que ces modules restent trouvables
+sur une machine où MSYS2 n'est pas installé. Le résultat passe les mêmes
+validations dans les deux chemins. Le greffon de plateforme `qoffscreen.dll`
+est également fourni pour que le serveur MCP fonctionne sans fenêtre dans les
+clients d'automatisation.
 
 Le manifeste est écrit en UTF-8 sans BOM afin que les chemins de composants
 Unicode puissent être vérifiés sans altération.

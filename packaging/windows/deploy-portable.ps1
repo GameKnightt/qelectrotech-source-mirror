@@ -64,6 +64,7 @@ $launcherSource = Join-Path $sourcePath 'packaging\windows\Launch-QElectroTech-P
 $windeployqt = Join-Path $ucrtBin 'windeployqt-qt5.exe'
 $qmakeQt5 = Join-Path $ucrtBin 'qmake-qt5.exe'
 $qtPluginRoot = Join-Path $msys2Path 'ucrt64\share\qt5\plugins'
+$qtQmlRoot = Join-Path $msys2Path 'ucrt64\share\qt5\qml'
 $objdump = Join-Path $ucrtBin 'objdump.exe'
 
 if ($outputPath -eq [System.IO.Path]::GetPathRoot($outputPath)) {
@@ -154,7 +155,11 @@ try {
         if (Test-Path -LiteralPath $qmakeQt5 -PathType Leaf) {
             # The PE closure below copies the compiler runtime and every other
             # non-system dependency deterministically.
-            & $windeployqt --release --no-compiler-runtime $deployedExecutable
+            & $windeployqt `
+                --release `
+                --no-compiler-runtime `
+                --qmldir (Join-Path $sourcePath 'sources\ai\ui\qml') `
+                $deployedExecutable
             if ($LASTEXITCODE -ne 0) {
                 throw "windeployqt-qt5 failed with exit code $LASTEXITCODE"
             }
@@ -171,6 +176,7 @@ try {
                 'imageformats\qico.dll',
                 'imageformats\qjpeg.dll',
                 'imageformats\qsvg.dll',
+                'platforms\qoffscreen.dll',
                 'platforms\qwindows.dll',
                 'printsupport\windowsprintersupport.dll',
                 'sqldrivers\qsqlite.dll',
@@ -204,10 +210,61 @@ try {
                 }
                 Copy-Item -LiteralPath $dynamicLibrary -Destination $stagingPath
             }
+
         }
     } finally {
         $env:PATH = $previousPath
     }
+
+    # Keep the runtime layout deterministic in both the windeployqt and
+    # explicit-fallback paths. Qt Quick/Qml types and the offscreen platform
+    # are loaded dynamically and are not guaranteed to appear in the PE scan.
+    $offscreenSource = Join-Path $qtPluginRoot 'platforms\qoffscreen.dll'
+    $offscreenDestination = Join-Path $stagingPath 'platforms\qoffscreen.dll'
+    if (-not (Test-Path -LiteralPath $offscreenSource -PathType Leaf)) {
+        throw "Missing required Qt plugin: $offscreenSource"
+    }
+    if (-not (Test-Path -LiteralPath $offscreenDestination -PathType Leaf)) {
+        $offscreenDirectory = Split-Path -Parent $offscreenDestination
+        if (-not (Test-Path -LiteralPath $offscreenDirectory)) {
+            New-Item -ItemType Directory -Path $offscreenDirectory | Out-Null
+        }
+        Copy-Item -LiteralPath $offscreenSource -Destination $offscreenDestination
+    }
+
+    $requiredQmlModules = @('QtQuick.2', 'QtQml')
+    $deployedQmlRoot = Join-Path $stagingPath 'share\qt5\qml'
+    if (-not (Test-Path -LiteralPath $deployedQmlRoot)) {
+        New-Item -ItemType Directory -Path $deployedQmlRoot | Out-Null
+    }
+    foreach ($relativeModule in $requiredQmlModules) {
+        $moduleSource = Join-Path $qtQmlRoot $relativeModule
+        $moduleDestination = Join-Path $deployedQmlRoot $relativeModule
+        if (-not (Test-Path -LiteralPath $moduleSource -PathType Container)) {
+            throw "Missing required Qt QML module: $moduleSource"
+        }
+        if (-not (Test-Path -LiteralPath $moduleDestination -PathType Container)) {
+            Copy-Item `
+                -LiteralPath $moduleSource `
+                -Destination $moduleDestination `
+                -Recurse
+        }
+    }
+
+    # Redirect Qt's compiled-in MSYS2 prefix to the portable directory. This
+    # is required for QML module discovery on machines where MSYS2 is absent.
+    $qtConfiguration = @(
+        '[Paths]',
+        'Prefix=.',
+        'Plugins=.',
+        'Qml2Imports=share/qt5/qml',
+        'Translations=l10n'
+    )
+    $utf8WithoutBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllLines(
+        (Join-Path $stagingPath 'qt.conf'),
+        $qtConfiguration,
+        $utf8WithoutBom)
 
     # QElectroTech uses SQLite. Removing unrelated SQL drivers avoids shipping
     # database client dependencies which are not used by the application.
@@ -362,8 +419,14 @@ try {
         'libEGL.dll',
         'libGLESv2.dll',
         'D3DCompiler_47.dll',
+        'platforms\qoffscreen.dll',
         'platforms\qwindows.dll',
         'sqldrivers\qsqlite.dll',
+        'share\qt5\qml\QtQuick.2\qmldir',
+        'share\qt5\qml\QtQml\qmldir',
+        'share\qt5\qml\QtQml\Models.2\qmldir',
+        'share\qt5\qml\QtQml\WorkerScript.2\qmldir',
+        'qt.conf',
         'LICENSE',
         'ELEMENTS.LICENSE'
     )
@@ -420,7 +483,6 @@ try {
             $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash
             "$hash *$relativePath"
         })
-    $utf8WithoutBom = New-Object System.Text.UTF8Encoding($false)
     [System.IO.File]::WriteAllLines($manifestPath, $manifestLines, $utf8WithoutBom)
 
     Move-Item -LiteralPath $stagingPath -Destination $outputPath

@@ -101,3 +101,12 @@ sélectionné puis de l’éditeur exact limité à ses deux conducteurs. La val
 associe sélection parent/enfant, déduplication, portée sans expansion au
 potentiel, aperçu, application atomique, Undo et contrats Windows à 100 % et
 150 %.
+
+## Incrément AI-01 — 16 juillet 2026
+
+Le dossier
+[`ai-01-mcp-automation-center`](ai-01-mcp-automation-center/) contient la
+capture 1920×1080 de l’application complète avec le nouveau panneau QML
+**Automatisation et IA** ouvert. Le lot associe cette preuve visuelle à un test
+d’intégration MCP de bout en bout, un contrat QML clavier/largeur minimale et
+un rejeu à 150 %.

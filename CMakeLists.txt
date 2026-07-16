@@ -122,6 +122,7 @@ target_link_libraries(
 target_include_directories(
     ${PROJECT_NAME}
     PRIVATE
+    ${QET_DIR}/sources
     ${QET_DIR}/sources/titleblock
     ${QET_DIR}/sources/ui
     ${QET_DIR}/sources/qetgraphicsitem
@@ -154,6 +155,8 @@ target_include_directories(
     ${QET_DIR}/sources/factory/ui
     ${QET_DIR}/sources/print
     ${QET_DIR}/sources/svg
+    ${QET_DIR}/sources/ai
+    ${QET_DIR}/sources/ai/ui
 )
 
 if(NOT BUILD_WITH_KF5)
@@ -175,6 +178,33 @@ if(BUILD_TESTING AND PACKAGE_TESTS)
         PASS_REGULAR_EXPRESSION "QElectroTech 0\\.100\\.1-dev"
         LABELS "cli;packaging;smoke"
     )
+    if(WIN32)
+        find_program(
+            QET_POWERSHELL_EXECUTABLE
+            NAMES pwsh.exe powershell.exe
+        )
+        if(NOT QET_POWERSHELL_EXECUTABLE)
+            set(
+                QET_POWERSHELL_EXECUTABLE
+                "$ENV{SystemRoot}/System32/WindowsPowerShell/v1.0/powershell.exe"
+            )
+        endif()
+        add_test(
+            NAME mcp_stdio_smoke_test
+            COMMAND
+                ${QET_POWERSHELL_EXECUTABLE}
+                -NoProfile
+                -ExecutionPolicy Bypass
+                -File ${QET_DIR}/scripts/test-mcp-stdio.ps1
+                -Executable $<TARGET_FILE:${PROJECT_NAME}>
+        )
+        set_tests_properties(
+            mcp_stdio_smoke_test
+            PROPERTIES
+            LABELS "mcp;ai;xml;integration;security"
+            TIMEOUT 60
+        )
+    endif()
 endif()
 
 install(TARGETS ${PROJECT_NAME})

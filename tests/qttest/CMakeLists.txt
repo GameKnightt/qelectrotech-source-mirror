@@ -59,6 +59,7 @@ find_package(
  COMPONENTS
  ${QET_COMPONENTS}
  Test
+ QuickTest
  REQUIRED)
 
 include(../../cmake/fetch_kdeaddons.cmake)
@@ -66,6 +67,36 @@ include(../../cmake/fetch_singleapplication.cmake)
 include(../../cmake/fetch_pugixml.cmake)
 
 enable_testing()
+
+add_executable(
+  automation_center_qml_test
+  tst_automationcenterqml.cpp)
+target_compile_definitions(
+  automation_center_qml_test
+  PRIVATE
+  QUICK_TEST_SOURCE_DIR="${QET_DIR}/tests/qml")
+target_link_libraries(
+  automation_center_qml_test
+  PRIVATE
+  Qt::QuickTest
+  Qt::Quick
+  Qt::Qml)
+add_test(
+  NAME automation_center_qml_test
+  COMMAND automation_center_qml_test)
+add_test(
+  NAME automation_center_qml_large_text_150_test
+  COMMAND automation_center_qml_test)
+set_tests_properties(
+  automation_center_qml_test
+  PROPERTIES
+  LABELS "automation;ai;mcp;qml;accessibility"
+  ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+set_tests_properties(
+  automation_center_qml_large_text_150_test
+  PROPERTIES
+  LABELS "automation;ai;mcp;qml;accessibility;deterministic-scale"
+  ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_SCALE_FACTOR=1.5")
 
 add_executable(${PROJECT_NAME} tst_mytest.cpp)
 add_test(NAME ${PROJECT_NAME} COMMAND ${PROJECT_NAME})

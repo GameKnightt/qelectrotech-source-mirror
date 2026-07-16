@@ -113,6 +113,12 @@ try {
     $requiredFiles = @(
         'qelectrotech.exe',
         'Launch-QElectroTech-Preview.bat',
+        'platforms\qoffscreen.dll',
+        'share\qt5\qml\QtQuick.2\qmldir',
+        'share\qt5\qml\QtQml\qmldir',
+        'share\qt5\qml\QtQml\Models.2\qmldir',
+        'share\qt5\qml\QtQml\WorkerScript.2\qmldir',
+        'qt.conf',
         'examples\ArduinoLCD.qet',
         'examples\grafcet.qet',
         'examples\Habitat-Unifilaire.qet',
